@@ -1,606 +1,608 @@
-# AI Interview Growth OS Design
+# AI 面试成长 OS 设计规格
 
-Date: 2026-07-01
+日期：2026-07-01
 
-## 1. Product Positioning
+## 1. 产品定位
 
-AI Interview Growth OS is an AI-powered interview growth system for product manager candidates. The MVP focuses on AI product manager interview preparation while keeping the structure extensible to other PM tracks such as B2B, data, growth, and platform PM.
+AI 面试成长 OS 是一款面向产品经理求职者的 AI 面试训练与复盘系统。MVP 先聚焦 AI 产品经理面试准备，同时保留扩展到 B 端产品、数据产品、增长产品、平台产品等方向的能力。
 
-The product does not position itself as a one-off mock interview chatbot. Its core value is turning scattered interview sessions into reusable growth assets: ability insights, answer assets, and targeted training tasks.
+它不定位为一次性的“AI 模拟面试聊天机器人”，而是定位为一个长期面试成长系统：把分散在不同对话、不同岗位、不同文档里的面试经历，沉淀为可复用的能力洞察、回答资产和下一轮训练任务。
 
-### One-line Pitch
+一句话描述：
 
-Help product manager candidates convert every mock interview and real interview review into reusable preparation assets for the next interview.
+> 帮助产品经理求职者把每一次模拟面试和复盘，转化为下一场面试可复用的准备资产。
 
-## 2. Target Users
+## 2. 目标用户
 
-Primary target users:
+核心用户：
 
-- Product manager candidates preparing for multiple interview rounds.
-- Early-career or graduate candidates who frequently use AI tools for mock interviews.
-- Users who need to manage many job descriptions, interview sessions, feedback notes, and revised answers.
+- 正在准备多轮产品经理面试的求职者。
+- 经常使用 ChatGPT、Codex 或其他 AI 工具进行模拟面试的应届生、转行者或早期求职者。
+- 需要管理大量 JD、面试问题、回答、追问、点评和复盘材料的用户。
 
-MVP focus:
+MVP 聚焦用户：
 
-- Product manager candidates preparing for AI product manager roles.
+- 正在准备 AI 产品经理岗位的产品经理求职者。
 
-## 3. Problem Statement
+## 3. 问题定义
 
-Current AI-assisted interview preparation has four major pain points:
+当前 AI 辅助面试准备存在 4 个核心痛点：
 
-1. Session fragmentation: each job or interview often lives in a separate AI chat session, making historical learning hard to reuse.
-2. Information overload: JD analysis, question references, answers, follow-up questions, feedback, and generated documents become difficult to navigate.
-3. Weak review persistence: useful interview feedback, repeated weaknesses, and strong answer fragments are not automatically saved as structured assets.
-4. Poor transfer across interviews: users struggle to extract reusable lessons from previous interviews and apply them to similar future interviews.
+1. **Session 割裂**：每个岗位、每场模拟面试常常存在于不同 AI 对话中，历史经验难以复用。
+2. **信息过载**：JD 分析、参考问题、回答、追问、点评和生成文档混杂在一起，后续难以检索和梳理。
+3. **复盘不沉淀**：有价值的点评、反复出现的短板、优秀表达片段没有自动结构化保存。
+4. **经验难迁移**：一次岗位面试失败后，用户更需要从历史面试中提炼可迁移经验，但现有工具很难跨岗位汇总。
 
-The deeper problem is not the lack of AI-generated interview questions. The deeper problem is that interview experience is not converted into durable preparation capital.
+更深层的问题不是“缺少 AI 面试题”，而是：**面试经历没有被转化为可持续积累的准备资产。**
 
-## 4. Product Strategy
+## 4. 产品策略
 
-The product uses a hybrid structure:
+产品采用“双层结构”：
 
-- Product narrative: ability growth system.
-- Core data unit: job/interview file.
+- **产品主叙事**：面试能力成长系统。
+- **核心数据单元**：岗位 / 面试档案。
 
-Job files remain essential, but they are not the main product story. Each job file records one target role and its related preparation or interview sessions. The global growth system aggregates insights across all job files.
+岗位档案仍然非常重要，但它不是产品的最终价值表达。每个岗位档案负责记录一次目标岗位及其准备过程，全局成长系统负责跨档案汇总能力短板、回答资产和训练任务。
 
-### Layered Structure
+结构关系：
 
 ```text
-AI Interview Growth OS
-  -> Growth dashboard
-  -> Global ability map
-  -> Answer asset library
-  -> Training tasks
+AI 面试成长 OS
+  -> 成长首页
+  -> 全局能力图谱
+  -> 回答资产库
+  -> 用户训练任务
 
-Job / interview files
-  -> JD profile
-  -> Experience matching
-  -> Built-in mock interview
-  -> External chat import
-  -> Structured review report
+岗位 / 面试档案
+  -> JD 画像
+  -> 经历匹配
+  -> 内置模拟面试
+  -> 外部对话导入
+  -> 结构化复盘报告
 ```
 
-The key product judgment is: job files collect evidence, while the growth system turns evidence into reusable learning.
+关键产品判断：
 
-## 5. User Journey
+> 岗位档案负责收集证据，成长系统负责把证据转化为下一次面试可复用的学习资产。
 
-1. The user creates a personal experience library with internships, projects, research, competitions, and other reusable stories.
-2. The user creates a job/interview file by pasting a JD and selecting a PM direction.
-3. The system analyzes the JD and matches relevant personal experiences.
-4. The user either starts a built-in mock interview or imports an external AI interview conversation.
-5. The system extracts questions, answers, follow-up questions, and feedback.
-6. The system generates a structured review report using a consistent scoring rubric.
-7. The review updates the global ability map.
-8. The system extracts reusable answer assets.
-9. The system generates user training tasks for the next interview.
-10. Before a future interview, the user retrieves similar past questions, reusable answer assets, repeated weaknesses, and targeted training tasks.
+## 5. 用户旅程
 
-## 6. Core Pages
+1. 用户建立个人经历库，录入实习、项目、研究、竞赛等可复用经历。
+2. 用户创建一个岗位 / 面试档案，粘贴 JD，并选择产品经理方向。
+3. 系统分析 JD，生成岗位画像，并匹配相关个人经历。
+4. 用户选择内置模拟面试，或粘贴外部 AI 面试对话。
+5. 系统抽取问题、回答、追问和点评。
+6. 系统基于统一评分标准生成结构化复盘报告。
+7. 复盘结果更新全局能力图谱。
+8. 系统抽取可复用回答资产。
+9. 系统生成下一轮用户面试能力训练任务。
+10. 用户准备下一场面试时，可以调用相似历史问题、回答资产、重复短板和训练建议。
 
-### 6.1 Growth Dashboard
+## 6. 核心页面
 
-The dashboard is the product's main entry point. It emphasizes long-term interview growth rather than one isolated interview session.
+### 6.1 成长首页 Dashboard
 
-Key modules:
+这是产品主入口，重点体现“长期面试成长”，而不是单次模拟面试。
 
-- Global ability map.
-- Recent recurring weaknesses.
-- Ability trend across interview sessions.
-- Reusable answer asset count.
-- Next training tasks.
-- Recently updated job/interview files.
+核心模块：
 
-First-stage demo priority: high.
+- 全局能力图谱。
+- 近期高频短板。
+- 多次面试后的能力趋势。
+- 可复用回答资产数量。
+- 下一步训练任务。
+- 最近更新的岗位 / 面试档案。
 
-### 6.2 Job / Interview File List
+第一阶段 Demo 优先级：高。
 
-This page manages all target jobs and interview records.
+### 6.2 岗位 / 面试档案列表
 
-Each file displays:
+用于管理所有目标岗位和面试记录。
 
-- Company.
-- Role title.
-- PM direction.
-- Interview stage.
-- Preparation status.
-- Last review summary.
-- Ability changes contributed by the latest session.
+每个档案展示：
 
-First-stage demo priority: medium.
+- 公司。
+- 岗位名称。
+- 产品方向。
+- 面试阶段。
+- 准备状态。
+- 最近一次复盘摘要。
+- 最近一次面试对全局能力图谱的影响。
 
-### 6.3 Job File Detail
+第一阶段 Demo 优先级：中。
 
-This page is the structured workspace for one target role.
+### 6.3 岗位档案详情页
 
-Key modules:
+这是某个目标岗位的结构化准备工作台。
 
-- JD profile.
-- Experience matching.
-- Built-in mock interview entry.
-- External chat import entry.
-- Interview session history.
-- Related review reports.
-- Related answer assets.
-- Job-specific training suggestions.
+核心模块：
 
-First-stage demo priority: high.
+- JD 画像。
+- 个人经历匹配。
+- 内置模拟面试入口。
+- 外部对话导入入口。
+- 面试记录历史。
+- 相关复盘报告。
+- 相关回答资产。
+- 针对该岗位的训练建议。
 
-### 6.4 Interview Review Page
+第一阶段 Demo 优先级：高。
 
-This page is where the AI Agent value becomes visible.
+### 6.4 面试复盘页
 
-Key modules:
+这是 AI Agent 价值最集中的页面。
 
-- Extracted question list.
-- Original answers.
-- Follow-up questions.
-- AI feedback.
-- Ability scoring.
-- Evidence snippets.
-- Problem attribution.
-- Suggested improved answer.
-- Save as answer asset action.
-- Generate training task action.
+核心模块：
 
-First-stage demo priority: high.
+- 抽取后的问题列表。
+- 用户原回答。
+- 面试官追问。
+- AI 点评。
+- 能力维度评分。
+- 证据片段。
+- 问题归因。
+- 优化回答建议。
+- 保存为回答资产。
+- 生成训练任务。
 
-### 6.5 Answer Assets and Training Plan
+第一阶段 Demo 优先级：高。
 
-For MVP, answer assets and training tasks can share one page to reduce scope.
+### 6.5 回答资产库 / 训练计划页
 
-Answer asset fields:
+MVP 阶段可以把回答资产和训练任务合并为一个页面，降低开发复杂度。
 
-- Question type.
-- Original answer.
-- Improved answer.
-- Applicable roles.
-- Linked experience.
-- Usage notes.
-- Confidence level.
+回答资产字段：
 
-Training task fields:
+- 问题类型。
+- 原始回答。
+- 优化回答。
+- 适用岗位。
+- 关联经历。
+- 使用建议。
+- 置信度。
 
-- Training goal.
-- Related ability dimension.
-- Practice question.
-- Reference framework.
-- Due date.
-- Completion status.
-- Retry result.
+训练任务字段：
 
-First-stage demo priority: medium.
+- 训练目标。
+- 对应能力维度。
+- 练习题。
+- 参考框架。
+- 截止时间。
+- 完成状态。
+- 复练结果。
 
-## 7. Data Model
+第一阶段 Demo 优先级：中。
 
-### 7.1 Experience
+## 7. 数据模型
 
-Represents a reusable personal story.
+### 7.1 Experience 个人经历
 
-Fields:
+表示一段可复用的个人经历。
 
-- Title.
-- Context.
-- Task.
-- Action.
-- Result.
-- Ability tags.
-- Evidence metrics.
-- Applicable question types.
+字段：
 
-Used by:
+- 标题。
+- 背景。
+- 任务。
+- 行动。
+- 结果。
+- 能力标签。
+- 可证明数据。
+- 适用问题类型。
 
-- JD matching.
-- Mock interview question generation.
-- Answer improvement.
-- Answer asset creation.
+用于：
 
-### 7.2 JobFile
+- JD 匹配。
+- 模拟面试问题生成。
+- 回答优化。
+- 回答资产生成。
 
-Represents one target role or preparation file.
+### 7.2 JobFile 岗位档案
 
-Fields:
+表示一个目标岗位或一次准备档案。
 
-- Company.
-- Role title.
-- PM direction.
-- JD raw text.
-- JD profile.
-- Interview stage.
-- Preparation status.
-- Linked interview sessions.
+字段：
 
-Used by:
+- 公司。
+- 岗位名称。
+- 产品方向。
+- JD 原文。
+- JD 画像。
+- 面试阶段。
+- 准备状态。
+- 关联面试记录。
 
-- JD profile generation.
-- Experience matching.
-- Interview session grouping.
+用于：
 
-### 7.3 InterviewSession
+- 生成 JD 画像。
+- 匹配个人经历。
+- 归档面试记录。
 
-Represents one built-in mock interview or imported external conversation.
+### 7.3 InterviewSession 面试记录
 
-Fields:
+表示一次内置模拟面试或一次外部对话导入。
 
-- Source: built-in mock or external import.
-- Timestamp.
-- Interview type.
-- Questions.
-- Answers.
-- Follow-up questions.
-- AI feedback.
-- Raw conversation text.
+字段：
 
-Used by:
+- 来源：内置模拟 / 外部导入。
+- 时间。
+- 面试类型。
+- 问题。
+- 回答。
+- 追问。
+- AI 点评。
+- 原始对话文本。
 
-- Structured review generation.
-- Ability map update.
-- Answer asset extraction.
+用于：
 
-### 7.4 ReviewReport
+- 结构化复盘。
+- 更新能力图谱。
+- 抽取回答资产。
 
-Represents the structured analysis of one interview session.
+### 7.4 ReviewReport 复盘报告
 
-Fields:
+表示一次面试记录的结构化分析结果。
 
-- Ability scores.
-- Evidence snippets.
-- Main weaknesses.
-- Strong expressions.
-- Suggested improvements.
-- Next actions.
+字段：
 
-Used by:
+- 能力评分。
+- 证据片段。
+- 主要短板。
+- 优秀表达。
+- 优化建议。
+- 下一步动作。
 
-- Global ability map.
-- Answer asset extraction.
-- Training task generation.
+用于：
 
-### 7.5 AnswerAsset
+- 更新全局能力图谱。
+- 抽取回答资产。
+- 生成训练任务。
 
-Represents a reusable answer asset.
+### 7.5 AnswerAsset 回答资产
 
-Fields:
+表示一条可复用回答。
 
-- Question type.
-- Original answer.
-- Improved answer.
-- Applicable roles.
-- Linked experience.
-- Usage notes.
-- Confidence level.
+字段：
 
-Used by:
+- 问题类型。
+- 原始回答。
+- 优化回答。
+- 适用岗位。
+- 关联经历。
+- 使用建议。
+- 置信度。
 
-- Future interview preparation.
-- Answer retrieval for similar questions.
+用于：
 
-### 7.6 TrainingTask
+- 未来面试准备。
+- 相似问题回答检索。
 
-Represents a user interview ability training task. This is not model training or fine-tuning.
+### 7.6 TrainingTask 训练任务
 
-Fields:
+表示用户面试能力训练任务。这里的训练是“用户训练”，不是模型训练或微调。
 
-- Training goal.
-- Related ability dimension.
-- Practice question.
-- Reference framework.
-- Due date.
-- Completion status.
-- Retry result.
+字段：
 
-Used by:
+- 训练目标。
+- 对应能力维度。
+- 练习题。
+- 参考框架。
+- 截止时间。
+- 完成状态。
+- 复练结果。
 
-- Next interview preparation.
-- Growth dashboard.
+用于：
 
-## 8. AI Agent Workflow
+- 下一场面试准备。
+- 成长首页展示。
 
-The MVP should avoid overcomplicated multi-agent orchestration, but it should expose clear AI capability stages.
+## 8. AI Agent 工作流
 
-### 8.1 JD Analyst
+MVP 不做复杂多 Agent 编排，但需要把 AI 能力拆成清晰阶段，让产品不像普通聊天壳。
 
-Input:
+### 8.1 JD Analyst 岗位分析器
 
-- JD raw text.
-- PM direction.
+输入：
 
-Output:
+- JD 原文。
+- 产品经理方向。
 
-- Core responsibilities.
-- Ability keywords.
-- Hidden requirements.
-- Likely interview question types.
+输出：
 
-Value:
+- 核心职责。
+- 能力关键词。
+- 隐含要求。
+- 高频面试问题类型。
 
-- Ensures preparation starts from the target role instead of generic interview advice.
+价值：
 
-### 8.2 Experience Matcher
+- 让面试准备从目标岗位出发，而不是泛泛准备。
 
-Input:
+### 8.2 Experience Matcher 经历匹配器
 
-- JD profile.
-- Personal experience library.
+输入：
 
-Output:
+- JD 画像。
+- 个人经历库。
 
-- Best-fit experiences.
-- Ability evidence for each experience.
-- Missing or weak evidence.
-- Suggested story angle.
+输出：
 
-Value:
+- 最适合讲述的经历。
+- 每段经历可证明的能力。
+- 缺失或薄弱证据。
+- 建议讲述角度。
 
-- Helps users decide which experience to use for which interview question.
+价值：
 
-### 8.3 Interview Simulator / Import Parser
+- 帮助用户判断“哪个问题该讲哪段经历”。
 
-Built-in mock interview mode:
+### 8.3 Interview Simulator / Import Parser 模拟面试器 / 导入解析器
 
-- Generates role-specific questions.
-- Asks follow-up questions.
-- Records answers.
-- Produces immediate interviewer-style feedback.
+内置模拟面试模式：
 
-External import mode:
+- 生成岗位相关问题。
+- 进行追问。
+- 记录用户回答。
+- 生成面试官视角点评。
 
-- Accepts pasted ChatGPT, Codex, or other AI interview conversation.
-- Extracts questions, answers, follow-up questions, and feedback.
-- Preserves the original raw conversation text.
+外部导入模式：
 
-Value:
+- 支持粘贴 ChatGPT、Codex 或其他 AI 面试对话。
+- 抽取问题、回答、追问和点评。
+- 保留原始对话文本。
 
-- Supports both in-product mock interviews and users' existing AI interview workflows.
+价值：
 
-### 8.4 Review Evaluator
+- 同时支持产品内模拟面试和用户已有的外部 AI 面试工作流。
 
-Input:
+### 8.4 Review Evaluator 复盘评估器
 
-- Interview session.
-- JD profile.
-- Matched experiences.
-- Scoring rubric.
+输入：
 
-Output:
+- 面试记录。
+- JD 画像。
+- 匹配经历。
+- 评分标准。
 
-- Scores by ability dimension.
-- Evidence snippets.
-- Strengths.
-- Weaknesses.
-- Problem attribution.
-- Improved answer suggestions.
+输出：
 
-Value:
+- 分能力维度评分。
+- 证据片段。
+- 优势。
+- 短板。
+- 问题归因。
+- 优化回答建议。
 
-- Converts subjective feedback into structured review assets.
+价值：
 
-### 8.5 Growth Planner
+- 把主观点评转化为可管理、可追踪的结构化资产。
 
-Input:
+### 8.5 Growth Planner 成长规划器
 
-- Current review report.
-- Historical review reports.
-- Existing answer assets.
-- Existing training tasks.
+输入：
 
-Output:
+- 当前复盘报告。
+- 历史复盘报告。
+- 现有回答资产。
+- 现有训练任务。
 
-- Updated ability map.
-- Reusable answer assets.
-- Next training tasks.
-- Repeated weakness summary.
+输出：
 
-Value:
+- 更新后的能力图谱。
+- 可复用回答资产。
+- 下一步训练任务。
+- 重复短板总结。
 
-- Converts failed or imperfect interviews into preparation data for future interviews.
+价值：
 
-## 9. Scoring Rubric
+- 把失败或不完美的面试转化为下一场面试的准备数据。
 
-MVP uses six product-manager-oriented ability dimensions. The first version is optimized for AI PM interviews.
+## 9. 评分体系
 
-### 9.1 Role Understanding
+MVP 使用 6 个产品经理能力维度，第一版针对 AI 产品经理面试优化。
 
-Checks whether the user understands the company's business, role responsibilities, user scenarios, and hiring intent.
+### 9.1 岗位理解
 
-### 9.2 Product Analysis
+考察用户是否理解公司业务、岗位职责、用户场景和招聘意图。
 
-Checks whether the user can break down users, scenarios, needs, workflows, priorities, and product tradeoffs.
+### 9.2 产品分析
 
-### 9.3 AI Product Understanding
+考察用户是否能拆解用户、场景、需求、流程、优先级和产品权衡。
 
-Checks whether the user understands model capability boundaries, Agent workflow, evaluation, hallucination risk, safety, cost, and fallback design.
+### 9.3 AI 产品理解
 
-### 9.4 Data and Metrics
+考察用户是否理解模型能力边界、Agent 工作流、效果评估、幻觉风险、安全、成本和兜底设计。
 
-Checks whether the user can define goals, success metrics, experiments, and effect evaluation methods.
+### 9.4 数据与指标
 
-### 9.5 Project Storytelling
+考察用户是否能定义目标、成功指标、实验方案和效果评估方式。
 
-Checks whether the user can clearly explain personal experience using a structured format such as STAR.
+### 9.5 项目表达
 
-### 9.6 Communication and Structure
+考察用户是否能用 STAR 等结构清楚表达个人经历。
 
-Checks whether the user answers with hierarchy, focus, clarity, and responsiveness to follow-up questions.
+### 9.6 沟通与结构化
 
-### Scoring Format
+考察用户回答是否有层次、聚焦、清晰，并能回应追问。
 
-Each ability score must contain:
+### 评分格式
 
-- Score from 1 to 5.
-- Evidence snippet.
-- Problem attribution.
-- Improvement suggestion.
+每个能力评分必须包含：
 
-Example:
+- 1-5 分。
+- 证据片段。
+- 问题归因。
+- 优化建议。
+
+示例：
 
 ```text
-AI Product Understanding: 2/5
-Evidence: The answer mentioned using an LLM to improve efficiency, but did not explain model boundaries, fallback design, or evaluation metrics.
-Attribution: The answer stayed at the concept level and lacked product implementation detail.
-Suggestion: Add Agent task decomposition, human confirmation points, and measurable evaluation metrics.
+AI 产品理解：2/5
+证据：回答提到“用大模型提升效率”，但没有说明模型边界、失败兜底和评估指标。
+归因：回答停留在概念层，缺少产品落地细节。
+建议：补充 Agent 任务拆解、人工确认节点和可量化评估指标。
 ```
 
-## 10. MVP Scope
+## 10. MVP 范围
 
-### Must Have
+### 必须做
 
-1. Personal experience library with manual entry.
-2. Job/interview file creation with pasted JD.
-3. JD profile generation.
-4. Experience matching.
-5. Built-in mock interview.
-6. External conversation import by pasted text.
-7. Structured interview review.
-8. Global growth dashboard.
-9. Answer asset extraction.
-10. User interview training task generation.
+1. 个人经历库，支持手动录入。
+2. 岗位 / 面试档案，支持粘贴 JD。
+3. JD 画像生成。
+4. 经历匹配。
+5. 内置模拟面试。
+6. 外部对话粘贴导入。
+7. 结构化面试复盘。
+8. 全局成长首页。
+9. 回答资产抽取。
+10. 用户面试训练任务生成。
 
-### Out of Scope
+### 暂不做
 
-- Automatic job scraping from recruitment sites.
-- Resume file upload and parsing.
-- Browser plugin for reading ChatGPT history.
-- Real multi-user account system.
-- Model fine-tuning or model training.
-- Voice interview mode.
-- Payment, subscription, or commercial admin backend.
+- 自动抓取招聘网站岗位链接。
+- 简历文件上传和解析。
+- 浏览器插件读取 ChatGPT 历史会话。
+- 真实多用户账号系统。
+- 模型微调或模型训练。
+- 语音面试模式。
+- 付费、订阅或商业化后台。
 
-## 11. Success Metrics
+## 11. 成功指标
 
-The MVP should be evaluated with product validation metrics rather than vanity traffic metrics.
+MVP 应使用产品验证指标，而不是 DAU 等虚指标。
 
-Suggested metrics:
+建议指标：
 
-- A user can create a job file and complete one review within 10 minutes.
-- Each review generates at least 3 reusable answer assets.
-- The system can identify repeated ability weaknesses across 3 interview sessions.
-- A user can reuse past questions, answers, or training tasks before preparing for a new interview.
-- User-rated review clarity is higher than directly asking ChatGPT for a summary.
+- 用户能在 10 分钟内创建一个岗位档案并完成一次复盘。
+- 每次复盘至少生成 3 条可复用回答资产。
+- 系统能识别出 3 场面试中反复出现的能力短板。
+- 用户准备下一场面试时，能直接复用历史问题、回答资产或训练任务。
+- 用户主观评价：该系统的复盘清晰度高于直接让 ChatGPT 总结。
 
-## 12. Portfolio Deliverables
+## 12. 作品集交付物
 
-The project should be presented as a full product project, with first-stage delivery focused on a working demo and a product case study.
+项目应作为完整产品项目呈现，第一阶段重点交付可运行 Demo 和产品 Case Study。
 
 ### 12.1 Web App Demo
 
-Demo pages:
+Demo 页面：
 
-- Growth dashboard.
-- Job file detail.
-- External chat import.
-- Interview review.
-- Answer assets and training tasks.
+- 成长首页。
+- 岗位档案详情。
+- 外部对话导入。
+- 面试复盘。
+- 回答资产和训练任务。
 
-### 12.2 Product Case Study
+### 12.2 产品 Case Study
 
-Case study structure:
+建议结构：
 
-- Background and personal pain point.
-- Target user and scenario.
-- Problem definition.
-- Current workflow problems.
-- Product strategy.
-- User journey.
-- Core information architecture.
-- MVP scope.
-- Metrics and validation plan.
-- Iteration plan.
+- 背景与个人真实痛点。
+- 目标用户和使用场景。
+- 问题定义。
+- 当前工作流问题。
+- 产品策略。
+- 用户旅程。
+- 核心信息架构。
+- MVP 范围。
+- 指标与验证计划。
+- 迭代计划。
 
 ### 12.3 PRD
 
-The PRD should include:
+PRD 应包含：
 
-- User roles.
-- Scenarios.
-- Functional requirements.
-- Data model.
-- AI Agent workflow.
-- Scoring rubric.
-- Error handling.
-- Non-goals.
+- 用户角色。
+- 使用场景。
+- 功能需求。
+- 数据模型。
+- AI Agent 工作流。
+- 评分体系。
+- 异常处理。
+- 非目标。
 
-### 12.4 Iteration Review
+### 12.4 迭代复盘
 
-After real use, record:
+真实使用后记录：
 
-- Which outputs were useful.
-- Which outputs were inaccurate.
-- Which review insights were reusable.
-- Which product assumptions were wrong.
-- What should change in the next version.
+- 哪些输出有用。
+- 哪些输出不准确。
+- 哪些复盘洞察可复用。
+- 哪些产品假设不成立。
+- 下一版应该如何调整。
 
-## 13. Resume Story
+## 13. 简历表达
 
-Suggested resume bullet:
+建议简历项目描述：
 
 ```text
-Designed and vibe-coded an AI Interview Growth OS for product manager candidates, supporting job files, AI mock interviews, external AI conversation import, structured review, ability mapping, answer asset extraction, and user training tasks. The project addressed fragmented interview sessions, overloaded review materials, and weak cross-interview learning transfer, completing a full loop from user pain point validation and PRD to interactive demo.
+设计并 Vibe Coding 实现面向产品经理求职者的 AI 面试成长 OS，支持岗位档案、AI 模拟面试、外部 AI 对话导入、结构化复盘、能力图谱、回答资产抽取和用户训练任务生成；针对多轮面试中上下文割裂、复盘材料过载和经验难迁移问题，完成从真实痛点验证、PRD 到可交互 Demo 的产品闭环。
 ```
 
-## 14. Key Design Decisions
+## 14. 关键设计决策
 
-1. Growth dashboard is the product's top-level narrative, while job files are the evidence collection layer.
-2. Training tasks refer to user interview ability training, not model training or fine-tuning.
-3. External conversation import is included in MVP because target users already use external AI tools for mock interviews.
-4. All AI outputs should be structured into durable objects rather than stored only as chat text.
-5. Scores must be evidence-based to avoid generic AI feedback.
+1. 成长首页作为产品顶层叙事，岗位档案作为证据收集层。
+2. 训练任务指用户面试能力训练，不指模型训练或微调。
+3. 外部对话导入进入 MVP，因为目标用户已经在使用外部 AI 工具做模拟面试。
+4. 所有 AI 输出都应结构化为可复用对象，而不是只保存为聊天文本。
+5. 评分必须绑定证据片段，避免泛泛而谈的 AI 点评。
 
-## 15. Risks and Mitigations
+## 15. 风险与应对
 
-### Risk: Cold Start
+### 风险：冷启动
 
-The global growth dashboard may look weak without multiple interview sessions.
+没有多场面试记录时，全局成长首页可能显得空。
 
-Mitigation:
+应对：
 
-- Provide demo seed data with 3 to 5 interview sessions.
-- Let the dashboard show onboarding tasks when data is insufficient.
+- 提供 3-5 条脱敏样例面试记录作为 Demo 种子数据。
+- 数据不足时展示引导任务，而不是空白图表。
 
-### Risk: Generic AI Feedback
+### 风险：AI 点评泛化
 
-AI review may produce broad comments that do not help users improve.
+AI 复盘可能输出宽泛建议，无法帮助用户真正改进。
 
-Mitigation:
+应对：
 
-- Require every score to include evidence snippets, attribution, and specific suggestions.
-- Use a fixed rubric for consistency.
+- 每个评分必须包含证据片段、问题归因和具体建议。
+- 使用固定评分体系，保证多次复盘可比较。
 
-### Risk: Scope Creep
+### 风险：范围膨胀
 
-The product could expand into resume editing, job search, CRM, and full career coaching.
+产品可能扩展成简历润色、求职 CRM、岗位搜索、职业规划等大而全工具。
 
-Mitigation:
+应对：
 
-- MVP focuses only on interview records, review, answer assets, and training tasks.
-- Resume upload, job scraping, and browser plugins remain out of scope.
+- MVP 只聚焦面试记录、复盘、回答资产和训练任务。
+- 简历上传、岗位抓取、浏览器插件均放在后续版本。
 
-### Risk: Privacy Sensitivity
+### 风险：隐私敏感
 
-Interview records and personal experiences contain sensitive data.
+面试记录和个人经历可能包含敏感信息。
 
-Mitigation:
+应对：
 
-- MVP can use local demo data.
-- The product should clearly separate raw conversation text from structured derived assets.
-- Future versions should support deletion and redaction controls.
+- MVP 使用本地 Demo 数据和脱敏样例。
+- 明确区分原始对话文本和结构化衍生资产。
+- 后续版本支持删除和脱敏控制。
 
-## 16. First-stage Demo Priority
+## 16. 第一阶段 Demo 优先级
 
-High priority:
+高优先级：
 
-- Growth dashboard.
-- Job file detail.
-- Interview review page.
-- External conversation import.
+- 成长首页。
+- 岗位档案详情。
+- 面试复盘页。
+- 外部对话导入。
 
-Medium priority:
+中优先级：
 
-- Job file list.
-- Answer asset and training task page.
+- 岗位档案列表。
+- 回答资产和训练任务页。
 
-Low priority:
+低优先级：
 
-- Account system.
-- Advanced settings.
-- Cross-device sync.
+- 账号系统。
+- 高级设置。
+- 多端同步。
