@@ -33,7 +33,7 @@ export const jobFiles: JobFile[] = [
     direction: 'AI 产品经理',
     jdText: '负责 AI Agent 产品需求分析、用户调研、指标设计、模型效果评估和跨团队协作。',
     stage: '一面准备',
-    status: '已完成 2 次模拟',
+    status: '已完成 1 次模拟',
     interviewSessionIds: ['session-ai-pm-a-1']
   },
   {
