@@ -1,0 +1,42 @@
+:root {
+  font-family: Inter, "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+  color: #172033;
+  background: #f6f8fb;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+.app-shell {
+  min-height: 100vh;
+  padding: 32px;
+}
+
+.hero {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 48px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid #dce3ef;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: #52627a;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
