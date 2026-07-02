@@ -4,6 +4,7 @@ const keywordToDimension: Record<string, AbilityDimension> = {
   'AI 产品理解': 'aiProductThinking',
   '数据与指标': 'dataMetrics',
   '产品分析': 'productAnalysis',
+  '用户研究': 'productAnalysis',
   '沟通与结构化': 'structuredCommunication',
   '岗位理解': 'roleUnderstanding'
 };
