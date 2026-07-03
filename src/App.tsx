@@ -1,11 +1,20 @@
+import { GrowthDashboard } from './pages/GrowthDashboard';
+
 export default function App() {
   return (
     <main className="app-shell">
-      <section className="hero">
-        <p className="eyebrow">AI Interview Growth OS</p>
-        <h1>AI 面试成长 OS</h1>
-        <p>把每一次模拟面试和复盘，转化为下一场面试可复用的准备资产。</p>
-      </section>
+      <header className="topbar">
+        <div>
+          <strong>AI 面试成长 OS</strong>
+          <span>面向 AI 产品经理求职的复盘工作台</span>
+        </div>
+        <nav aria-label="主导航">
+          <a href="#growth">成长总览</a>
+          <a href="#jobs">岗位档案</a>
+          <a href="#assets">回答库</a>
+        </nav>
+      </header>
+      <GrowthDashboard />
     </main>
   );
 }
