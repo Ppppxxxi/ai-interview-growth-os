@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { jobFiles } from './domain/sampleData';
+import { AssetsAndTraining } from './pages/AssetsAndTraining';
 import { InterviewReview } from './pages/InterviewReview';
 import { JobFileDetail } from './pages/JobFileDetail';
 import { GrowthDashboard } from './pages/GrowthDashboard';
 
-type AppView = 'growth' | 'jobs' | 'reviews';
+type AppView = 'growth' | 'jobs' | 'reviews' | 'assets';
 
 export default function App() {
   const [view, setView] = useState<AppView>('growth');
@@ -27,11 +28,15 @@ export default function App() {
           <button className={view === 'reviews' ? 'nav-button nav-button--active' : 'nav-button'} type="button" onClick={() => setView('reviews')}>
             面试复盘
           </button>
+          <button className={view === 'assets' ? 'nav-button nav-button--active' : 'nav-button'} type="button" onClick={() => setView('assets')}>
+            资产与训练
+          </button>
         </nav>
       </header>
       {view === 'growth' && <GrowthDashboard />}
       {view === 'jobs' && <JobFileDetail selectedJobId={selectedJobId} onSelectJob={setSelectedJobId} />}
       {view === 'reviews' && <InterviewReview />}
+      {view === 'assets' && <AssetsAndTraining />}
     </main>
   );
 }

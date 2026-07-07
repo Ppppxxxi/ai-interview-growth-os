@@ -513,6 +513,96 @@ h3 {
   padding-top: 12px;
 }
 
+.assets-page {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.assets-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 18px;
+}
+
+.asset-list {
+  display: grid;
+  gap: 14px;
+}
+
+.asset-card,
+.training-card {
+  border: 1px solid #e3e9f2;
+  border-radius: 8px;
+  padding: 16px;
+  background: #fbfcfe;
+}
+
+.asset-card header,
+.training-card header {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.asset-card header span,
+.training-card header span {
+  align-self: flex-start;
+  border-radius: 999px;
+  padding: 5px 9px;
+  color: #2f6fed;
+  background: #eef4ff;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.asset-card__answer,
+.training-card p {
+  color: #53647d;
+  line-height: 1.7;
+}
+
+.asset-card details {
+  margin: 14px 0;
+  border: 1px solid #e3e9f2;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #ffffff;
+}
+
+.asset-card summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.asset-card details p {
+  margin: 10px 0 0;
+  color: #65758f;
+  line-height: 1.6;
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.tag-list span {
+  border-radius: 999px;
+  padding: 6px 10px;
+  color: #40516a;
+  background: #eef2f7;
+  font-size: 13px;
+}
+
+.usage-note {
+  margin-bottom: 0;
+  color: #53647d;
+  line-height: 1.7;
+}
+
 @media (max-width: 920px) {
   .dashboard-grid {
     grid-template-columns: 1fr;
@@ -524,6 +614,7 @@ h3 {
 
   .workspace-layout,
   .detail-grid,
+  .assets-grid,
   .review-grid {
     grid-template-columns: 1fr;
   }
@@ -559,7 +650,9 @@ h3 {
   }
 
   .session-list article,
-  .review-card header {
+  .review-card header,
+  .asset-card header,
+  .training-card header {
     align-items: flex-start;
     flex-direction: column;
   }
