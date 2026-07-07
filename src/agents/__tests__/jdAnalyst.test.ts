@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { analyzeJd } from '../jdAnalyst';
-import { matchExperiences } from '../experienceMatcher';
 import type { Experience, JobProfile } from '../../domain/types';
+import { matchExperiences } from '../experienceMatcher';
+import { analyzeJd } from '../jdAnalyst';
 
 describe('analyzeJd', () => {
   it('extracts AI PM responsibilities, keywords, hidden requirements, and likely questions', () => {
-    const profile = analyzeJd('负责 AI Agent 产品需求分析、用户调研、指标设计、模型效果评估和跨团队协作。', 'AI 产品经理');
+    const profile = analyzeJd(
+      '负责 AI Agent 产品需求分析、用户调研、指标设计、模型效果评估和跨团队协作。',
+      'AI 产品经理'
+    );
 
     expect(profile.responsibilities).toContain('AI Agent 产品需求分析');
     expect(profile.abilityKeywords).toContain('AI 产品理解');

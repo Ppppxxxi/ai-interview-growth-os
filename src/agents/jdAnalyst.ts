@@ -2,7 +2,7 @@ import type { JobProfile } from '../domain/types';
 
 const aiSignals = ['AI', 'Agent', '模型', '大模型', 'LLM', '效果评估'];
 const metricSignals = ['指标', '数据', '评估', '实验', '看板'];
-const researchSignals = ['用户调研', '需求分析', '场景'];
+const researchSignals = ['用户调研', '需求分析', '场景', '信息架构', '权限流程'];
 
 function includesAny(text: string, signals: string[]) {
   return signals.some((signal) => text.includes(signal));
@@ -10,10 +10,14 @@ function includesAny(text: string, signals: string[]) {
 
 export function analyzeJd(jdText: string, direction: string): JobProfile {
   const responsibilities: string[] = [];
+
   if (jdText.includes('AI Agent')) responsibilities.push('AI Agent 产品需求分析');
   if (jdText.includes('用户调研')) responsibilities.push('用户调研');
   if (jdText.includes('指标设计')) responsibilities.push('指标设计');
   if (jdText.includes('跨团队')) responsibilities.push('跨团队协作');
+  if (jdText.includes('信息架构')) responsibilities.push('信息架构设计');
+  if (jdText.includes('权限流程')) responsibilities.push('权限流程设计');
+  if (jdText.includes('需求优先级')) responsibilities.push('需求优先级管理');
   if (responsibilities.length === 0) responsibilities.push('岗位职责拆解');
 
   const abilityKeywords = ['岗位理解', '产品分析'];
