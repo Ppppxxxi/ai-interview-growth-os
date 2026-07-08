@@ -80,9 +80,18 @@ export type ReviewReport = {
 export type AnswerAsset = {
   id: string;
   questionType: string;
+  originalQuestion: string;
   originalAnswer: string;
+  issue: string;
   improvedAnswer: string;
   applicableRoles: string[];
+  applicableQuestions: string[];
+  weaknessTag: string;
+  sourceJobId: string;
+  sourceInterviewId: string;
+  sourceReviewId: string;
+  reuseScope: string;
+  usedInInterview: boolean;
   linkedExperienceId?: string;
   usageNote: string;
   confidence: 'high' | 'medium' | 'low';

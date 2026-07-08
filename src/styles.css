@@ -296,6 +296,123 @@ h3 {
   margin: 0 auto;
 }
 
+.workspace-main {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+
+.workspace-hero h1 {
+  max-width: 900px;
+}
+
+.primary-cta-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.primary-cta-row button,
+.pipeline-card button {
+  border: 0;
+  border-radius: 8px;
+  padding: 11px 16px;
+  color: #ffffff;
+  background: #2f6fed;
+  font-weight: 700;
+}
+
+.primary-cta-row span {
+  color: #65758f;
+}
+
+.input-grid,
+.flow-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.input-preview,
+.pipeline-card,
+.filter-panel,
+.empty-panel {
+  border: 1px solid #dce3ef;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.input-preview {
+  padding: 18px;
+}
+
+.input-preview textarea {
+  width: 100%;
+  min-height: 180px;
+  resize: vertical;
+  border: 1px solid #dce3ef;
+  border-radius: 8px;
+  padding: 12px;
+  color: #344158;
+  background: #fbfcfe;
+  line-height: 1.7;
+}
+
+.pipeline-card {
+  position: relative;
+  padding: 20px;
+}
+
+.pipeline-card__index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-bottom: 12px;
+  border-radius: 999px;
+  color: #ffffff;
+  background: #2f6fed;
+  font-weight: 800;
+}
+
+.pipeline-card p {
+  color: #53647d;
+  line-height: 1.7;
+}
+
+.pipeline-card strong {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.review-explain {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 0;
+  border-radius: 8px;
+  padding: 12px;
+  background: #fff7ed;
+}
+
+.review-explain span {
+  border-radius: 999px;
+  padding: 5px 9px;
+  color: #c2410c;
+  background: #ffedd5;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.empty-panel {
+  padding: 22px;
+}
+
 .sidebar-panel {
   align-self: start;
   border: 1px solid #dce3ef;
@@ -557,6 +674,46 @@ h3 {
   white-space: nowrap;
 }
 
+.source-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+  color: #65758f;
+  font-size: 14px;
+}
+
+.asset-section {
+  margin-top: 14px;
+  border-top: 1px solid #e3e9f2;
+  padding-top: 12px;
+}
+
+.asset-section p,
+.asset-section li {
+  color: #53647d;
+  line-height: 1.7;
+}
+
+.asset-section ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+.asset-section--issue {
+  border-top: 0;
+  border-radius: 8px;
+  padding: 12px;
+  background: #fff7ed;
+}
+
+.asset-section--answer {
+  border-top: 0;
+  border-radius: 8px;
+  padding: 12px;
+  background: #eff6ff;
+}
+
 .asset-card__answer,
 .training-card p {
   color: #53647d;
@@ -597,6 +754,66 @@ h3 {
   font-size: 13px;
 }
 
+.filter-panel {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 16px;
+}
+
+.filter-panel label {
+  display: grid;
+  gap: 6px;
+  color: #40516a;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.filter-panel select {
+  width: 100%;
+  border: 1px solid #d7dfeb;
+  border-radius: 8px;
+  padding: 9px 10px;
+  color: #172033;
+  background: #ffffff;
+}
+
+.assets-grid--library {
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.6fr);
+}
+
+.panel--wide-library {
+  min-width: 0;
+}
+
+.dashboard-grid--growth {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.asset-mini-list,
+.reuse-list {
+  display: grid;
+  gap: 10px;
+}
+
+.asset-mini-list article,
+.reuse-list article {
+  border: 1px solid #e3e9f2;
+  border-radius: 8px;
+  padding: 14px;
+  background: #fbfcfe;
+}
+
+.asset-mini-list p,
+.reuse-list p,
+.asset-mini-list span,
+.reuse-list span,
+.task-preview span {
+  color: #65758f;
+  line-height: 1.6;
+}
+
 .usage-note {
   margin-bottom: 0;
   color: #53647d;
@@ -614,7 +831,11 @@ h3 {
 
   .workspace-layout,
   .detail-grid,
+  .input-grid,
+  .flow-grid,
   .assets-grid,
+  .assets-grid--library,
+  .filter-panel,
   .review-grid {
     grid-template-columns: 1fr;
   }
@@ -652,7 +873,8 @@ h3 {
   .session-list article,
   .review-card header,
   .asset-card header,
-  .training-card header {
+  .training-card header,
+  .review-explain {
     align-items: flex-start;
     flex-direction: column;
   }

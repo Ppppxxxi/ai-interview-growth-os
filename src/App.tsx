@@ -1,14 +1,19 @@
 import { useState } from 'react';
 import { jobFiles } from './domain/sampleData';
 import { AssetsAndTraining } from './pages/AssetsAndTraining';
-import { InterviewReview } from './pages/InterviewReview';
-import { JobFileDetail } from './pages/JobFileDetail';
 import { GrowthDashboard } from './pages/GrowthDashboard';
+import { JobFileDetail } from './pages/JobFileDetail';
 
-type AppView = 'growth' | 'jobs' | 'reviews' | 'assets';
+type AppView = 'workspace' | 'assets' | 'growth';
+
+const navItems: Array<{ id: AppView; label: string }> = [
+  { id: 'workspace', label: '岗位工作台' },
+  { id: 'assets', label: '回答资产库' },
+  { id: 'growth', label: '全局成长' }
+];
 
 export default function App() {
-  const [view, setView] = useState<AppView>('growth');
+  const [view, setView] = useState<AppView>('workspace');
   const [selectedJobId, setSelectedJobId] = useState(jobFiles[0]?.id ?? '');
 
   return (
@@ -16,27 +21,26 @@ export default function App() {
       <header className="topbar">
         <div>
           <strong>AI 面试成长 OS</strong>
-          <span>面向 AI 产品经理求职的复盘工作台</span>
+          <span>把外部 AI 面试对话沉淀成下次可用回答</span>
         </div>
         <nav aria-label="主导航">
-          <button className={view === 'growth' ? 'nav-button nav-button--active' : 'nav-button'} type="button" onClick={() => setView('growth')}>
-            成长总览
-          </button>
-          <button className={view === 'jobs' ? 'nav-button nav-button--active' : 'nav-button'} type="button" onClick={() => setView('jobs')}>
-            岗位档案
-          </button>
-          <button className={view === 'reviews' ? 'nav-button nav-button--active' : 'nav-button'} type="button" onClick={() => setView('reviews')}>
-            面试复盘
-          </button>
-          <button className={view === 'assets' ? 'nav-button nav-button--active' : 'nav-button'} type="button" onClick={() => setView('assets')}>
-            资产与训练
-          </button>
+          {navItems.map((item) => (
+            <button
+              className={view === item.id ? 'nav-button nav-button--active' : 'nav-button'}
+              key={item.id}
+              type="button"
+              onClick={() => setView(item.id)}
+            >
+              {item.label}
+            </button>
+          ))}
         </nav>
       </header>
-      {view === 'growth' && <GrowthDashboard />}
-      {view === 'jobs' && <JobFileDetail selectedJobId={selectedJobId} onSelectJob={setSelectedJobId} />}
-      {view === 'reviews' && <InterviewReview />}
+      {view === 'workspace' && (
+        <JobFileDetail selectedJobId={selectedJobId} onSelectJob={setSelectedJobId} onOpenAssets={() => setView('assets')} />
+      )}
       {view === 'assets' && <AssetsAndTraining />}
+      {view === 'growth' && <GrowthDashboard />}
     </main>
   );
 }
