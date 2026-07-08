@@ -10,14 +10,14 @@ export function GrowthDashboard() {
     <div className="dashboard-grid dashboard-grid--growth">
       <section className="hero-panel">
         <p className="eyebrow">全局成长</p>
-        <h1>长期视图关注短板是否被沉淀，而不是在数据不足时硬画复杂图谱</h1>
+        <h1>跨岗位追踪你的进步和重复短板</h1>
         <p>
-          当前 MVP 只展示已经有证据的内容：重复短板、沉淀出的回答资产、同岗位多轮 / 同方向类似岗位复用情况，以及下一场面试前最该练的问题。
+          查看上次面试以来沉淀了哪些回答资产、哪些短板还在重复出现，以及下一场面试前最该练的问题。
         </p>
         <div className="hero-stats">
           <span>
             <strong>{reviewReports.length}</strong>
-            已结构化复盘
+            已完成复盘
           </span>
           <span>
             <strong>{answerAssets.length}</strong>
@@ -64,7 +64,7 @@ export function GrowthDashboard() {
       <section className="panel">
         <div className="section-heading">
           <p className="eyebrow">复用范围</p>
-          <h2>优先证明高频复用</h2>
+          <h2>适用岗位</h2>
         </div>
         <div className="reuse-list">
           {jobFiles.slice(0, 2).map((job) => (

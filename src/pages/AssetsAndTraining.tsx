@@ -32,8 +32,8 @@ export function AssetsAndTraining() {
     <div className="assets-page" id="assets">
       <section className="hero-panel hero-panel--compact">
         <p className="eyebrow">回答资产库</p>
-        <h1>核心产出不是打分，而是下次面试能直接复用的回答</h1>
-        <p>每条资产都保留来源岗位、来源面试、原问题、原回答、问题点、优化回答和适用类似问题，优先支持同岗位多轮和同方向类似岗位复用。</p>
+        <h1>下次面试能直接用的回答</h1>
+        <p>按岗位、问题类型快速查找。每条都附带原回答对比和具体用法建议。</p>
       </section>
 
       <section className="filter-panel">

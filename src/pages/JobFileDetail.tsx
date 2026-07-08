@@ -45,14 +45,14 @@ export function JobFileDetail({ selectedJobId, onSelectJob, onOpenAssets }: JobF
 
       <section className="workspace-main">
         <section className="hero-panel workspace-hero">
-          <p className="eyebrow">第一阶段核心闭环</p>
-          <h1>粘贴 JD + 粘贴面试对话，生成复盘与下次可用回答</h1>
+          <p className="eyebrow">{selectedJob.company} · {selectedJob.roleTitle}</p>
+          <h1>导入外部 AI 模拟面试对话，获得具体改进建议和可复用回答</h1>
           <p>
-            当前 Demo 使用 deterministic mock agent 本地生成结果；真实上线版本会把 JD 分析、对话解析、复盘和回答资产生成替换为 LLM 调用。
+            把这轮面试里的原问题、原回答和点评整理成复盘，并沉淀为同岗位后续轮次可使用的回答资产。
           </p>
           <div className="primary-cta-row">
             <button type="button">生成复盘与优化回答</button>
-            <span>已用「星河智能 AI 产品经理实习生」样例跑通完整链路</span>
+            <span>从一段面试对话开始，不需要先整理完整经历库</span>
           </div>
         </section>
 
@@ -63,21 +63,21 @@ export function JobFileDetail({ selectedJobId, onSelectJob, onOpenAssets }: JobF
 
         {primarySession && primaryReview ? (
           <section className="flow-grid">
-            <PipelineCard index="1" title="解析出的面试问题">
+            <PipelineCard index="1" title="你被问了什么">
               <strong>{primarySession.questions[0]?.question}</strong>
               <p>原回答：{primarySession.questions[0]?.answer}</p>
               <p>追问：{primarySession.questions[0]?.followUps.join(' / ')}</p>
             </PipelineCard>
 
-            <PipelineCard index="2" title="结构化复盘">
+            <PipelineCard index="2" title="这次回答的问题在哪">
               <ReviewSummary report={primaryReview} />
             </PipelineCard>
 
-            <PipelineCard index="3" title="生成优化回答">
+            <PipelineCard index="3" title="改成这样就对了">
               <AssetAnswer asset={linkedAssets[0]} />
             </PipelineCard>
 
-            <PipelineCard index="4" title="保存为回答资产">
+            <PipelineCard index="4" title="下次类似问题可以复用">
               <p>复用范围：{linkedAssets[0]?.reuseScope}</p>
               <p>适用问题：{linkedAssets[0]?.applicableQuestions.slice(0, 2).join(' / ')}</p>
               <button type="button" onClick={onOpenAssets}>查看回答资产库</button>
@@ -85,8 +85,8 @@ export function JobFileDetail({ selectedJobId, onSelectJob, onOpenAssets }: JobF
           </section>
         ) : (
           <section className="empty-panel">
-            <h2>这个岗位还没有导入面试对话</h2>
-            <p>第一步不是建立完整经历库，而是先粘贴 JD 和一段外部面试对话，快速得到复盘与优化回答。</p>
+            <h2>还没有导入面试对话</h2>
+            <p>粘贴一段你在 ChatGPT 或其他 AI 工具上的模拟面试对话，获取具体改进建议和可复用回答。</p>
           </section>
         )}
 
@@ -110,7 +110,7 @@ export function JobFileDetail({ selectedJobId, onSelectJob, onOpenAssets }: JobF
         <section className="detail-grid">
           <section className="panel">
             <div className="section-heading">
-              <p className="eyebrow">辅助准备</p>
+              <p className="eyebrow">岗位准备</p>
               <h2>JD 画像与经历匹配</h2>
             </div>
             <InfoList title="岗位要求" items={profile.responsibilities} />
@@ -119,7 +119,7 @@ export function JobFileDetail({ selectedJobId, onSelectJob, onOpenAssets }: JobF
               {matches.slice(0, 2).map((match) => (
                 <article key={match.experience.id}>
                   <strong>{match.experience.title}</strong>
-                  <span>辅助素材</span>
+                  <span>可讲述素材</span>
                   <p>{match.suggestedAngle}</p>
                 </article>
               ))}
@@ -128,8 +128,8 @@ export function JobFileDetail({ selectedJobId, onSelectJob, onOpenAssets }: JobF
 
           <section className="panel">
             <div className="section-heading">
-              <p className="eyebrow">降级入口</p>
-              <h2>内置模拟面试问题</h2>
+              <p className="eyebrow">模拟练习</p>
+              <h2>内置模拟面试题</h2>
             </div>
             <div className="session-list">
               {mockSession.questions.slice(0, 3).map((question) => (
