@@ -1,11 +1,12 @@
 import { getAbilityLabel } from './AbilityScoreCard';
-import type { TrainingTask } from '../domain/types';
+import type { JobFile, TrainingTask } from '../domain/types';
 
 type TrainingTaskCardProps = {
+  sourceJob?: JobFile;
   task: TrainingTask;
 };
 
-export function TrainingTaskCard({ task }: TrainingTaskCardProps) {
+export function TrainingTaskCard({ sourceJob, task }: TrainingTaskCardProps) {
   return (
     <article className="training-card">
       <header>
@@ -15,6 +16,11 @@ export function TrainingTaskCard({ task }: TrainingTaskCardProps) {
         </div>
         <span>{task.status === 'open' ? '待训练' : '已完成'}</span>
       </header>
+      {sourceJob && (
+        <p className="training-card__source">
+          {sourceJob.company} · {sourceJob.roleTitle}
+        </p>
+      )}
       <p>
         <strong>练习题：</strong>
         {task.practiceQuestion}

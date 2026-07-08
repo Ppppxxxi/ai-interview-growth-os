@@ -46,7 +46,7 @@ export function AssetsAndTraining() {
       <div className="assets-grid assets-grid--library">
         <section className="panel panel--wide-library">
           <div className="section-heading">
-            <p className="eyebrow">Reusable Answers</p>
+            <p className="eyebrow">全部资产</p>
             <h2>{filteredAssets.length} 条可复用回答资产</h2>
           </div>
           <div className="asset-list">
@@ -68,7 +68,11 @@ export function AssetsAndTraining() {
           </div>
           <div className="asset-list">
             {trainingTasks.map((task) => (
-              <TrainingTaskCard task={task} key={task.id} />
+              <TrainingTaskCard
+                sourceJob={jobFiles.find((job) => job.id === task.jobFileId)}
+                task={task}
+                key={task.id}
+              />
             ))}
           </div>
         </section>

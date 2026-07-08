@@ -52,7 +52,7 @@ export function JobFileDetail({ selectedJobId, onSelectJob, onOpenAssets }: JobF
           </p>
           <div className="primary-cta-row">
             <button type="button">生成复盘与优化回答</button>
-            <span>从一段面试对话开始，不需要先整理完整经历库</span>
+            <span>粘贴一段对话即可开始</span>
           </div>
         </section>
 
@@ -176,10 +176,10 @@ function ReviewSummary({ report }: { report: ReviewReport }) {
       <p>{report.summary}</p>
       <div className="review-explain">
         <strong>核心短板：{report.weaknesses[0]}</strong>
-        <span>标签：{keyScore?.score && keyScore.score <= 2 ? '需要补强' : '基本合格'}</span>
+        <span>{keyScore?.score && keyScore.score <= 2 ? '需要补强' : '基本合格'}</span>
       </div>
-      <p>具体扣分点：{keyScore?.attribution}</p>
-      <p>应该怎么改：{keyScore?.suggestion}</p>
+      <p>具体问题：{keyScore?.attribution}</p>
+      <p>建议这样改：{keyScore?.suggestion}</p>
     </>
   );
 }

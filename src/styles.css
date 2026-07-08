@@ -720,6 +720,12 @@ h3 {
   line-height: 1.7;
 }
 
+.training-card__source {
+  margin-bottom: 12px;
+  color: #65758f;
+  font-size: 14px;
+}
+
 .asset-card details {
   margin: 14px 0;
   border: 1px solid #e3e9f2;

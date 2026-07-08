@@ -99,6 +99,7 @@ export type AnswerAsset = {
 
 export type TrainingTask = {
   id: string;
+  jobFileId?: string;
   goal: string;
   dimension: AbilityDimension;
   practiceQuestion: string;

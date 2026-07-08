@@ -48,7 +48,7 @@ export function GrowthDashboard() {
       <section className="panel">
         <div className="section-heading">
           <p className="eyebrow">资产沉淀</p>
-          <h2>短板如何转成回答</h2>
+          <h2>已沉淀的回答</h2>
         </div>
         <div className="asset-mini-list">
           {answerAssets.map((asset) => (
@@ -63,7 +63,7 @@ export function GrowthDashboard() {
 
       <section className="panel">
         <div className="section-heading">
-          <p className="eyebrow">复用范围</p>
+          <p className="eyebrow">适用范围</p>
           <h2>适用岗位</h2>
         </div>
         <div className="reuse-list">
@@ -80,7 +80,7 @@ export function GrowthDashboard() {
       <section className="panel panel--wide">
         <div className="section-heading">
           <p className="eyebrow">下一场面试前</p>
-          <h2>建议练习 1-2 个问题</h2>
+          <h2>考前优先训练</h2>
         </div>
         <div className="task-preview">
           {trainingTasks.slice(0, 2).map((task) => (

@@ -20,7 +20,7 @@ export const experiences: Experience[] = [
     action: '梳理冷启动路径，设计岗位工作台、复盘解释、回答资产生成和同方向复用机制。',
     result: '形成可展示的本地 Demo，用于说明 AI 产品经理对用户痛点、AI Agent 边界和 MVP 取舍的理解。',
     abilityTags: ['roleUnderstanding', 'productAnalysis', 'aiProductThinking', 'structuredCommunication'],
-    evidenceMetrics: ['完成 1 条端到端 Demo 数据链路', '沉淀 1 条高价值回答资产', '定义 5 个 mock agent 合约'],
+    evidenceMetrics: ['完成 1 条端到端演示链路', '沉淀 1 条高价值回答资产', '定义 5 个 Agent 输入输出合约'],
     applicableQuestionTypes: ['AI 产品效果评估', 'MVP 范围设计', '面试复盘产品设计']
   },
   {
@@ -165,6 +165,7 @@ export const answerAssets: AnswerAsset[] = [
 export const trainingTasks: TrainingTask[] = [
   {
     id: 'task-metrics-system',
+    jobFileId: 'job-ai-pm-a',
     goal: '下一场面试前练熟 AI 产品效果评估回答',
     dimension: 'dataMetrics',
     practiceQuestion: '如何证明用户使用 AI 面试成长产品后，真实面试准备质量提升了？',
@@ -174,6 +175,7 @@ export const trainingTasks: TrainingTask[] = [
   },
   {
     id: 'task-agent-boundary',
+    jobFileId: 'job-ai-pm-a',
     goal: '补充回答资产生成的人机确认机制',
     dimension: 'aiProductThinking',
     practiceQuestion: '如果 AI 生成的优化回答不符合用户真实经历，你会如何设计确认和兜底？',
