@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { analyzeJd } from '../agents/jdAnalyst';
 import { matchExperiences } from '../agents/experienceMatcher';
 import { generateMockInterview } from '../agents/mockInterview';
 import { coldStartDemo, experiences, interviewSessions, jobFiles, reviewReports, trainingTasks } from '../domain/sampleData';
 import type { AnswerAsset } from '../domain/types';
 import { completeAnalysis, createWorkspaceState, saveGeneratedAsset, startAnalysis } from '../workflow/demoFlow';
+import { buildAnswerExplanation } from '../workflow/answerExplanation';
 import { buildDemoPipelineResult } from '../workflow/demoPipeline';
 
 type JobFileDetailProps = {
@@ -37,6 +38,7 @@ export function JobFileDetail({ answerAssets, selectedJobId, onSaveAsset, onSele
   const [generatedReview, setGeneratedReview] = useState(primaryReview);
   const [generatedAsset, setGeneratedAsset] = useState(primaryAsset);
   const [editableAnswer, setEditableAnswer] = useState(primaryAsset.improvedAnswer);
+  const answerTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
     setWorkspaceState(initialState);
@@ -52,6 +54,11 @@ export function JobFileDetail({ answerAssets, selectedJobId, onSaveAsset, onSele
     (asset) => asset.sourceJobId === selectedJob.id || asset.applicableRoles.includes(selectedJob.direction)
   );
   const linkedTrainingTasks = trainingTasks.filter((task) => task.jobFileId === selectedJob.id);
+  const answerExplanation = buildAnswerExplanation({
+    asset: generatedAsset,
+    review: generatedReview,
+    session: generatedSession
+  });
 
   function handleGenerate() {
     const generated = buildDemoPipelineResult({
@@ -66,16 +73,39 @@ export function JobFileDetail({ answerAssets, selectedJobId, onSaveAsset, onSele
       setGeneratedReview(generated.review);
       setGeneratedAsset(generated.asset);
       setEditableAnswer(generated.asset.improvedAnswer);
-      setWorkspaceState((current) => completeAnalysis(current));
+      setWorkspaceState((current) =>
+        completeAnalysis({
+          ...current,
+          session: generated.session,
+          review: generated.review,
+          generatedAsset: generated.asset
+        })
+      );
     }, 600);
   }
 
-  function handleSaveAsset() {
+  function handleConfirmSaveAsset() {
     onSaveAsset({
       ...generatedAsset,
       improvedAnswer: editableAnswer
     });
     setWorkspaceState((current) => saveGeneratedAsset(current));
+  }
+
+  function handleContinueEditing() {
+    answerTextareaRef.current?.focus();
+  }
+
+  function handleSkipSave() {
+    setWorkspaceState((current) => ({
+      ...current,
+      status: 'idle'
+    }));
+  }
+
+  function handleFillExample() {
+    setJdText(selectedJob.jdText);
+    setConversationText(coldStartDemo.importedConversation);
   }
 
   return (
@@ -110,6 +140,17 @@ export function JobFileDetail({ answerAssets, selectedJobId, onSaveAsset, onSele
           </div>
           <button className="primary-action" type="button" onClick={handleGenerate} disabled={workspaceState.status === 'generating'}>
             {workspaceState.status === 'generating' ? '正在生成...' : '生成复盘与优化回答'}
+          </button>
+        </section>
+
+        <section className="input-helper-panel">
+          <div>
+            <p className="eyebrow">快速开始</p>
+            <h2>粘贴 JD 和一段模拟面试对话</h2>
+            <p>支持直接复制 ChatGPT、Claude 或其他 AI 工具里的问答记录。生成后先查看依据，再决定是否保存为回答资产。</p>
+          </div>
+          <button className="secondary-action" type="button" onClick={handleFillExample}>
+            填入示例内容
           </button>
         </section>
 
@@ -148,13 +189,44 @@ export function JobFileDetail({ answerAssets, selectedJobId, onSaveAsset, onSele
           <div className="compare-card compare-card--improved">
             <p className="eyebrow">优化回答</p>
             <h2>改成这样更完整</h2>
-            <textarea value={editableAnswer} onChange={(event) => setEditableAnswer(event.target.value)} />
-            <div className="compare-actions">
-              <button type="button" onClick={handleSaveAsset}>
-                {workspaceState.status === 'assetSaved' ? '已保存为回答资产' : '保存为回答资产'}
+            <textarea ref={answerTextareaRef} value={editableAnswer} onChange={(event) => setEditableAnswer(event.target.value)} />
+            <div className="compare-actions compare-actions--confirm">
+              <button type="button" onClick={handleConfirmSaveAsset}>
+                {workspaceState.status === 'assetSaved' ? '已确认保存' : '确认并保存'}
+              </button>
+              <button className="secondary-action" type="button" onClick={handleContinueEditing}>
+                继续编辑
+              </button>
+              <button className="ghost-action" type="button" onClick={handleSkipSave}>
+                暂不保存
               </button>
               <span>{generatedAsset.reuseScope}</span>
             </div>
+          </div>
+        </section>
+
+        <section className="explanation-panel">
+          <div className="section-heading">
+            <p className="eyebrow">修改依据</p>
+            <h2>为什么建议这样改</h2>
+          </div>
+          <div className="explanation-grid">
+            <article>
+              <strong>问题出在哪</strong>
+              <p>{answerExplanation.issue}</p>
+            </article>
+            <article>
+              <strong>依据来自哪里</strong>
+              <p>{answerExplanation.evidence}</p>
+            </article>
+            <article>
+              <strong>建议这样改</strong>
+              <p>{answerExplanation.suggestion}</p>
+            </article>
+            <article>
+              <strong>保存前确认</strong>
+              <p>{answerExplanation.risk}</p>
+            </article>
           </div>
         </section>
 
@@ -196,7 +268,7 @@ export function JobFileDetail({ answerAssets, selectedJobId, onSaveAsset, onSele
       <aside className="workspace-right">
         <section className="side-panel side-panel--asset">
           <p className="eyebrow">本岗位回答资产</p>
-          <h2>{workspaceState.status === 'assetSaved' ? '已保存' : '待保存'}</h2>
+          <h2>{workspaceState.status === 'assetSaved' ? '已确认保存' : '待确认'}</h2>
           <strong>{generatedAsset.questionType}</strong>
           <p>{generatedAsset.applicableQuestions[0]}</p>
           <button type="button" onClick={onOpenAssets}>打开资产库</button>

@@ -955,9 +955,11 @@ body {
 .workspace-sidebar,
 .side-panel,
 .workspace-header,
+.input-helper-panel,
 .workspace-inputs,
 .analysis-steps,
 .compare-card,
+.explanation-panel,
 .asset-index,
 .asset-detail-pane,
 .library-training,
@@ -1033,6 +1035,26 @@ body {
   margin: 12px 0 0;
   color: #53647d;
   line-height: 1.7;
+}
+
+.input-helper-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px 20px;
+}
+
+.input-helper-panel h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.input-helper-panel p:not(.eyebrow) {
+  max-width: 760px;
+  margin: 8px 0 0;
+  color: #53647d;
+  line-height: 1.65;
 }
 
 .primary-action,
@@ -1188,9 +1210,65 @@ body {
   margin-top: 14px;
 }
 
+.compare-actions--confirm {
+  align-items: flex-start;
+}
+
 .compare-actions span {
+  flex-basis: 100%;
   color: #65758f;
   font-size: 14px;
+}
+
+.input-helper-panel .secondary-action,
+.compare-actions .secondary-action,
+.compare-actions .ghost-action {
+  border: 1px solid #cfd9e8;
+  border-radius: 8px;
+  padding: 11px 15px;
+  font-weight: 800;
+  white-space: nowrap;
+  box-shadow: none;
+}
+
+.input-helper-panel .secondary-action,
+.compare-actions .secondary-action {
+  color: #2f6fed;
+  background: #eef4ff;
+}
+
+.compare-actions .ghost-action {
+  color: #53647d;
+  background: #ffffff;
+}
+
+.explanation-panel {
+  padding: 20px;
+}
+
+.explanation-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.explanation-grid article {
+  border: 1px solid #e3e9f2;
+  border-radius: 8px;
+  padding: 14px;
+  background: #fbfcfe;
+}
+
+.explanation-grid strong {
+  display: block;
+  margin-bottom: 8px;
+  color: #27354a;
+}
+
+.explanation-grid p {
+  margin: 0;
+  color: #53647d;
+  line-height: 1.7;
 }
 
 .support-grid {
@@ -1402,8 +1480,21 @@ body {
     flex-direction: column;
   }
 
+  .input-helper-panel {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .primary-action {
     width: 100%;
+  }
+
+  .input-helper-panel .secondary-action {
+    width: 100%;
+  }
+
+  .explanation-grid {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -1425,6 +1516,8 @@ body {
 
   .workspace-inputs,
   .analysis-steps,
+  .input-helper-panel,
+  .explanation-panel,
   .asset-index,
   .asset-detail-pane,
   .library-training {
