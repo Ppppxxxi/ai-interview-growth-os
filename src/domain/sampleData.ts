@@ -86,6 +86,24 @@ export const interviewSessions: InterviewSession[] = [
         feedback: '回答过于泛化，缺少过程指标、结果指标和长期复用指标，也没有说明如何验证回答资产是否真的被下次面试复用。'
       }
     ]
+  },
+  {
+    id: 'session-platform-pm-demo',
+    jobFileId: 'job-platform-pm-c',
+    source: 'externalImport',
+    interviewType: '外部 AI 模拟面试对话导入',
+    createdAt: '2026-07-02',
+    rawConversation:
+      '面试官：如何判断一个内部效率平台需求是否值得做？\n候选人：我会看用户反馈和业务方优先级。\nAI 点评：判断标准不够具体，缺少影响面、频次、收益和成本维度。',
+    questions: [
+      {
+        id: 'q-demand-priority',
+        question: '如何判断一个内部效率平台需求是否值得做？',
+        answer: '我会看用户反馈和业务方优先级。',
+        followUps: ['如果业务方都说自己的需求最重要，你会怎么判断？'],
+        feedback: '判断标准不够具体，缺少影响面、频次、收益和成本维度。'
+      }
+    ]
   }
 ];
 
@@ -116,6 +134,25 @@ export const reviewReports: ReviewReport[] = [
     strengths: ['能快速识别 AI 面试产品需要效果评估。'],
     weaknesses: ['指标体系不完整', '没有说明回答资产如何复用'],
     nextActions: ['重写 AI 产品效果评估回答', '准备“回答资产复用率”相关追问', '补充用户确认保存资产的产品机制']
+  },
+  {
+    id: 'review-platform-pm-demo',
+    jobFileId: 'job-platform-pm-c',
+    sessionId: 'session-platform-pm-demo',
+    summary: '原回答能识别用户反馈和业务优先级，但缺少稳定的需求判断框架。',
+    scores: [
+      {
+        dimension: 'dataMetrics',
+        label: '数据与指标',
+        score: 3,
+        evidence: '原回答提到用户反馈和业务优先级，但没有拆到影响面、频次、收益和成本。',
+        attribution: '判断标准不够细，容易被单一业务方诉求牵引。',
+        suggestion: '改为从影响面、频次、收益、成本和风险五个维度判断。'
+      }
+    ],
+    strengths: ['能意识到需求优先级需要结合用户和业务两侧信息。'],
+    weaknesses: ['指标体系不完整'],
+    nextActions: ['补充需求优先级判断框架', '准备业务方优先级冲突的追问回答']
   }
 ];
 
@@ -134,8 +171,8 @@ export const answerAssets: AnswerAsset[] = [
     sourceJobId: 'job-ai-pm-a',
     sourceInterviewId: 'session-ai-pm-a-1',
     sourceReviewId: 'review-ai-pm-a-1',
-    reuseScope: '同岗位多轮 / 同方向类似岗位',
-    usedInInterview: false,
+    reuseScope: '已用于星河智能 AI 产品经理后续准备',
+    usedInInterview: true,
     linkedExperienceId: 'exp-research-agent',
     usageNote: '适合在星河智能后续轮次，或其他 AI 产品经理岗位被问到“产品效果评估 / 指标体系”时复用；使用前补一句具体业务场景。',
     confidence: 'high'

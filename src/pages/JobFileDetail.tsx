@@ -2,16 +2,20 @@ import { useEffect, useMemo, useState } from 'react';
 import { analyzeJd } from '../agents/jdAnalyst';
 import { matchExperiences } from '../agents/experienceMatcher';
 import { generateMockInterview } from '../agents/mockInterview';
-import { answerAssets, coldStartDemo, experiences, interviewSessions, jobFiles, reviewReports, trainingTasks } from '../domain/sampleData';
+import { coldStartDemo, experiences, interviewSessions, jobFiles, reviewReports, trainingTasks } from '../domain/sampleData';
+import type { AnswerAsset } from '../domain/types';
 import { completeAnalysis, createWorkspaceState, saveGeneratedAsset, startAnalysis } from '../workflow/demoFlow';
+import { buildDemoPipelineResult } from '../workflow/demoPipeline';
 
 type JobFileDetailProps = {
   selectedJobId: string;
   onSelectJob: (jobId: string) => void;
+  answerAssets: AnswerAsset[];
+  onSaveAsset: (asset: AnswerAsset) => void;
   onOpenAssets?: () => void;
 };
 
-export function JobFileDetail({ selectedJobId, onSelectJob, onOpenAssets }: JobFileDetailProps) {
+export function JobFileDetail({ answerAssets, selectedJobId, onSaveAsset, onSelectJob, onOpenAssets }: JobFileDetailProps) {
   const selectedJob = jobFiles.find((jobFile) => jobFile.id === selectedJobId) ?? jobFiles[0];
   const primarySession = interviewSessions.find((session) => session.jobFileId === selectedJob.id) ?? interviewSessions[0];
   const primaryReview = reviewReports.find((report) => report.sessionId === primarySession.id) ?? reviewReports[0];
@@ -29,14 +33,20 @@ export function JobFileDetail({ selectedJobId, onSelectJob, onOpenAssets }: JobF
   const [workspaceState, setWorkspaceState] = useState(initialState);
   const [jdText, setJdText] = useState(selectedJob.jdText);
   const [conversationText, setConversationText] = useState(primarySession.rawConversation || coldStartDemo.importedConversation);
+  const [generatedSession, setGeneratedSession] = useState(primarySession);
+  const [generatedReview, setGeneratedReview] = useState(primaryReview);
+  const [generatedAsset, setGeneratedAsset] = useState(primaryAsset);
   const [editableAnswer, setEditableAnswer] = useState(primaryAsset.improvedAnswer);
 
   useEffect(() => {
     setWorkspaceState(initialState);
     setJdText(selectedJob.jdText);
     setConversationText(primarySession.rawConversation || coldStartDemo.importedConversation);
+    setGeneratedSession(primarySession);
+    setGeneratedReview(primaryReview);
+    setGeneratedAsset(primaryAsset);
     setEditableAnswer(primaryAsset.improvedAnswer);
-  }, [initialState, primaryAsset.improvedAnswer, primarySession.rawConversation, selectedJob.jdText]);
+  }, [initialState, primaryAsset, primaryReview, primarySession, selectedJob.jdText]);
 
   const linkedAssets = answerAssets.filter(
     (asset) => asset.sourceJobId === selectedJob.id || asset.applicableRoles.includes(selectedJob.direction)
@@ -44,14 +54,27 @@ export function JobFileDetail({ selectedJobId, onSelectJob, onOpenAssets }: JobF
   const linkedTrainingTasks = trainingTasks.filter((task) => task.jobFileId === selectedJob.id);
 
   function handleGenerate() {
+    const generated = buildDemoPipelineResult({
+      job: { ...selectedJob, jdText },
+      conversationText,
+      fallbackConversationText: coldStartDemo.importedConversation
+    });
     const generating = startAnalysis(workspaceState);
     setWorkspaceState(generating);
     window.setTimeout(() => {
+      setGeneratedSession(generated.session);
+      setGeneratedReview(generated.review);
+      setGeneratedAsset(generated.asset);
+      setEditableAnswer(generated.asset.improvedAnswer);
       setWorkspaceState((current) => completeAnalysis(current));
     }, 600);
   }
 
   function handleSaveAsset() {
+    onSaveAsset({
+      ...generatedAsset,
+      improvedAnswer: editableAnswer
+    });
     setWorkspaceState((current) => saveGeneratedAsset(current));
   }
 
@@ -113,12 +136,13 @@ export function JobFileDetail({ selectedJobId, onSelectJob, onOpenAssets }: JobF
         <section className="compare-panel">
           <div className="compare-card compare-card--original">
             <p className="eyebrow">原回答</p>
-            <h2>{primarySession.questions[0]?.question}</h2>
-            <p>{primarySession.questions[0]?.answer}</p>
+            <h2>{generatedSession.questions[0]?.question}</h2>
+            <p>{generatedSession.questions[0]?.answer}</p>
             <div className="issue-box">
               <strong>具体问题</strong>
-              <p>{primaryAsset.issue}</p>
+              <p>{generatedAsset.issue}</p>
             </div>
+            <p>{generatedReview.summary}</p>
           </div>
 
           <div className="compare-card compare-card--improved">
@@ -129,7 +153,7 @@ export function JobFileDetail({ selectedJobId, onSelectJob, onOpenAssets }: JobF
               <button type="button" onClick={handleSaveAsset}>
                 {workspaceState.status === 'assetSaved' ? '已保存为回答资产' : '保存为回答资产'}
               </button>
-              <span>{primaryAsset.reuseScope}</span>
+              <span>{generatedAsset.reuseScope}</span>
             </div>
           </div>
         </section>
@@ -173,8 +197,8 @@ export function JobFileDetail({ selectedJobId, onSelectJob, onOpenAssets }: JobF
         <section className="side-panel side-panel--asset">
           <p className="eyebrow">本岗位回答资产</p>
           <h2>{workspaceState.status === 'assetSaved' ? '已保存' : '待保存'}</h2>
-          <strong>{primaryAsset.questionType}</strong>
-          <p>{primaryAsset.applicableQuestions[0]}</p>
+          <strong>{generatedAsset.questionType}</strong>
+          <p>{generatedAsset.applicableQuestions[0]}</p>
           <button type="button" onClick={onOpenAssets}>打开资产库</button>
         </section>
 

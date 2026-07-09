@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { jobFiles } from './domain/sampleData';
+import { answerAssets as initialAnswerAssets, jobFiles } from './domain/sampleData';
+import type { AnswerAsset } from './domain/types';
 import { AssetsAndTraining } from './pages/AssetsAndTraining';
 import { GrowthDashboard } from './pages/GrowthDashboard';
 import { JobFileDetail } from './pages/JobFileDetail';
+import { upsertAnswerAsset } from './workflow/runtimeAssets';
 
 type AppView = 'workspace' | 'assets' | 'growth';
 
@@ -15,6 +17,11 @@ const navItems: Array<{ id: AppView; label: string }> = [
 export default function App() {
   const [view, setView] = useState<AppView>('workspace');
   const [selectedJobId, setSelectedJobId] = useState(jobFiles[0]?.id ?? '');
+  const [runtimeAssets, setRuntimeAssets] = useState(initialAnswerAssets);
+
+  function handleSaveAsset(asset: AnswerAsset) {
+    setRuntimeAssets((currentAssets) => upsertAnswerAsset(currentAssets, asset));
+  }
 
   return (
     <main className="app-shell">
@@ -37,10 +44,16 @@ export default function App() {
         </nav>
       </header>
       {view === 'workspace' && (
-        <JobFileDetail selectedJobId={selectedJobId} onSelectJob={setSelectedJobId} onOpenAssets={() => setView('assets')} />
+        <JobFileDetail
+          selectedJobId={selectedJobId}
+          onSelectJob={setSelectedJobId}
+          answerAssets={runtimeAssets}
+          onSaveAsset={handleSaveAsset}
+          onOpenAssets={() => setView('assets')}
+        />
       )}
-      {view === 'assets' && <AssetsAndTraining />}
-      {view === 'growth' && <GrowthDashboard />}
+      {view === 'assets' && <AssetsAndTraining answerAssets={runtimeAssets} />}
+      {view === 'growth' && <GrowthDashboard answerAssets={runtimeAssets} />}
     </main>
   );
 }

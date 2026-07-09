@@ -714,6 +714,17 @@ h3 {
   background: #eff6ff;
 }
 
+.asset-section--primary {
+  border: 1px solid #abc6f7;
+  padding: 16px;
+}
+
+.asset-section--primary strong {
+  display: block;
+  margin-bottom: 8px;
+  color: #172033;
+}
+
 .asset-card__answer,
 .training-card p {
   color: #53647d;
@@ -743,6 +754,15 @@ h3 {
   margin: 10px 0 0;
   color: #65758f;
   line-height: 1.6;
+}
+
+.asset-card__original strong {
+  display: block;
+  margin-top: 12px;
+}
+
+.asset-card__metadata .source-line {
+  margin-top: 10px;
 }
 
 .tag-list {
