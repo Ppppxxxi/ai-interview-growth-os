@@ -1,170 +1,285 @@
-# AI 面试成长 OS Agent 合约
+# Agent contracts / LLM 替换方案
 
-当前 Demo 使用 deterministic mock agent，目的是保证本地稳定运行、便于 GitHub 展示、避免上传 API Key 或真实面试数据。真实上线版本会把下列模块替换为 LLM 调用，但保留相同的输入、输出和用户确认点。
+当前 v0.1 使用 deterministic mock agent，目标是让 GitHub Demo 无需 API Key、无需真实用户数据即可稳定运行。真实上线版本应保持下列输入输出合约不变，把内部实现从规则函数替换为 LLM 调用。
+
+## 总体原则
+
+- **输入可追溯**：每个输出都能回到原 JD、原问题、原回答或原点评。
+- **输出可编辑**：AI 产物默认是草稿，用户确认后才沉淀为资产。
+- **失败可兜底**：解析失败、信息不足、低置信度时不伪装确定性。
+- **边界可解释**：UI 中展示“为什么这样改”，README 中说明 mock 与 LLM 的区别。
+- **隐私优先**：真实 LLM 版本默认脱敏，可让用户选择是否发送完整经历材料。
 
 ## 1. importParser：外部对话解析
 
+**当前 mock 实现**
+
+- 文件：`src/agents/importParser.ts`
+- 方式：按常见“面试官 / 候选人 / AI 点评”文本结构解析。
+
 **输入**
 
-```json
-{
-  "rawConversation": "面试官、候选人、追问、AI 点评组成的外部模拟面试文本"
-}
+```ts
+type ImportParserInput = {
+  rawConversation: string;
+  jobFileId: string;
+};
 ```
 
 **输出 JSON schema**
 
-```json
-{
-  "questions": [
-    {
-      "id": "string",
-      "question": "string",
-      "answer": "string",
-      "followUps": ["string"],
-      "feedback": "string"
-    }
-  ]
-}
+```ts
+type ImportParserOutput = {
+  session: {
+    id: string;
+    jobFileId: string;
+    source: 'externalImport';
+    interviewType: string;
+    createdAt: string;
+    rawConversation: string;
+    questions: Array<{
+      id: string;
+      question: string;
+      answer: string;
+      followUps: string[];
+      feedback: string;
+    }>;
+  };
+};
 ```
 
-**Prompt 目标**：从 ChatGPT / Codex 等外部对话中抽取面试问题、候选人回答、追问和点评，不改写事实。
+**LLM prompt 目标**
 
-**失败兜底**：如果角色标签缺失，保留原文并提示用户手动标注“面试官 / 候选人 / 点评”。
+从外部 AI 面试对话中识别面试官问题、候选人回答、追问、AI 点评和轮次信息。不要重写内容，只做结构化抽取。
 
-**用户确认点**：用户确认解析出的原问题和原回答是否准确，再进入复盘。
+**失败兜底**
+
+- 如果角色标签缺失，保留原文并提示用户手动标注。
+- 如果无法识别问题和回答，不进入复盘，只展示导入失败原因。
+
+**用户确认点**
+
+用户确认“原问题 / 原回答 / 点评”是否解析准确，再进入复盘。
 
 ## 2. jdAnalyst：JD 画像分析
 
+**当前 mock 实现**
+
+- 文件：`src/agents/jdAnalyst.ts`
+- 方式：基于关键词提取职责、能力关键词、隐藏要求和可能问题。
+
 **输入**
 
-```json
-{
-  "jdText": "岗位 JD 文本",
-  "direction": "岗位方向"
-}
+```ts
+type JdAnalystInput = {
+  jdText: string;
+  roleDirection: string;
+};
 ```
 
 **输出 JSON schema**
 
-```json
-{
-  "responsibilities": ["string"],
-  "abilityKeywords": ["string"],
-  "hiddenRequirements": ["string"],
-  "likelyQuestions": ["string"]
-}
+```ts
+type JdAnalystOutput = {
+  profile: {
+    responsibilities: string[];
+    abilityKeywords: string[];
+    hiddenRequirements: string[];
+    likelyQuestions: string[];
+  };
+};
 ```
 
-**Prompt 目标**：识别岗位职责、能力关键词、隐性要求和高概率面试问题。
+**LLM prompt 目标**
 
-**失败兜底**：JD 过短时只输出基础岗位拆解，并提示用户补充公司业务、岗位职责和面试轮次。
+把 JD 转换为候选人面试准备视角：岗位要做什么、考察哪些能力、面试官可能追问什么、回答中需要补哪些业务或指标。
 
-**用户确认点**：用户可编辑岗位画像，避免模型误读 JD。
+**失败兜底**
+
+JD 过短时只输出基础岗位拆解，并提示用户补充公司业务、岗位职责、轮次和面试官背景。
+
+**用户确认点**
+
+用户可编辑岗位画像，避免模型误读 JD。
 
 ## 3. reviewEvaluator：结构化复盘生成
 
+**当前 mock 实现**
+
+- 文件：`src/agents/reviewEvaluator.ts`
+- 方式：根据问题类型和回答内容生成复盘摘要、短板和下一步建议。
+
 **输入**
 
-```json
-{
-  "jobFile": "JobFile",
-  "interviewSession": "InterviewSession"
-}
+```ts
+type ReviewEvaluatorInput = {
+  jobProfile: JdAnalystOutput['profile'];
+  session: ImportParserOutput['session'];
+};
 ```
 
 **输出 JSON schema**
 
-```json
-{
-  "summary": "string",
-  "scores": [
-    {
-      "dimension": "dataMetrics",
-      "label": "string",
-      "score": 1,
-      "evidence": "string",
-      "attribution": "string",
-      "suggestion": "string"
-    }
-  ],
-  "strengths": ["string"],
-  "weaknesses": ["string"],
-  "nextActions": ["string"]
-}
+```ts
+type ReviewEvaluatorOutput = {
+  review: {
+    id: string;
+    jobFileId: string;
+    sessionId: string;
+    summary: string;
+    scores: Array<{
+      dimension: string;
+      label: string;
+      score: number;
+      evidence: string;
+      attribution: string;
+      suggestion: string;
+    }>;
+    strengths: string[];
+    weaknesses: string[];
+    nextActions: string[];
+  };
+};
 ```
 
-**Prompt 目标**：优先解释“这段回答具体哪里不够、为什么不够、应该怎么改”，评分只是辅助标签。
+**LLM prompt 目标**
 
-**失败兜底**：如果回答内容不足，输出“信息不足”标签，并要求用户补充原回答或追问。
+优先回答“这段回答具体哪里不好、为什么、怎么改”。评分只作为辅助标签，不作为主展示。
 
-**用户确认点**：用户确认复盘归因是否符合自己的真实表达意图。
+**失败兜底**
+
+- 回答内容不足时输出“信息不足”，要求用户补充原回答或追问。
+- 不确定归因时标记低置信度，不生成强结论。
+
+**用户确认点**
+
+用户确认复盘归因是否符合自己的真实表达意图。
 
 ## 4. answerAssetGenerator：回答资产生成
 
+**当前 mock 实现**
+
+- 文件：`src/agents/answerAssetGenerator.ts`
+- 方式：结合复盘短板、原问题和岗位画像生成可编辑优化回答。
+
 **输入**
 
-```json
-{
-  "jobFile": "JobFile",
-  "interviewSession": "InterviewSession",
-  "reviewReport": "ReviewReport"
-}
+```ts
+type AnswerAssetGeneratorInput = {
+  jobFileId: string;
+  sessionId: string;
+  reviewId: string;
+  originalQuestion: string;
+  originalAnswer: string;
+  issue: string;
+  jobProfile: JdAnalystOutput['profile'];
+};
 ```
 
 **输出 JSON schema**
 
-```json
-{
-  "id": "string",
-  "questionType": "string",
-  "originalQuestion": "string",
-  "originalAnswer": "string",
-  "issue": "string",
-  "improvedAnswer": "string",
-  "applicableRoles": ["string"],
-  "applicableQuestions": ["string"],
-  "weaknessTag": "string",
-  "sourceJobId": "string",
-  "sourceInterviewId": "string",
-  "sourceReviewId": "string",
-  "reuseScope": "同岗位多轮 / 同方向类似岗位",
-  "usedInInterview": false,
-  "usageNote": "string",
-  "confidence": "high"
-}
+```ts
+type AnswerAssetGeneratorOutput = {
+  asset: {
+    id: string;
+    questionType: string;
+    originalQuestion: string;
+    originalAnswer: string;
+    issue: string;
+    improvedAnswer: string;
+    applicableRoles: string[];
+    applicableQuestions: string[];
+    weaknessTag: string;
+    sourceJobId: string;
+    sourceInterviewId: string;
+    sourceReviewId: string;
+    reuseScope: string;
+    usedInInterview: boolean;
+    linkedExperienceId?: string;
+    usageNote: string;
+    confidence: 'high' | 'medium' | 'low';
+  };
+  explanation: {
+    issue: string;
+    evidence: string;
+    suggestion: string;
+    risk: string;
+  };
+};
 ```
 
-**Prompt 目标**：把复盘中的核心短板转成一条下次面试可直接使用的完整回答，同时保留来源问题、原回答、问题点和适用边界。
+**LLM prompt 目标**
 
-**失败兜底**：如果复盘短板不清晰，只生成“待用户补充”的草稿，不自动保存为高置信资产。
+生成一段下次面试可直接使用的完整回答，同时保留原回答对比、改动依据、适用场景和使用建议。回答必须基于用户已有经历，不能编造项目结果。
 
-**用户确认点**：用户必须编辑或确认优化回答后，才能保存为回答资产；系统保留来源面试用于追溯。
+**失败兜底**
+
+- 短板不清晰时只生成低置信草稿。
+- 缺少真实经历支撑时要求用户补充经历，不生成“看起来完整但不真实”的回答。
+- 无法判断适用范围时限制为当前岗位当前问题，不扩展到跨岗位复用。
+
+**用户确认点**
+
+用户必须编辑或确认优化回答后，才能保存为回答资产。
 
 ## 5. growthPlanner：跨场次短板识别
 
+**当前 mock 实现**
+
+- 文件：`src/agents/growthPlanner.ts`
+- 方式：聚合复盘和资产，识别重复短板、资产沉淀和训练建议。
+
 **输入**
 
-```json
-{
-  "reviewReports": ["ReviewReport"]
-}
+```ts
+type GrowthPlannerInput = {
+  reviews: ReviewEvaluatorOutput['review'][];
+  assets: AnswerAssetGeneratorOutput['asset'][];
+};
 ```
 
 **输出 JSON schema**
 
-```json
-{
-  "abilityAverages": {},
-  "repeatedWeaknesses": [
-    { "label": "string", "count": 1 }
-  ],
-  "recommendedFocus": ["dataMetrics"]
-}
+```ts
+type GrowthPlannerOutput = {
+  repeatedWeaknesses: Array<{
+    label: string;
+    evidenceCount: number;
+    relatedAssetIds: string[];
+    nextPracticeQuestion: string;
+  }>;
+  reusableAssets: Array<{
+    assetId: string;
+    applicableRoles: string[];
+    confidence: 'high' | 'medium' | 'low';
+  }>;
+  nextPractice: string[];
+};
 ```
 
-**Prompt 目标**：识别重复短板和资产复用情况。数据不足时不强行生成复杂能力图谱。
+**LLM prompt 目标**
 
-**失败兜底**：复盘数量少于 2 时只展示已沉淀短板和下一场练习建议。
+从多场复盘中识别重复出现的问题，给出下一场面试前最值得练的 1-2 个问题。不要在样本不足时强行生成能力趋势结论。
 
-**用户确认点**：用户可以合并同义短板，例如“指标体系不完整”和“效果评估不清晰”。
+**失败兜底**
+
+复盘数量少于 2 时只展示已沉淀短板和下一场练习建议。
+
+**用户确认点**
+
+用户可以合并同义短板，例如“指标体系不完整”和“效果评估不清晰”。
+
+## LLM 替换顺序
+
+1. 先替换 `importParser`，因为外部对话格式最不稳定。
+2. 再替换 `answerAssetGenerator`，因为它直接承载用户价值。
+3. 再替换 `reviewEvaluator`，提升复盘解释质量。
+4. 最后替换 `jdAnalyst` 和 `growthPlanner`，作为长期能力增强。
+
+## 生产化注意事项
+
+- 所有 LLM 输出必须过 JSON schema 校验。
+- 保存资产前必须有用户确认。
+- 低置信输出不得自动进入资产库。
+- 原始对话和个人经历应支持本地脱敏。
+- 需要记录 prompt 版本、模型版本和生成时间，便于问题追溯。
