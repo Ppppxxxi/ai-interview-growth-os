@@ -7,6 +7,12 @@ import { coldStartDemo, experiences, interviewSessions, reviewReports, trainingT
 import type { AnswerAsset, InterviewSession, JobFile, ReviewReport } from '../domain/types';
 import { completeAnalysis, createWorkspaceState, saveGeneratedAsset, startAnalysis } from '../workflow/demoFlow';
 import { buildAnswerExplanation } from '../workflow/answerExplanation';
+import {
+  createEditableQuestions,
+  hasUsableQuestion,
+  updateQuestionField,
+  updateQuestionFollowUps
+} from '../workflow/conversationDraft';
 import { buildDemoPipelineResult } from '../workflow/demoPipeline';
 import type { NewJobDraft } from '../workflow/personalWorkspace';
 
@@ -71,6 +77,7 @@ export function JobFileDetail({
   const [generatedReview, setGeneratedReview] = useState(primaryReview);
   const [generatedAsset, setGeneratedAsset] = useState(primaryAsset);
   const [editableAnswer, setEditableAnswer] = useState(primaryAsset.improvedAnswer);
+  const [editableQuestions, setEditableQuestions] = useState(() => createEditableQuestions(initialConversationText, primarySession.questions));
   const answerTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
@@ -81,6 +88,7 @@ export function JobFileDetail({
     setGeneratedReview(primaryReview);
     setGeneratedAsset(primaryAsset);
     setEditableAnswer(primaryAsset.improvedAnswer);
+    setEditableQuestions(createEditableQuestions(initialConversationText, primarySession.questions));
   }, [initialConversationText, initialState, primaryAsset, primaryReview, primarySession, selectedJob.jdText]);
 
   const linkedAssets = answerAssets.filter(
@@ -97,7 +105,8 @@ export function JobFileDetail({
     const generated = buildDemoPipelineResult({
       job: { ...selectedJob, jdText },
       conversationText,
-      fallbackConversationText: coldStartDemo.importedConversation
+      fallbackConversationText: coldStartDemo.importedConversation,
+      questionsOverride: hasUsableQuestion(editableQuestions) ? editableQuestions : undefined
     });
     const generating = startAnalysis(workspaceState);
     setWorkspaceState(generating);
@@ -139,6 +148,19 @@ export function JobFileDetail({
   function handleFillExample() {
     setJdText(selectedJob.jdText);
     setConversationText(coldStartDemo.importedConversation);
+    setEditableQuestions(createEditableQuestions(coldStartDemo.importedConversation, primarySession.questions));
+  }
+
+  function handlePreviewParse() {
+    setEditableQuestions(createEditableQuestions(conversationText, primarySession.questions));
+  }
+
+  function handleQuestionFieldChange(questionId: string, field: 'question' | 'answer' | 'feedback', value: string) {
+    setEditableQuestions((current) => updateQuestionField(current, questionId, field, value));
+  }
+
+  function handleQuestionFollowUpsChange(questionId: string, value: string) {
+    setEditableQuestions((current) => updateQuestionFollowUps(current, questionId, value));
   }
 
   function handleSaveCurrentJob() {
@@ -252,6 +274,56 @@ export function JobFileDetail({
             <span>外部 AI 模拟面试对话</span>
             <textarea value={conversationText} onChange={(event) => setConversationText(event.target.value)} />
           </label>
+        </section>
+
+        <section className="parsed-conversation-panel">
+          <div className="section-heading parsed-conversation-heading">
+            <div>
+              <p className="eyebrow">解析结果确认</p>
+              <h2>先确认系统读对了什么，再生成复盘</h2>
+            </div>
+            <button className="secondary-action" type="button" onClick={handlePreviewParse}>
+              解析并预览
+            </button>
+          </div>
+          <div className="parsed-question-list">
+            {editableQuestions.map((question, index) => (
+              <article className="parsed-question-card" key={question.id}>
+                <div className="parsed-question-title">
+                  <strong>问题 {index + 1}</strong>
+                  <span>{question.feedback ? '已识别点评' : '可手动补充点评'}</span>
+                </div>
+                <label>
+                  <span>原问题</span>
+                  <textarea
+                    value={question.question}
+                    onChange={(event) => handleQuestionFieldChange(question.id, 'question', event.target.value)}
+                  />
+                </label>
+                <label>
+                  <span>原回答</span>
+                  <textarea
+                    value={question.answer}
+                    onChange={(event) => handleQuestionFieldChange(question.id, 'answer', event.target.value)}
+                  />
+                </label>
+                <label>
+                  <span>追问，每行一个</span>
+                  <textarea
+                    value={question.followUps.join('\n')}
+                    onChange={(event) => handleQuestionFollowUpsChange(question.id, event.target.value)}
+                  />
+                </label>
+                <label>
+                  <span>AI 点评</span>
+                  <textarea
+                    value={question.feedback}
+                    onChange={(event) => handleQuestionFieldChange(question.id, 'feedback', event.target.value)}
+                  />
+                </label>
+              </article>
+            ))}
+          </div>
         </section>
 
         <section className="analysis-steps">

@@ -30,4 +30,28 @@ describe('buildDemoPipelineResult', () => {
 
     expect(result.session.questions.length).toBeGreaterThan(0);
   });
+
+  it('uses confirmed editable questions instead of reparsing raw text', () => {
+    const job = jobFiles[0];
+    const result = buildDemoPipelineResult({
+      job,
+      conversationText: '这段原文格式不重要，因为用户已经确认了解析结果',
+      fallbackConversationText: '',
+      questionsOverride: [
+        {
+          id: 'q-confirmed',
+          question: '确认后的问题',
+          answer: '确认后的回答',
+          followUps: ['确认后的追问'],
+          feedback: '确认后的点评'
+        }
+      ]
+    });
+
+    expect(result.session.questions[0]).toMatchObject({
+      id: 'q-confirmed',
+      question: '确认后的问题',
+      answer: '确认后的回答'
+    });
+  });
 });

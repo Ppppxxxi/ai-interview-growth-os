@@ -7,6 +7,7 @@ type DemoPipelineInput = {
   job: JobFile;
   conversationText: string;
   fallbackConversationText: string;
+  questionsOverride?: InterviewSession['questions'];
 };
 
 type DemoPipelineResult = {
@@ -27,10 +28,15 @@ function makeSession(job: JobFile, rawConversation: string, questions: Interview
   };
 }
 
-export function buildDemoPipelineResult({ conversationText, fallbackConversationText, job }: DemoPipelineInput): DemoPipelineResult {
+export function buildDemoPipelineResult({ conversationText, fallbackConversationText, job, questionsOverride }: DemoPipelineInput): DemoPipelineResult {
   const parsedQuestions = parseImportedConversation(conversationText);
-  const rawConversation = parsedQuestions.length > 0 ? conversationText : fallbackConversationText;
-  const questions = parsedQuestions.length > 0 ? parsedQuestions : parseImportedConversation(fallbackConversationText);
+  const hasConfirmedQuestions = Boolean(questionsOverride?.length);
+  const rawConversation = hasConfirmedQuestions || parsedQuestions.length > 0 ? conversationText : fallbackConversationText;
+  const questions = questionsOverride?.length
+    ? questionsOverride
+    : parsedQuestions.length > 0
+      ? parsedQuestions
+      : parseImportedConversation(fallbackConversationText);
   const session = makeSession(job, rawConversation, questions);
   const review = evaluateInterview(job, session);
   const asset = generateAnswerAsset(job, session, review);
