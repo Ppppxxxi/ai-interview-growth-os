@@ -1,12 +1,13 @@
 import { buildGrowthSnapshot } from '../agents/growthPlanner';
-import { jobFiles, reviewReports, trainingTasks } from '../domain/sampleData';
-import type { AnswerAsset } from '../domain/types';
+import { reviewReports, trainingTasks } from '../domain/sampleData';
+import type { AnswerAsset, JobFile } from '../domain/types';
 
 type GrowthDashboardProps = {
   answerAssets: AnswerAsset[];
+  jobFiles: JobFile[];
 };
 
-export function GrowthDashboard({ answerAssets }: GrowthDashboardProps) {
+export function GrowthDashboard({ answerAssets, jobFiles }: GrowthDashboardProps) {
   const snapshot = buildGrowthSnapshot(reviewReports);
   const mainWeaknesses = snapshot.repeatedWeaknesses.slice(0, 4);
   const reusedAssets = answerAssets.filter((asset) => asset.usedInInterview);

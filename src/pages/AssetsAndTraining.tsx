@@ -1,16 +1,17 @@
 import { useMemo, useState } from 'react';
 import { AnswerAssetCard } from '../components/AnswerAssetCard';
 import { TrainingTaskCard } from '../components/TrainingTaskCard';
-import { interviewSessions, jobFiles, trainingTasks } from '../domain/sampleData';
-import type { AnswerAsset } from '../domain/types';
+import { interviewSessions, trainingTasks } from '../domain/sampleData';
+import type { AnswerAsset, JobFile } from '../domain/types';
 
 type FilterKey = 'all' | string;
 
 type AssetsAndTrainingProps = {
   answerAssets: AnswerAsset[];
+  jobFiles: JobFile[];
 };
 
-export function AssetsAndTraining({ answerAssets }: AssetsAndTrainingProps) {
+export function AssetsAndTraining({ answerAssets, jobFiles }: AssetsAndTrainingProps) {
   const [direction, setDirection] = useState<FilterKey>('all');
   const [questionType, setQuestionType] = useState<FilterKey>('all');
   const [weakness, setWeakness] = useState<FilterKey>('all');

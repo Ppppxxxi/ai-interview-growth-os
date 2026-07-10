@@ -1,29 +1,62 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { FormEvent } from 'react';
 import { analyzeJd } from '../agents/jdAnalyst';
 import { matchExperiences } from '../agents/experienceMatcher';
 import { generateMockInterview } from '../agents/mockInterview';
-import { coldStartDemo, experiences, interviewSessions, jobFiles, reviewReports, trainingTasks } from '../domain/sampleData';
-import type { AnswerAsset } from '../domain/types';
+import { coldStartDemo, experiences, interviewSessions, reviewReports, trainingTasks } from '../domain/sampleData';
+import type { AnswerAsset, InterviewSession, JobFile, ReviewReport } from '../domain/types';
 import { completeAnalysis, createWorkspaceState, saveGeneratedAsset, startAnalysis } from '../workflow/demoFlow';
 import { buildAnswerExplanation } from '../workflow/answerExplanation';
 import { buildDemoPipelineResult } from '../workflow/demoPipeline';
+import type { NewJobDraft } from '../workflow/personalWorkspace';
 
 type JobFileDetailProps = {
   selectedJobId: string;
   onSelectJob: (jobId: string) => void;
+  jobFiles: JobFile[];
   answerAssets: AnswerAsset[];
+  onCreateJob: (draft: NewJobDraft) => void;
+  onUpdateJob: (job: JobFile) => void;
   onSaveAsset: (asset: AnswerAsset) => void;
   onOpenAssets?: () => void;
 };
 
-export function JobFileDetail({ answerAssets, selectedJobId, onSaveAsset, onSelectJob, onOpenAssets }: JobFileDetailProps) {
+const emptyJobForm: NewJobDraft = {
+  company: '',
+  roleTitle: '',
+  direction: 'AI 产品经理',
+  jdText: '',
+  stage: '准备中'
+};
+
+export function JobFileDetail({
+  answerAssets,
+  selectedJobId,
+  jobFiles,
+  onCreateJob,
+  onSaveAsset,
+  onSelectJob,
+  onUpdateJob,
+  onOpenAssets
+}: JobFileDetailProps) {
   const selectedJob = jobFiles.find((jobFile) => jobFile.id === selectedJobId) ?? jobFiles[0];
-  const primarySession = interviewSessions.find((session) => session.jobFileId === selectedJob.id) ?? interviewSessions[0];
-  const primaryReview = reviewReports.find((report) => report.sessionId === primarySession.id) ?? reviewReports[0];
-  const primaryAsset =
-    answerAssets.find((asset) => asset.sourceInterviewId === primarySession.id) ??
-    answerAssets.find((asset) => asset.applicableRoles.includes(selectedJob.direction)) ??
-    answerAssets[0];
+  const [newJobForm, setNewJobForm] = useState(emptyJobForm);
+  const primarySession = useMemo(
+    () => interviewSessions.find((session) => session.jobFileId === selectedJob.id) ?? createDraftSession(selectedJob),
+    [selectedJob]
+  );
+  const primaryReview = useMemo(
+    () => reviewReports.find((report) => report.sessionId === primarySession.id) ?? createDraftReview(selectedJob, primarySession),
+    [primarySession, selectedJob]
+  );
+  const primaryAsset = useMemo(
+    () =>
+      answerAssets.find((asset) => asset.sourceInterviewId === primarySession.id) ??
+      answerAssets.find((asset) => asset.sourceJobId === selectedJob.id) ??
+      createDraftAsset(selectedJob, primarySession.id, primaryReview.id),
+    [answerAssets, primaryReview.id, primarySession.id, selectedJob]
+  );
+  const initialConversationText = primarySession.rawConversation || (primarySession.id.endsWith('-draft') ? '' : coldStartDemo.importedConversation);
   const profile = selectedJob.profile ?? analyzeJd(selectedJob.jdText, selectedJob.direction);
   const matches = matchExperiences(profile, experiences);
   const mockSession = generateMockInterview(selectedJob.id, profile, experiences);
@@ -33,7 +66,7 @@ export function JobFileDetail({ answerAssets, selectedJobId, onSaveAsset, onSele
   );
   const [workspaceState, setWorkspaceState] = useState(initialState);
   const [jdText, setJdText] = useState(selectedJob.jdText);
-  const [conversationText, setConversationText] = useState(primarySession.rawConversation || coldStartDemo.importedConversation);
+  const [conversationText, setConversationText] = useState(initialConversationText);
   const [generatedSession, setGeneratedSession] = useState(primarySession);
   const [generatedReview, setGeneratedReview] = useState(primaryReview);
   const [generatedAsset, setGeneratedAsset] = useState(primaryAsset);
@@ -43,12 +76,12 @@ export function JobFileDetail({ answerAssets, selectedJobId, onSaveAsset, onSele
   useEffect(() => {
     setWorkspaceState(initialState);
     setJdText(selectedJob.jdText);
-    setConversationText(primarySession.rawConversation || coldStartDemo.importedConversation);
+    setConversationText(initialConversationText);
     setGeneratedSession(primarySession);
     setGeneratedReview(primaryReview);
     setGeneratedAsset(primaryAsset);
     setEditableAnswer(primaryAsset.improvedAnswer);
-  }, [initialState, primaryAsset, primaryReview, primarySession, selectedJob.jdText]);
+  }, [initialConversationText, initialState, primaryAsset, primaryReview, primarySession, selectedJob.jdText]);
 
   const linkedAssets = answerAssets.filter(
     (asset) => asset.sourceJobId === selectedJob.id || asset.applicableRoles.includes(selectedJob.direction)
@@ -108,6 +141,30 @@ export function JobFileDetail({ answerAssets, selectedJobId, onSaveAsset, onSele
     setConversationText(coldStartDemo.importedConversation);
   }
 
+  function handleSaveCurrentJob() {
+    onUpdateJob({
+      ...selectedJob,
+      jdText,
+      profile: analyzeJd(jdText, selectedJob.direction),
+      status: selectedJob.status === '待导入面试对话' ? '已保存 JD，待导入面试对话' : selectedJob.status
+    });
+  }
+
+  function handleNewJobChange(field: keyof NewJobDraft, value: string) {
+    setNewJobForm((current) => ({
+      ...current,
+      [field]: value
+    }));
+  }
+
+  function handleNewJobSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!newJobForm.company.trim() || !newJobForm.roleTitle.trim() || !newJobForm.jdText.trim()) return;
+
+    onCreateJob(newJobForm);
+    setNewJobForm(emptyJobForm);
+  }
+
   return (
     <div className="product-workspace" id="workspace">
       <aside className="workspace-sidebar">
@@ -129,6 +186,33 @@ export function JobFileDetail({ answerAssets, selectedJobId, onSaveAsset, onSele
             </button>
           ))}
         </div>
+        <form className="new-job-card" onSubmit={handleNewJobSubmit}>
+          <div className="section-heading">
+            <p className="eyebrow">本地保存</p>
+            <h2>新建岗位档案</h2>
+          </div>
+          <label>
+            <span>公司</span>
+            <input value={newJobForm.company} onChange={(event) => handleNewJobChange('company', event.target.value)} />
+          </label>
+          <label>
+            <span>岗位</span>
+            <input value={newJobForm.roleTitle} onChange={(event) => handleNewJobChange('roleTitle', event.target.value)} />
+          </label>
+          <label>
+            <span>方向</span>
+            <input value={newJobForm.direction} onChange={(event) => handleNewJobChange('direction', event.target.value)} />
+          </label>
+          <label>
+            <span>阶段</span>
+            <input value={newJobForm.stage} onChange={(event) => handleNewJobChange('stage', event.target.value)} />
+          </label>
+          <label>
+            <span>JD</span>
+            <textarea value={newJobForm.jdText} onChange={(event) => handleNewJobChange('jdText', event.target.value)} />
+          </label>
+          <button type="submit">保存岗位档案</button>
+        </form>
       </aside>
 
       <main className="workspace-center">
@@ -149,9 +233,14 @@ export function JobFileDetail({ answerAssets, selectedJobId, onSaveAsset, onSele
             <h2>粘贴 JD 和一段模拟面试对话</h2>
             <p>支持直接复制 ChatGPT、Claude 或其他 AI 工具里的问答记录。生成后先查看依据，再决定是否保存为回答资产。</p>
           </div>
-          <button className="secondary-action" type="button" onClick={handleFillExample}>
-            填入示例内容
-          </button>
+          <div className="input-helper-actions">
+            <button className="secondary-action" type="button" onClick={handleFillExample}>
+              填入示例内容
+            </button>
+            <button className="ghost-action" type="button" onClick={handleSaveCurrentJob}>
+              保存当前 JD
+            </button>
+          </div>
         </section>
 
         <section className="workspace-inputs">
@@ -301,6 +390,60 @@ export function JobFileDetail({ answerAssets, selectedJobId, onSaveAsset, onSele
       </aside>
     </div>
   );
+}
+
+function createDraftSession(job: JobFile): InterviewSession {
+  return {
+    id: `session-${job.id}-draft`,
+    jobFileId: job.id,
+    source: 'externalImport',
+    interviewType: '待导入外部 AI 面试对话',
+    createdAt: new Date().toISOString().slice(0, 10),
+    rawConversation: '',
+    questions: [
+      {
+        id: `question-${job.id}-draft`,
+        question: '粘贴面试对话后，这里会显示解析出的原问题',
+        answer: '这里会显示你的原回答',
+        followUps: [],
+        feedback: '这里会显示外部 AI 点评'
+      }
+    ]
+  };
+}
+
+function createDraftReview(job: JobFile, session: InterviewSession): ReviewReport {
+  return {
+    id: `review-${job.id}-draft`,
+    jobFileId: job.id,
+    sessionId: session.id,
+    summary: '导入外部 AI 面试对话并生成复盘后，这里会显示本次回答的主要问题。',
+    scores: [],
+    strengths: [],
+    weaknesses: ['待导入面试对话'],
+    nextActions: ['粘贴 JD 和外部 AI 面试对话，生成第一条复盘']
+  };
+}
+
+function createDraftAsset(job: JobFile, sessionId: string, reviewId: string): AnswerAsset {
+  return {
+    id: `asset-${job.id}-draft`,
+    questionType: '待生成',
+    originalQuestion: '导入对话后生成',
+    originalAnswer: '导入对话后生成',
+    issue: '生成复盘后，这里会显示当前回答最需要修改的问题。',
+    improvedAnswer: '生成优化回答后，你可以先编辑确认，再保存为回答资产。',
+    applicableRoles: [job.direction],
+    applicableQuestions: ['导入对话后生成类似问题'],
+    weaknessTag: '待识别',
+    sourceJobId: job.id,
+    sourceInterviewId: sessionId,
+    sourceReviewId: reviewId,
+    reuseScope: '待确认适用范围',
+    usedInInterview: false,
+    usageNote: '保存前请确认回答符合你的真实经历。',
+    confidence: 'low'
+  };
 }
 
 function InfoList({ title, items }: { title: string; items: string[] }) {
