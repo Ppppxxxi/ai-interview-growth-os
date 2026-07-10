@@ -1,16 +1,24 @@
 import { useEffect, useState } from 'react';
-import { answerAssets as initialAnswerAssets, jobFiles as initialJobFiles } from './domain/sampleData';
-import type { AnswerAsset, JobFile } from './domain/types';
+import {
+  answerAssets as initialAnswerAssets,
+  interviewSessions as initialInterviewSessions,
+  jobFiles as initialJobFiles,
+  reviewReports as initialReviewReports
+} from './domain/sampleData';
+import type { AnswerAsset, InterviewSession, JobFile, ReviewReport } from './domain/types';
 import { AssetsAndTraining } from './pages/AssetsAndTraining';
 import { GrowthDashboard } from './pages/GrowthDashboard';
 import { JobFileDetail } from './pages/JobFileDetail';
 import {
+  attachInterviewSessionToJob,
   createJobFileFromDraft,
   createPersonalWorkspaceData,
   getBrowserStorage,
   type NewJobDraft,
   readPersonalWorkspace,
+  upsertInterviewSession,
   upsertJobFile,
+  upsertReviewReport,
   writePersonalWorkspace
 } from './workflow/personalWorkspace';
 import { upsertAnswerAsset } from './workflow/runtimeAssets';
@@ -28,7 +36,14 @@ export default function App() {
   const [workspaceData, setWorkspaceData] = useState(() =>
     readPersonalWorkspace(
       getBrowserStorage(),
-      createPersonalWorkspaceData(initialJobFiles, initialAnswerAssets, initialJobFiles[0]?.id ?? '')
+      createPersonalWorkspaceData(
+        initialJobFiles,
+        initialAnswerAssets,
+        initialJobFiles[0]?.id ?? '',
+        new Date().toISOString(),
+        initialInterviewSessions,
+        initialReviewReports
+      )
     )
   );
 
@@ -72,6 +87,16 @@ export default function App() {
     }));
   }
 
+  function handleSaveInterviewRecord(session: InterviewSession, review: ReviewReport) {
+    setWorkspaceData((current) => ({
+      ...current,
+      interviewSessions: upsertInterviewSession(current.interviewSessions, session),
+      reviewReports: upsertReviewReport(current.reviewReports, review),
+      jobFiles: attachInterviewSessionToJob(current.jobFiles, session),
+      updatedAt: new Date().toISOString()
+    }));
+  }
+
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -97,15 +122,30 @@ export default function App() {
           selectedJobId={workspaceData.selectedJobId}
           onSelectJob={handleSelectJob}
           jobFiles={workspaceData.jobFiles}
+          interviewSessions={workspaceData.interviewSessions}
+          reviewReports={workspaceData.reviewReports}
           answerAssets={workspaceData.answerAssets}
           onCreateJob={handleCreateJob}
           onUpdateJob={handleUpdateJob}
+          onSaveInterviewRecord={handleSaveInterviewRecord}
           onSaveAsset={handleSaveAsset}
           onOpenAssets={() => setView('assets')}
         />
       )}
-      {view === 'assets' && <AssetsAndTraining answerAssets={workspaceData.answerAssets} jobFiles={workspaceData.jobFiles} />}
-      {view === 'growth' && <GrowthDashboard answerAssets={workspaceData.answerAssets} jobFiles={workspaceData.jobFiles} />}
+      {view === 'assets' && (
+        <AssetsAndTraining
+          answerAssets={workspaceData.answerAssets}
+          interviewSessions={workspaceData.interviewSessions}
+          jobFiles={workspaceData.jobFiles}
+        />
+      )}
+      {view === 'growth' && (
+        <GrowthDashboard
+          answerAssets={workspaceData.answerAssets}
+          jobFiles={workspaceData.jobFiles}
+          reviewReports={workspaceData.reviewReports}
+        />
+      )}
     </main>
   );
 }

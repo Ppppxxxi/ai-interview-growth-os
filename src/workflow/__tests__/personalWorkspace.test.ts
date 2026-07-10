@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { answerAssets, jobFiles } from '../../domain/sampleData';
+import { answerAssets, interviewSessions, jobFiles, reviewReports } from '../../domain/sampleData';
 import {
+  attachInterviewSessionToJob,
   createJobFileFromDraft,
   createPersonalWorkspaceData,
   PERSONAL_WORKSPACE_STORAGE_KEY,
   readPersonalWorkspace,
+  upsertInterviewSession,
   upsertJobFile,
+  upsertReviewReport,
   writePersonalWorkspace
 } from '../personalWorkspace';
 
@@ -45,6 +48,30 @@ describe('personalWorkspace', () => {
     expect(storage.getItem(PERSONAL_WORKSPACE_STORAGE_KEY)).toBe(JSON.stringify(data));
   });
 
+  it('hydrates old persisted data with fallback sessions and reviews', () => {
+    const oldPersisted = {
+      version: 1,
+      jobFiles,
+      answerAssets,
+      selectedJobId: jobFiles[0].id,
+      updatedAt: '2026-07-10T00:00:00.000Z'
+    };
+    const fallback = createPersonalWorkspaceData(
+      jobFiles,
+      answerAssets,
+      jobFiles[0].id,
+      '2026-07-10T00:00:00.000Z',
+      interviewSessions,
+      reviewReports
+    );
+    const storage = createMemoryStorage(JSON.stringify(oldPersisted));
+
+    const hydrated = readPersonalWorkspace(storage, fallback);
+
+    expect(hydrated.interviewSessions).toBe(interviewSessions);
+    expect(hydrated.reviewReports).toBe(reviewReports);
+  });
+
   it('creates a user job file from form input', () => {
     const job = createJobFileFromDraft(
       {
@@ -75,5 +102,22 @@ describe('personalWorkspace', () => {
 
     expect(upsertJobFile(jobFiles, nextJob)[0].status).toBe('已更新');
     expect(upsertJobFile(jobFiles, createJobFileFromDraft(nextJob, jobFiles.length, 1000))[0].id).toBe('job-user-4-rs');
+  });
+
+  it('upserts interview sessions and review reports', () => {
+    const nextSession = { ...interviewSessions[0], interviewType: '更新后的记录' };
+    const nextReport = { ...reviewReports[0], summary: '更新后的复盘' };
+
+    expect(upsertInterviewSession(interviewSessions, nextSession)[0].interviewType).toBe('更新后的记录');
+    expect(upsertReviewReport(reviewReports, nextReport)[0].summary).toBe('更新后的复盘');
+    expect(upsertInterviewSession(interviewSessions, { ...nextSession, id: 'new-session' })[0].id).toBe('new-session');
+  });
+
+  it('attaches a generated interview session to its job file', () => {
+    const session = { ...interviewSessions[0], id: 'session-new' };
+    const updatedJobs = attachInterviewSessionToJob(jobFiles, session);
+
+    expect(updatedJobs[0].interviewSessionIds[0]).toBe('session-new');
+    expect(updatedJobs[0].status).toBe('2 场面试记录');
   });
 });

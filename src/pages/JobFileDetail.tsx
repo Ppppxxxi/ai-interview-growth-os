@@ -3,7 +3,7 @@ import type { FormEvent } from 'react';
 import { analyzeJd } from '../agents/jdAnalyst';
 import { matchExperiences } from '../agents/experienceMatcher';
 import { generateMockInterview } from '../agents/mockInterview';
-import { coldStartDemo, experiences, interviewSessions, reviewReports, trainingTasks } from '../domain/sampleData';
+import { coldStartDemo, experiences, trainingTasks } from '../domain/sampleData';
 import type { AnswerAsset, InterviewSession, JobFile, ReviewReport } from '../domain/types';
 import { completeAnalysis, createWorkspaceState, saveGeneratedAsset, startAnalysis } from '../workflow/demoFlow';
 import { buildAnswerExplanation } from '../workflow/answerExplanation';
@@ -20,9 +20,12 @@ type JobFileDetailProps = {
   selectedJobId: string;
   onSelectJob: (jobId: string) => void;
   jobFiles: JobFile[];
+  interviewSessions: InterviewSession[];
+  reviewReports: ReviewReport[];
   answerAssets: AnswerAsset[];
   onCreateJob: (draft: NewJobDraft) => void;
   onUpdateJob: (job: JobFile) => void;
+  onSaveInterviewRecord: (session: InterviewSession, review: ReviewReport) => void;
   onSaveAsset: (asset: AnswerAsset) => void;
   onOpenAssets?: () => void;
 };
@@ -39,17 +42,31 @@ export function JobFileDetail({
   answerAssets,
   selectedJobId,
   jobFiles,
+  interviewSessions,
+  reviewReports,
   onCreateJob,
   onSaveAsset,
+  onSaveInterviewRecord,
   onSelectJob,
   onUpdateJob,
   onOpenAssets
 }: JobFileDetailProps) {
   const selectedJob = jobFiles.find((jobFile) => jobFile.id === selectedJobId) ?? jobFiles[0];
   const [newJobForm, setNewJobForm] = useState(emptyJobForm);
+  const jobSessions = useMemo(() => {
+    const sessionsById = new Map(interviewSessions.map((session) => [session.id, session]));
+    const linkedSessions = selectedJob.interviewSessionIds
+      .map((sessionId) => sessionsById.get(sessionId))
+      .filter((session): session is InterviewSession => Boolean(session));
+    const orphanSessions = interviewSessions.filter(
+      (session) => session.jobFileId === selectedJob.id && !selectedJob.interviewSessionIds.includes(session.id)
+    );
+
+    return [...linkedSessions, ...orphanSessions];
+  }, [interviewSessions, selectedJob.id, selectedJob.interviewSessionIds]);
   const primarySession = useMemo(
-    () => interviewSessions.find((session) => session.jobFileId === selectedJob.id) ?? createDraftSession(selectedJob),
-    [selectedJob]
+    () => jobSessions[0] ?? createDraftSession(selectedJob),
+    [jobSessions, selectedJob]
   );
   const primaryReview = useMemo(
     () => reviewReports.find((report) => report.sessionId === primarySession.id) ?? createDraftReview(selectedJob, primarySession),
@@ -102,11 +119,13 @@ export function JobFileDetail({
   });
 
   function handleGenerate() {
+    const runId = `generated-${Date.now().toString(36)}`;
     const generated = buildDemoPipelineResult({
       job: { ...selectedJob, jdText },
       conversationText,
       fallbackConversationText: coldStartDemo.importedConversation,
-      questionsOverride: hasUsableQuestion(editableQuestions) ? editableQuestions : undefined
+      questionsOverride: hasUsableQuestion(editableQuestions) ? editableQuestions : undefined,
+      runId
     });
     const generating = startAnalysis(workspaceState);
     setWorkspaceState(generating);
@@ -115,6 +134,7 @@ export function JobFileDetail({
       setGeneratedReview(generated.review);
       setGeneratedAsset(generated.asset);
       setEditableAnswer(generated.asset.improvedAnswer);
+      onSaveInterviewRecord(generated.session, generated.review);
       setWorkspaceState((current) =>
         completeAnalysis({
           ...current,
@@ -427,6 +447,28 @@ export function JobFileDetail({
       </main>
 
       <aside className="workspace-right">
+        <section className="side-panel">
+          <p className="eyebrow">该岗位面试记录</p>
+          <h2>{jobSessions.length} 场记录</h2>
+          <div className="interview-record-list">
+            {jobSessions.length > 0 ? (
+              jobSessions.slice(0, 5).map((session) => (
+                <article key={session.id}>
+                  <strong>{session.interviewType}</strong>
+                  <p>{session.questions[0]?.question ?? '暂无问题'}</p>
+                  <span>{session.createdAt}</span>
+                </article>
+              ))
+            ) : (
+              <article>
+                <strong>还没有面试记录</strong>
+                <p>生成复盘后，这里会保存本岗位的面试记录。</p>
+                <span>本地保存</span>
+              </article>
+            )}
+          </div>
+        </section>
+
         <section className="side-panel side-panel--asset">
           <p className="eyebrow">本岗位回答资产</p>
           <h2>{workspaceState.status === 'assetSaved' ? '已确认保存' : '待确认'}</h2>

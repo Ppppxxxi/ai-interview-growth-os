@@ -9,10 +9,12 @@ describe('buildDemoPipelineResult', () => {
       job,
       conversationText:
         '面试官：你如何评估一个 AI 面试成长产品是否有效？\n候选人：可以看用户满意度和使用次数。\n面试官追问：这些指标如何证明准备质量提升？\nAI 点评：回答过于泛化，缺少过程指标和复用指标。',
-      fallbackConversationText: ''
+      fallbackConversationText: '',
+      runId: 'test-run'
     });
 
     expect(result.session.jobFileId).toBe(job.id);
+    expect(result.session.id).toBe(`session-${job.id}-test-run`);
     expect(result.session.questions[0]?.question).toContain('AI 面试成长产品');
     expect(result.review.sessionId).toBe(result.session.id);
     expect(result.asset.sourceInterviewId).toBe(result.session.id);

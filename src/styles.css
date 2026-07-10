@@ -1457,11 +1457,29 @@ body {
   gap: 10px;
 }
 
+.interview-record-list {
+  display: grid;
+  gap: 10px;
+}
+
 .side-list article {
   border: 1px solid #e3e9f2;
   border-radius: 8px;
   padding: 12px;
   background: #fbfcfe;
+}
+
+.interview-record-list article {
+  border: 1px solid #e3e9f2;
+  border-radius: 8px;
+  padding: 12px;
+  background: #fbfcfe;
+}
+
+.interview-record-list p {
+  margin: 8px 0;
+  color: #53647d;
+  line-height: 1.6;
 }
 
 .side-list span {
@@ -1470,6 +1488,16 @@ body {
   padding: 4px 8px;
   color: #2f6fed;
   background: #eef4ff;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.interview-record-list span {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 4px 8px;
+  color: #65758f;
+  background: #eef2f7;
   font-size: 12px;
   font-weight: 800;
 }
