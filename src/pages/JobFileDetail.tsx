@@ -95,6 +95,7 @@ export function JobFileDetail({
   const [generatedAsset, setGeneratedAsset] = useState(primaryAsset);
   const [editableAnswer, setEditableAnswer] = useState(primaryAsset.improvedAnswer);
   const [editableQuestions, setEditableQuestions] = useState(() => createEditableQuestions(initialConversationText, primarySession.questions));
+  const [selectedRecordId, setSelectedRecordId] = useState(primarySession.id);
   const answerTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
@@ -106,6 +107,7 @@ export function JobFileDetail({
     setGeneratedAsset(primaryAsset);
     setEditableAnswer(primaryAsset.improvedAnswer);
     setEditableQuestions(createEditableQuestions(initialConversationText, primarySession.questions));
+    setSelectedRecordId(primarySession.id);
   }, [initialConversationText, initialState, primaryAsset, primaryReview, primarySession, selectedJob.jdText]);
 
   const linkedAssets = answerAssets.filter(
@@ -117,6 +119,11 @@ export function JobFileDetail({
     review: generatedReview,
     session: generatedSession
   });
+  const relatedRecordAssets = answerAssets.filter((asset) => asset.sourceInterviewId === generatedSession.id);
+  const detailAssets =
+    relatedRecordAssets.length > 0 || generatedAsset.sourceInterviewId !== generatedSession.id
+      ? relatedRecordAssets
+      : [generatedAsset];
 
   function handleGenerate() {
     const runId = `generated-${Date.now().toString(36)}`;
@@ -134,6 +141,7 @@ export function JobFileDetail({
       setGeneratedReview(generated.review);
       setGeneratedAsset(generated.asset);
       setEditableAnswer(generated.asset.improvedAnswer);
+      setSelectedRecordId(generated.session.id);
       onSaveInterviewRecord(generated.session, generated.review);
       setWorkspaceState((current) =>
         completeAnalysis({
@@ -152,6 +160,33 @@ export function JobFileDetail({
       improvedAnswer: editableAnswer
     });
     setWorkspaceState((current) => saveGeneratedAsset(current));
+  }
+
+  function handleSelectInterviewRecord(sessionId: string) {
+    const session = jobSessions.find((item) => item.id === sessionId);
+    if (!session) return;
+
+    const review = reviewReports.find((item) => item.sessionId === session.id) ?? createDraftReview(selectedJob, session);
+    const asset =
+      answerAssets.find((item) => item.sourceInterviewId === session.id) ??
+      createDraftAsset(selectedJob, session.id, review.id);
+    const rawConversation = session.rawConversation || '';
+
+    setSelectedRecordId(session.id);
+    setGeneratedSession(session);
+    setGeneratedReview(review);
+    setGeneratedAsset(asset);
+    setEditableAnswer(asset.improvedAnswer);
+    setConversationText(rawConversation);
+    setEditableQuestions(createEditableQuestions(rawConversation, session.questions));
+    setWorkspaceState(
+      completeAnalysis({
+        ...createWorkspaceState(selectedJob, session, review, asset),
+        session,
+        review,
+        generatedAsset: asset
+      })
+    );
   }
 
   function handleContinueEditing() {
@@ -355,6 +390,62 @@ export function JobFileDetail({
           ))}
         </section>
 
+        <section className="interview-detail-panel">
+          <div className="section-heading interview-detail-heading">
+            <div>
+              <p className="eyebrow">面试记录详情</p>
+              <h2>{generatedSession.interviewType}</h2>
+            </div>
+            <span>{generatedSession.createdAt}</span>
+          </div>
+          <div className="interview-detail-grid">
+            <div className="interview-question-detail">
+              {generatedSession.questions.map((question, index) => (
+                <article key={question.id}>
+                  <strong>问题 {index + 1}</strong>
+                  <h3>{question.question}</h3>
+                  <p>{question.answer}</p>
+                  {question.followUps.length > 0 && <span>追问：{question.followUps.join(' / ')}</span>}
+                  {question.feedback && <em>点评：{question.feedback}</em>}
+                </article>
+              ))}
+            </div>
+            <aside className="review-detail-card">
+              <strong>本场复盘</strong>
+              <p>{generatedReview.summary}</p>
+              <div>
+                <span>主要短板</span>
+                <ul>
+                  {generatedReview.weaknesses.map((weakness) => (
+                    <li key={weakness}>{weakness}</li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <span>下一步</span>
+                <ul>
+                  {generatedReview.nextActions.map((action) => (
+                    <li key={action}>{action}</li>
+                  ))}
+                </ul>
+              </div>
+            </aside>
+          </div>
+          <div className="record-asset-row">
+            <strong>关联回答资产</strong>
+            {detailAssets.length > 0 ? (
+              detailAssets.map((asset) => (
+                <article key={asset.id}>
+                  <span>{asset.questionType}</span>
+                  <p>{asset.improvedAnswer}</p>
+                </article>
+              ))
+            ) : (
+              <p>这场记录还没有保存回答资产。</p>
+            )}
+          </div>
+        </section>
+
         <section className="compare-panel">
           <div className="compare-card compare-card--original">
             <p className="eyebrow">原回答</p>
@@ -453,11 +544,16 @@ export function JobFileDetail({
           <div className="interview-record-list">
             {jobSessions.length > 0 ? (
               jobSessions.slice(0, 5).map((session) => (
-                <article key={session.id}>
+                <button
+                  className={session.id === selectedRecordId ? 'interview-record-item interview-record-item--active' : 'interview-record-item'}
+                  key={session.id}
+                  type="button"
+                  onClick={() => handleSelectInterviewRecord(session.id)}
+                >
                   <strong>{session.interviewType}</strong>
                   <p>{session.questions[0]?.question ?? '暂无问题'}</p>
                   <span>{session.createdAt}</span>
-                </article>
+                </button>
               ))
             ) : (
               <article>
