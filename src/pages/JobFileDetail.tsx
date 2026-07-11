@@ -26,6 +26,7 @@ type JobFileDetailProps = {
   onCreateJob: (draft: NewJobDraft) => void;
   onUpdateJob: (job: JobFile) => void;
   onSaveInterviewRecord: (session: InterviewSession, review: ReviewReport) => void;
+  onDeleteInterviewRecord: (sessionId: string) => void;
   onSaveAsset: (asset: AnswerAsset) => void;
   onOpenAssets?: () => void;
 };
@@ -45,6 +46,7 @@ export function JobFileDetail({
   interviewSessions,
   reviewReports,
   onCreateJob,
+  onDeleteInterviewRecord,
   onSaveAsset,
   onSaveInterviewRecord,
   onSelectJob,
@@ -124,6 +126,7 @@ export function JobFileDetail({
     relatedRecordAssets.length > 0 || generatedAsset.sourceInterviewId !== generatedSession.id
       ? relatedRecordAssets
       : [generatedAsset];
+  const canDeleteSelectedRecord = jobSessions.some((session) => session.id === selectedRecordId);
 
   function handleGenerate() {
     const runId = `generated-${Date.now().toString(36)}`;
@@ -187,6 +190,29 @@ export function JobFileDetail({
         generatedAsset: asset
       })
     );
+  }
+
+  function handleDeleteSelectedRecord() {
+    const nextSession = jobSessions.find((session) => session.id !== selectedRecordId);
+    onDeleteInterviewRecord(selectedRecordId);
+
+    if (nextSession) {
+      handleSelectInterviewRecord(nextSession.id);
+      return;
+    }
+
+    const draftSession = createDraftSession(selectedJob);
+    const draftReview = createDraftReview(selectedJob, draftSession);
+    const draftAsset = createDraftAsset(selectedJob, draftSession.id, draftReview.id);
+
+    setSelectedRecordId(draftSession.id);
+    setGeneratedSession(draftSession);
+    setGeneratedReview(draftReview);
+    setGeneratedAsset(draftAsset);
+    setEditableAnswer(draftAsset.improvedAnswer);
+    setConversationText('');
+    setEditableQuestions(createEditableQuestions('', draftSession.questions));
+    setWorkspaceState(createWorkspaceState(selectedJob, draftSession, draftReview, draftAsset));
   }
 
   function handleContinueEditing() {
@@ -396,7 +422,14 @@ export function JobFileDetail({
               <p className="eyebrow">面试记录详情</p>
               <h2>{generatedSession.interviewType}</h2>
             </div>
-            <span>{generatedSession.createdAt}</span>
+            <div className="interview-detail-actions">
+              <span>{generatedSession.createdAt}</span>
+              {canDeleteSelectedRecord && (
+                <button className="danger-action" type="button" onClick={handleDeleteSelectedRecord}>
+                  删除这场记录
+                </button>
+              )}
+            </div>
           </div>
           <div className="interview-detail-grid">
             <div className="interview-question-detail">

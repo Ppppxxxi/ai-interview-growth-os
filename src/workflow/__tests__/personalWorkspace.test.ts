@@ -6,6 +6,7 @@ import {
   createPersonalWorkspaceData,
   PERSONAL_WORKSPACE_STORAGE_KEY,
   readPersonalWorkspace,
+  removeInterviewRecord,
   upsertInterviewSession,
   upsertJobFile,
   upsertReviewReport,
@@ -119,5 +120,32 @@ describe('personalWorkspace', () => {
 
     expect(updatedJobs[0].interviewSessionIds[0]).toBe('session-new');
     expect(updatedJobs[0].status).toBe('2 场面试记录');
+  });
+
+  it('removes an interview record and its linked review and answer assets', () => {
+    const session = { ...interviewSessions[0], id: 'session-to-delete' };
+    const review = { ...reviewReports[0], id: 'review-to-delete', sessionId: session.id };
+    const asset = { ...answerAssets[0], id: 'asset-to-delete', sourceInterviewId: session.id, sourceReviewId: review.id };
+    const job = {
+      ...jobFiles[0],
+      interviewSessionIds: [session.id],
+      status: '1 场面试记录'
+    };
+    const workspace = createPersonalWorkspaceData(
+      [job, ...jobFiles.slice(1)],
+      [asset, ...answerAssets],
+      job.id,
+      '2026-07-10T00:00:00.000Z',
+      [session, ...interviewSessions],
+      [review, ...reviewReports]
+    );
+
+    const nextWorkspace = removeInterviewRecord(workspace, session.id);
+
+    expect(nextWorkspace.interviewSessions.some((item) => item.id === session.id)).toBe(false);
+    expect(nextWorkspace.reviewReports.some((item) => item.sessionId === session.id)).toBe(false);
+    expect(nextWorkspace.answerAssets.some((item) => item.sourceInterviewId === session.id)).toBe(false);
+    expect(nextWorkspace.jobFiles[0].interviewSessionIds).toEqual([]);
+    expect(nextWorkspace.jobFiles[0].status).toBe('待导入面试对话');
   });
 });

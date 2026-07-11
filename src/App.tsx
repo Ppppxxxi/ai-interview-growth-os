@@ -16,6 +16,7 @@ import {
   getBrowserStorage,
   type NewJobDraft,
   readPersonalWorkspace,
+  removeInterviewRecord,
   upsertInterviewSession,
   upsertJobFile,
   upsertReviewReport,
@@ -97,6 +98,10 @@ export default function App() {
     }));
   }
 
+  function handleDeleteInterviewRecord(sessionId: string) {
+    setWorkspaceData((current) => removeInterviewRecord(current, sessionId));
+  }
+
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -128,6 +133,7 @@ export default function App() {
           onCreateJob={handleCreateJob}
           onUpdateJob={handleUpdateJob}
           onSaveInterviewRecord={handleSaveInterviewRecord}
+          onDeleteInterviewRecord={handleDeleteInterviewRecord}
           onSaveAsset={handleSaveAsset}
           onOpenAssets={() => setView('assets')}
         />

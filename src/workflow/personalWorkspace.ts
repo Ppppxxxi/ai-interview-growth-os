@@ -128,6 +128,30 @@ export function attachInterviewSessionToJob(jobFiles: JobFile[], session: Interv
   });
 }
 
+export function removeInterviewRecord(data: PersonalWorkspaceData, sessionId: string): PersonalWorkspaceData {
+  const targetSession = data.interviewSessions.find((session) => session.id === sessionId);
+  const nextJobFiles = data.jobFiles.map((job) => {
+    const nextSessionIds = job.interviewSessionIds.filter((id) => id !== sessionId);
+    if (nextSessionIds.length === job.interviewSessionIds.length) return job;
+
+    return {
+      ...job,
+      status: nextSessionIds.length > 0 ? `${nextSessionIds.length} 场面试记录` : '待导入面试对话',
+      interviewSessionIds: nextSessionIds
+    };
+  });
+
+  return {
+    ...data,
+    jobFiles: nextJobFiles,
+    interviewSessions: data.interviewSessions.filter((session) => session.id !== sessionId),
+    reviewReports: data.reviewReports.filter((review) => review.sessionId !== sessionId),
+    answerAssets: data.answerAssets.filter((asset) => asset.sourceInterviewId !== sessionId),
+    selectedJobId: targetSession?.jobFileId ?? data.selectedJobId,
+    updatedAt: new Date().toISOString()
+  };
+}
+
 function isPersonalWorkspaceData(value: unknown): value is PersonalWorkspaceData {
   if (!value || typeof value !== 'object') return false;
 
