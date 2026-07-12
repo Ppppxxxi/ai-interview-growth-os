@@ -31,10 +31,18 @@ type JobFileDetailProps = {
   answerAssets: AnswerAsset[];
   onCreateJob: (draft: NewJobDraft) => void;
   onUpdateJob: (job: JobFile) => void;
+  onDeleteJob: (jobId: string) => void;
   onSaveInterviewRecord: (session: InterviewSession, review: ReviewReport) => void;
   onDeleteInterviewRecord: (sessionId: string) => void;
   onSaveAsset: (asset: AnswerAsset) => void;
   onOpenAssets?: () => void;
+};
+
+type JobEditDraft = {
+  company: string;
+  roleTitle: string;
+  direction: string;
+  stage: string;
 };
 
 const emptyJobForm: NewJobDraft = {
@@ -52,6 +60,7 @@ export function JobFileDetail({
   interviewSessions,
   reviewReports,
   onCreateJob,
+  onDeleteJob,
   onDeleteInterviewRecord,
   onSaveAsset,
   onSaveInterviewRecord,
@@ -61,6 +70,7 @@ export function JobFileDetail({
 }: JobFileDetailProps) {
   const selectedJob = jobFiles.find((jobFile) => jobFile.id === selectedJobId) ?? jobFiles[0];
   const [newJobForm, setNewJobForm] = useState(emptyJobForm);
+  const [jobEditForm, setJobEditForm] = useState<JobEditDraft>(() => createJobEditDraft(selectedJob));
   const jobSessions = useMemo(() => {
     const sessionsById = new Map(interviewSessions.map((session) => [session.id, session]));
     const linkedSessions = selectedJob.interviewSessionIds
@@ -107,6 +117,7 @@ export function JobFileDetail({
   const answerTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
+    setJobEditForm(createJobEditDraft(selectedJob));
     setWorkspaceState(initialState);
     setJdText(selectedJob.jdText);
     setConversationText(initialConversationText);
@@ -116,7 +127,7 @@ export function JobFileDetail({
     setEditableAnswer(primaryAsset.improvedAnswer);
     setEditableQuestions(createEditableQuestions(initialConversationText, primarySession.questions));
     setSelectedRecordId(primarySession.id);
-  }, [initialConversationText, initialState, primaryAsset, primaryReview, primarySession, selectedJob.jdText]);
+  }, [initialConversationText, initialState, primaryAsset, primaryReview, primarySession, selectedJob]);
 
   const linkedAssets = answerAssets.filter(
     (asset) => asset.sourceJobId === selectedJob.id || asset.applicableRoles.includes(selectedJob.direction)
@@ -284,13 +295,33 @@ export function JobFileDetail({
     setEditableQuestions((current) => updateQuestionFollowUps(current, questionId, value));
   }
 
+  function handleJobEditChange(field: keyof JobEditDraft, value: string) {
+    setJobEditForm((current) => ({
+      ...current,
+      [field]: value
+    }));
+  }
+
   function handleSaveCurrentJob() {
+    const direction = jobEditForm.direction.trim() || selectedJob.direction;
     onUpdateJob({
       ...selectedJob,
+      company: jobEditForm.company.trim() || selectedJob.company,
+      roleTitle: jobEditForm.roleTitle.trim() || selectedJob.roleTitle,
+      direction,
+      stage: jobEditForm.stage.trim() || selectedJob.stage,
       jdText,
-      profile: analyzeJd(jdText, selectedJob.direction),
+      profile: analyzeJd(jdText, direction),
       status: selectedJob.status === '待导入面试对话' ? '已保存 JD，待导入面试对话' : selectedJob.status
     });
+  }
+
+  function handleDeleteCurrentJob() {
+    if (jobFiles.length <= 1) return;
+    const confirmed = window.confirm(`删除「${selectedJob.company} ${selectedJob.roleTitle}」及其面试记录、复盘和回答资产？`);
+    if (confirmed) {
+      onDeleteJob(selectedJob.id);
+    }
   }
 
   function handleNewJobChange(field: keyof NewJobDraft, value: string) {
@@ -368,6 +399,40 @@ export function JobFileDetail({
           <button className="primary-action" type="button" onClick={handleGenerate} disabled={workspaceState.status === 'generating'}>
             {workspaceState.status === 'generating' ? '正在生成...' : '生成复盘与优化回答'}
           </button>
+        </section>
+
+        <section className="job-edit-panel">
+          <div className="section-heading">
+            <p className="eyebrow">岗位档案</p>
+            <h2>编辑当前岗位信息</h2>
+          </div>
+          <div className="job-edit-grid">
+            <label>
+              <span>公司</span>
+              <input value={jobEditForm.company} onChange={(event) => handleJobEditChange('company', event.target.value)} />
+            </label>
+            <label>
+              <span>岗位</span>
+              <input value={jobEditForm.roleTitle} onChange={(event) => handleJobEditChange('roleTitle', event.target.value)} />
+            </label>
+            <label>
+              <span>方向</span>
+              <input value={jobEditForm.direction} onChange={(event) => handleJobEditChange('direction', event.target.value)} />
+            </label>
+            <label>
+              <span>阶段</span>
+              <input value={jobEditForm.stage} onChange={(event) => handleJobEditChange('stage', event.target.value)} />
+            </label>
+          </div>
+          <div className="job-edit-actions">
+            <button className="secondary-action" type="button" onClick={handleSaveCurrentJob}>
+              保存岗位信息
+            </button>
+            <button className="danger-action" type="button" onClick={handleDeleteCurrentJob} disabled={jobFiles.length <= 1}>
+              删除当前岗位
+            </button>
+            {jobFiles.length <= 1 && <span>至少保留一个岗位档案。</span>}
+          </div>
         </section>
 
         <section className="input-helper-panel">
@@ -742,6 +807,15 @@ function upsertById(assets: AnswerAsset[]) {
     seen.add(asset.id);
     return true;
   });
+}
+
+function createJobEditDraft(job: JobFile): JobEditDraft {
+  return {
+    company: job.company,
+    roleTitle: job.roleTitle,
+    direction: job.direction,
+    stage: job.stage
+  };
 }
 
 function InfoList({ title, items }: { title: string; items: string[] }) {

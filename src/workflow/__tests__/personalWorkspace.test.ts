@@ -6,6 +6,7 @@ import {
   createPersonalWorkspaceData,
   PERSONAL_WORKSPACE_STORAGE_KEY,
   readPersonalWorkspace,
+  removeJobFile,
   removeInterviewRecord,
   upsertInterviewSession,
   upsertJobFile,
@@ -147,5 +148,44 @@ describe('personalWorkspace', () => {
     expect(nextWorkspace.answerAssets.some((item) => item.sourceInterviewId === session.id)).toBe(false);
     expect(nextWorkspace.jobFiles[0].interviewSessionIds).toEqual([]);
     expect(nextWorkspace.jobFiles[0].status).toBe('待导入面试对话');
+  });
+  it('removes a job file and all records linked to that job', () => {
+    const jobToDelete = jobFiles[0];
+    const session = { ...interviewSessions[0], id: 'session-delete-job', jobFileId: jobToDelete.id };
+    const review = { ...reviewReports[0], id: 'review-delete-job', sessionId: session.id, jobFileId: jobToDelete.id };
+    const directAsset = {
+      ...answerAssets[0],
+      id: 'asset-delete-job',
+      sourceJobId: jobToDelete.id,
+      sourceInterviewId: session.id,
+      sourceReviewId: review.id
+    };
+    const feedbackLinkedAsset = {
+      ...answerAssets[1],
+      id: 'asset-used-for-deleted-job',
+      sourceJobId: jobFiles[1].id,
+      usageFeedback: {
+        status: 'used-effective' as const,
+        usedForJobId: jobToDelete.id,
+        updatedAt: '2026-07-12T00:00:00.000Z'
+      }
+    };
+    const workspace = createPersonalWorkspaceData(
+      jobFiles,
+      [directAsset, feedbackLinkedAsset, ...answerAssets],
+      jobToDelete.id,
+      '2026-07-10T00:00:00.000Z',
+      [session, ...interviewSessions],
+      [review, ...reviewReports]
+    );
+
+    const nextWorkspace = removeJobFile(workspace, jobToDelete.id);
+
+    expect(nextWorkspace.jobFiles.some((job) => job.id === jobToDelete.id)).toBe(false);
+    expect(nextWorkspace.interviewSessions.some((item) => item.jobFileId === jobToDelete.id)).toBe(false);
+    expect(nextWorkspace.reviewReports.some((item) => item.jobFileId === jobToDelete.id)).toBe(false);
+    expect(nextWorkspace.answerAssets.some((item) => item.sourceJobId === jobToDelete.id)).toBe(false);
+    expect(nextWorkspace.answerAssets.some((item) => item.usageFeedback?.usedForJobId === jobToDelete.id)).toBe(false);
+    expect(nextWorkspace.selectedJobId).toBe(jobFiles[1].id);
   });
 });

@@ -1116,6 +1116,66 @@ body {
   line-height: 1.65;
 }
 
+.job-edit-panel {
+  display: grid;
+  gap: 14px;
+  padding: 18px 20px;
+}
+
+.job-edit-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.job-edit-grid label {
+  display: grid;
+  gap: 7px;
+  color: #40516a;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.job-edit-grid input {
+  width: 100%;
+  border: 1px solid #d7dfeb;
+  border-radius: 8px;
+  padding: 9px 10px;
+  color: #172033;
+  background: #ffffff;
+}
+
+.job-edit-grid input:focus {
+  outline: 2px solid rgba(47, 111, 237, 0.18);
+  border-color: #2f6fed;
+}
+
+.job-edit-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.job-edit-actions .secondary-action {
+  border: 1px solid #cfd9e8;
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #2f6fed;
+  background: #eef4ff;
+  font-weight: 800;
+}
+
+.job-edit-actions span {
+  color: #65758f;
+  font-size: 13px;
+}
+
+.job-edit-actions .danger-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
 .input-helper-actions {
   display: flex;
   align-items: center;
@@ -1947,6 +2007,15 @@ body {
     flex-direction: column;
   }
 
+  .job-edit-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .job-edit-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .library-header {
     flex-direction: column;
   }
@@ -1976,6 +2045,7 @@ body {
   }
 
   .interview-detail-actions,
+  .job-edit-actions .secondary-action,
   .library-header-actions .secondary-action,
   .library-header-actions .ghost-action,
   .danger-action {

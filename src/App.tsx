@@ -16,6 +16,7 @@ import {
   getBrowserStorage,
   type NewJobDraft,
   readPersonalWorkspace,
+  removeJobFile,
   removeInterviewRecord,
   upsertInterviewSession,
   upsertJobFile,
@@ -88,6 +89,13 @@ export default function App() {
     }));
   }
 
+  function handleDeleteJob(jobId: string) {
+    setWorkspaceData((current) => {
+      if (current.jobFiles.length <= 1) return current;
+      return removeJobFile(current, jobId);
+    });
+  }
+
   function handleSaveInterviewRecord(session: InterviewSession, review: ReviewReport) {
     setWorkspaceData((current) => ({
       ...current,
@@ -132,6 +140,7 @@ export default function App() {
           answerAssets={workspaceData.answerAssets}
           onCreateJob={handleCreateJob}
           onUpdateJob={handleUpdateJob}
+          onDeleteJob={handleDeleteJob}
           onSaveInterviewRecord={handleSaveInterviewRecord}
           onDeleteInterviewRecord={handleDeleteInterviewRecord}
           onSaveAsset={handleSaveAsset}

@@ -152,6 +152,30 @@ export function removeInterviewRecord(data: PersonalWorkspaceData, sessionId: st
   };
 }
 
+export function removeJobFile(data: PersonalWorkspaceData, jobId: string): PersonalWorkspaceData {
+  const removedSessionIds = new Set(
+    data.interviewSessions.filter((session) => session.jobFileId === jobId).map((session) => session.id)
+  );
+  const nextJobFiles = data.jobFiles.filter((job) => job.id !== jobId);
+
+  return {
+    ...data,
+    jobFiles: nextJobFiles,
+    interviewSessions: data.interviewSessions.filter((session) => session.jobFileId !== jobId),
+    reviewReports: data.reviewReports.filter(
+      (review) => review.jobFileId !== jobId && !removedSessionIds.has(review.sessionId)
+    ),
+    answerAssets: data.answerAssets.filter(
+      (asset) =>
+        asset.sourceJobId !== jobId &&
+        !removedSessionIds.has(asset.sourceInterviewId) &&
+        asset.usageFeedback?.usedForJobId !== jobId
+    ),
+    selectedJobId: data.selectedJobId === jobId ? nextJobFiles[0]?.id ?? '' : data.selectedJobId,
+    updatedAt: new Date().toISOString()
+  };
+}
+
 function isPersonalWorkspaceData(value: unknown): value is PersonalWorkspaceData {
   if (!value || typeof value !== 'object') return false;
 
