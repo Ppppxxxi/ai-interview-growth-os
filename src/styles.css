@@ -796,6 +796,7 @@ h3 {
   font-weight: 700;
 }
 
+.filter-panel input,
 .filter-panel select {
   width: 100%;
   border: 1px solid #d7dfeb;
@@ -1176,6 +1177,7 @@ body {
 .workspace-inputs textarea:focus,
 .parsed-question-card textarea:focus,
 .compare-card textarea:focus,
+.filter-panel input:focus,
 .filter-panel select:focus {
   outline: 2px solid rgba(47, 111, 237, 0.18);
   border-color: #2f6fed;
@@ -1663,6 +1665,37 @@ body {
   box-shadow: 0 14px 36px rgba(23, 32, 51, 0.045);
 }
 
+.filter-search {
+  grid-column: span 2;
+}
+
+.filter-actions {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.filter-actions span {
+  color: #65758f;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.filter-actions .ghost-action {
+  border: 1px solid #cfd9e8;
+  border-radius: 8px;
+  padding: 9px 12px;
+  color: #53647d;
+  background: #ffffff;
+  font-weight: 800;
+}
+
+.filter-actions .ghost-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
 .library-layout {
   display: grid;
   grid-template-columns: 300px minmax(0, 1fr) 320px;
@@ -1712,6 +1745,15 @@ body {
   margin-top: 8px;
   color: #65758f;
   font-size: 12px;
+}
+
+.asset-index-item em {
+  display: block;
+  margin-top: 8px;
+  color: #2f6fed;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
 }
 
 .asset-index-item--active {
@@ -1773,6 +1815,15 @@ body {
   .workspace-sidebar,
   .asset-index {
     position: static;
+  }
+
+  .filter-search {
+    grid-column: auto;
+  }
+
+  .filter-actions {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .workspace-header {
