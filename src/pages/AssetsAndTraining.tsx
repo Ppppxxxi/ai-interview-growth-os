@@ -9,11 +9,13 @@ import {
   type AssetSearchFilters,
   type AssetUsageFilter
 } from '../workflow/assetSearch';
+import { getAssetUsageStatus, usageStatusLabels } from '../workflow/assetUsageFeedback';
 
 type AssetsAndTrainingProps = {
   answerAssets: AnswerAsset[];
   interviewSessions: InterviewSession[];
   jobFiles: JobFile[];
+  onUpdateAsset: (asset: AnswerAsset) => void;
 };
 
 type FilterOption = {
@@ -21,7 +23,7 @@ type FilterOption = {
   label: string;
 };
 
-export function AssetsAndTraining({ answerAssets, interviewSessions, jobFiles }: AssetsAndTrainingProps) {
+export function AssetsAndTraining({ answerAssets, interviewSessions, jobFiles, onUpdateAsset }: AssetsAndTrainingProps) {
   const [filters, setFilters] = useState<AssetSearchFilters>(() => getDefaultAssetSearchFilters());
   const [selectedAssetId, setSelectedAssetId] = useState(answerAssets[0]?.id ?? '');
 
@@ -138,7 +140,9 @@ export function AssetsAndTraining({ answerAssets, interviewSessions, jobFiles }:
               >
                 <strong>{asset.questionType}</strong>
                 <span>{asset.originalQuestion}</span>
-                <small>{asset.usedInInterview ? '已复用' : '待验证'} · {asset.confidence === 'high' ? '高置信' : '中置信'}</small>
+                <small>
+                  {usageStatusLabels[getAssetUsageStatus(asset)]} · {asset.confidence === 'high' ? '高置信' : '中置信'}
+                </small>
                 {matchedFields.length > 0 && <em>匹配：{matchedFields.join('、')}</em>}
               </button>
             ))}
@@ -149,8 +153,11 @@ export function AssetsAndTraining({ answerAssets, interviewSessions, jobFiles }:
           {selectedAsset ? (
             <AnswerAssetCard
               asset={selectedAsset}
+              jobFiles={jobFiles}
+              interviewSessions={interviewSessions}
               sourceInterview={interviewSessions.find((session) => session.id === selectedAsset.sourceInterviewId)}
               sourceJob={jobFiles.find((job) => job.id === selectedAsset.sourceJobId)}
+              onUpdateAsset={onUpdateAsset}
             />
           ) : (
             <section className="empty-panel">

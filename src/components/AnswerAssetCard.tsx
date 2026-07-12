@@ -1,7 +1,17 @@
-import type { AnswerAsset, InterviewSession, JobFile } from '../domain/types';
+import { useEffect, useState } from 'react';
+import type { AnswerAsset, AnswerAssetUsageStatus, InterviewSession, JobFile } from '../domain/types';
+import {
+  getAssetUsageStatus,
+  updateAnswerAssetUsageFeedback,
+  usageStatusLabels,
+  type AssetUsageFeedbackDraft
+} from '../workflow/assetUsageFeedback';
 
 type AnswerAssetCardProps = {
   asset: AnswerAsset;
+  interviewSessions: InterviewSession[];
+  jobFiles: JobFile[];
+  onUpdateAsset: (asset: AnswerAsset) => void;
   sourceJob?: JobFile;
   sourceInterview?: InterviewSession;
 };
@@ -12,7 +22,42 @@ const confidenceLabels: Record<AnswerAsset['confidence'], string> = {
   low: '待验证'
 };
 
-export function AnswerAssetCard({ asset, sourceInterview, sourceJob }: AnswerAssetCardProps) {
+const usageStatusOptions: AnswerAssetUsageStatus[] = ['unused', 'used-effective', 'used-needs-polish', 'needs-rewrite'];
+
+export function AnswerAssetCard({
+  asset,
+  interviewSessions,
+  jobFiles,
+  onUpdateAsset,
+  sourceInterview,
+  sourceJob
+}: AnswerAssetCardProps) {
+  const [feedbackDraft, setFeedbackDraft] = useState<AssetUsageFeedbackDraft>(() => createFeedbackDraft(asset));
+
+  useEffect(() => {
+    setFeedbackDraft(createFeedbackDraft(asset));
+  }, [asset]);
+
+  const visibleInterviewSessions = interviewSessions.filter(
+    (session) => !feedbackDraft.usedForJobId || session.jobFileId === feedbackDraft.usedForJobId
+  );
+
+  function updateDraft<Key extends keyof AssetUsageFeedbackDraft>(key: Key, value: AssetUsageFeedbackDraft[Key]) {
+    setFeedbackDraft((current) => ({ ...current, [key]: value }));
+  }
+
+  function handleStatusChange(status: AnswerAssetUsageStatus) {
+    setFeedbackDraft((current) => ({
+      ...current,
+      status,
+      usedAt: status === 'unused' ? undefined : current.usedAt || new Date().toISOString().slice(0, 10)
+    }));
+  }
+
+  function handleSaveFeedback() {
+    onUpdateAsset(updateAnswerAssetUsageFeedback(asset, feedbackDraft));
+  }
+
   return (
     <article className="asset-card asset-card--prioritized">
       <header>
@@ -31,6 +76,96 @@ export function AnswerAssetCard({ asset, sourceInterview, sourceJob }: AnswerAss
       <section className="asset-section asset-section--issue">
         <strong>具体问题点</strong>
         <p>{asset.issue}</p>
+      </section>
+
+      <section className="asset-feedback-panel">
+        <div className="asset-feedback-heading">
+          <div>
+            <p className="eyebrow">使用反馈</p>
+            <h4>{usageStatusLabels[getAssetUsageStatus(asset)]}</h4>
+          </div>
+          <button type="button" className="secondary-action" onClick={handleSaveFeedback}>
+            保存反馈
+          </button>
+        </div>
+
+        <div className="asset-feedback-grid">
+          <label>
+            <span>使用结果</span>
+            <select value={feedbackDraft.status} onChange={(event) => handleStatusChange(event.target.value as AnswerAssetUsageStatus)}>
+              {usageStatusOptions.map((status) => (
+                <option key={status} value={status}>
+                  {usageStatusLabels[status]}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            <span>使用日期</span>
+            <input
+              type="date"
+              value={feedbackDraft.usedAt ?? ''}
+              disabled={feedbackDraft.status === 'unused'}
+              onChange={(event) => updateDraft('usedAt', event.target.value)}
+            />
+          </label>
+
+          <label>
+            <span>用于哪个岗位</span>
+            <select
+              value={feedbackDraft.usedForJobId ?? ''}
+              disabled={feedbackDraft.status === 'unused'}
+              onChange={(event) => {
+                updateDraft('usedForJobId', event.target.value || undefined);
+                updateDraft('usedForInterviewId', undefined);
+              }}
+            >
+              <option value="">未选择</option>
+              {jobFiles.map((job) => (
+                <option key={job.id} value={job.id}>
+                  {job.company} · {job.roleTitle}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            <span>关联面试记录</span>
+            <select
+              value={feedbackDraft.usedForInterviewId ?? ''}
+              disabled={feedbackDraft.status === 'unused'}
+              onChange={(event) => updateDraft('usedForInterviewId', event.target.value || undefined)}
+            >
+              <option value="">未选择</option>
+              {visibleInterviewSessions.map((session) => (
+                <option key={session.id} value={session.id}>
+                  {session.interviewType} · {session.createdAt}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <label className="asset-feedback-field">
+          <span>面试官追问</span>
+          <textarea
+            value={feedbackDraft.interviewerFollowUp ?? ''}
+            disabled={feedbackDraft.status === 'unused'}
+            placeholder="记录这条回答被追问了什么，方便下次补强"
+            onChange={(event) => updateDraft('interviewerFollowUp', event.target.value)}
+          />
+        </label>
+
+        <label className="asset-feedback-field">
+          <span>使用后复盘</span>
+          <textarea
+            value={feedbackDraft.outcomeNote ?? ''}
+            disabled={feedbackDraft.status === 'unused'}
+            placeholder="例如：框架可用，但需要补一个真实项目指标"
+            onChange={(event) => updateDraft('outcomeNote', event.target.value)}
+          />
+        </label>
       </section>
 
       <details className="asset-card__original">
@@ -58,7 +193,7 @@ export function AnswerAssetCard({ asset, sourceInterview, sourceJob }: AnswerAss
           ))}
           <span>{asset.weaknessTag}</span>
           <span>{asset.reuseScope}</span>
-          <span>{asset.usedInInterview ? '已在面试中使用' : '待实战验证'}</span>
+          <span>{usageStatusLabels[getAssetUsageStatus(asset)]}</span>
         </div>
 
         <section className="asset-section">
@@ -72,4 +207,15 @@ export function AnswerAssetCard({ asset, sourceInterview, sourceJob }: AnswerAss
       </details>
     </article>
   );
+}
+
+function createFeedbackDraft(asset: AnswerAsset): AssetUsageFeedbackDraft {
+  return {
+    status: getAssetUsageStatus(asset),
+    usedAt: asset.usageFeedback?.usedAt,
+    usedForJobId: asset.usageFeedback?.usedForJobId ?? asset.sourceJobId,
+    usedForInterviewId: asset.usageFeedback?.usedForInterviewId,
+    interviewerFollowUp: asset.usageFeedback?.interviewerFollowUp,
+    outcomeNote: asset.usageFeedback?.outcomeNote
+  };
 }

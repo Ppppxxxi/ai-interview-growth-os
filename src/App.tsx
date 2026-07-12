@@ -143,6 +143,7 @@ export default function App() {
           answerAssets={workspaceData.answerAssets}
           interviewSessions={workspaceData.interviewSessions}
           jobFiles={workspaceData.jobFiles}
+          onUpdateAsset={handleSaveAsset}
         />
       )}
       {view === 'growth' && (

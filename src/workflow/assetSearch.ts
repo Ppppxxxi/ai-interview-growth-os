@@ -1,4 +1,5 @@
 import type { AnswerAsset, JobFile } from '../domain/types';
+import { getAssetUsageStatus } from './assetUsageFeedback';
 
 export type AssetUsageFilter = 'all' | 'used' | 'unused';
 
@@ -28,6 +29,11 @@ const fieldWeights: Array<{
   { label: '优化回答', weight: 5, getText: (asset) => asset.improvedAnswer },
   { label: '问题点', weight: 4, getText: (asset) => asset.issue },
   { label: '使用建议', weight: 3, getText: (asset) => asset.usageNote },
+  {
+    label: '使用反馈',
+    weight: 3,
+    getText: (asset) => `${asset.usageFeedback?.outcomeNote ?? ''} ${asset.usageFeedback?.interviewerFollowUp ?? ''}`
+  },
   { label: '问题类型', weight: 3, getText: (asset) => asset.questionType },
   { label: '能力短板', weight: 3, getText: (asset) => asset.weaknessTag },
   { label: '岗位方向', weight: 2, getText: (asset) => asset.applicableRoles.join(' ') },
@@ -48,7 +54,9 @@ export function searchAnswerAssets(
     .filter((result) => !normalizedQuery || result.score > 0)
     .sort((left, right) => {
       if (right.score !== left.score) return right.score - left.score;
-      if (left.asset.usedInInterview !== right.asset.usedInInterview) return left.asset.usedInInterview ? -1 : 1;
+      const leftUsed = getAssetUsageStatus(left.asset) !== 'unused';
+      const rightUsed = getAssetUsageStatus(right.asset) !== 'unused';
+      if (leftUsed !== rightUsed) return leftUsed ? -1 : 1;
       return confidenceRank(right.asset.confidence) - confidenceRank(left.asset.confidence);
     });
 }
@@ -73,8 +81,8 @@ function matchesFilters(asset: AnswerAsset, filters: AssetSearchFilters) {
   const matchesSourceJob = filters.sourceJobId === 'all' || asset.sourceJobId === filters.sourceJobId;
   const matchesUsage =
     filters.usageStatus === 'all' ||
-    (filters.usageStatus === 'used' && asset.usedInInterview) ||
-    (filters.usageStatus === 'unused' && !asset.usedInInterview);
+    (filters.usageStatus === 'used' && getAssetUsageStatus(asset) !== 'unused') ||
+    (filters.usageStatus === 'unused' && getAssetUsageStatus(asset) === 'unused');
 
   return matchesDirection && matchesType && matchesWeakness && matchesConfidence && matchesSourceJob && matchesUsage;
 }

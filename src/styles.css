@@ -1773,6 +1773,84 @@ body {
   color: #27354a;
 }
 
+.asset-feedback-panel {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+  border: 1px solid #d8e5fb;
+  border-radius: 8px;
+  padding: 16px;
+  background: #f7fbff;
+}
+
+.asset-feedback-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.asset-feedback-heading h4 {
+  margin: 2px 0 0;
+  color: #172033;
+  font-size: 16px;
+}
+
+.asset-feedback-heading .secondary-action {
+  border: 1px solid #c4d7fb;
+  border-radius: 8px;
+  padding: 9px 12px;
+  color: #2f6fed;
+  background: #ffffff;
+  font-weight: 800;
+}
+
+.asset-feedback-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.asset-feedback-grid label,
+.asset-feedback-field {
+  display: grid;
+  gap: 7px;
+  color: #40516a;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.asset-feedback-grid input,
+.asset-feedback-grid select,
+.asset-feedback-field textarea {
+  width: 100%;
+  border: 1px solid #d7dfeb;
+  border-radius: 8px;
+  padding: 9px 10px;
+  color: #172033;
+  background: #ffffff;
+}
+
+.asset-feedback-field textarea {
+  min-height: 78px;
+  resize: vertical;
+  line-height: 1.6;
+}
+
+.asset-feedback-grid input:disabled,
+.asset-feedback-grid select:disabled,
+.asset-feedback-field textarea:disabled {
+  color: #8a97aa;
+  background: #eef2f7;
+}
+
+.asset-feedback-grid input:focus,
+.asset-feedback-grid select:focus,
+.asset-feedback-field textarea:focus {
+  outline: 2px solid rgba(47, 111, 237, 0.18);
+  border-color: #2f6fed;
+}
+
 .library-training .asset-list {
   max-height: calc(100vh - 250px);
   overflow: auto;
@@ -1873,6 +1951,15 @@ body {
   }
 
   .explanation-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .asset-feedback-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .asset-feedback-grid {
     grid-template-columns: 1fr;
   }
 }
