@@ -1,6 +1,6 @@
 # Agent contracts / LLM 替换方案
 
-当前 v0.1 使用 deterministic mock agent，目标是让 GitHub Demo 无需 API Key、无需真实用户数据即可稳定运行。真实上线版本应保持下列输入输出合约不变，把内部实现从规则函数替换为 LLM 调用。
+当前本地 Demo（v0.2 Personal MVP）仍使用 deterministic mock agent，目标是让 GitHub Demo 无需 API Key、无需真实用户数据即可稳定运行。真实上线版本应保持下列输入输出合约不变，把内部实现从规则函数替换为 LLM 调用。
 
 ## 总体原则
 
