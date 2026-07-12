@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { AnswerAsset, AnswerAssetUsageStatus, InterviewSession, JobFile } from '../domain/types';
+import { getAnswerVersions, restoreAnswerAssetVersion, saveAnswerAssetVersion } from '../workflow/answerAssetVersions';
 import {
   getAssetUsageStatus,
   updateAnswerAssetUsageFeedback,
@@ -33,11 +34,16 @@ export function AnswerAssetCard({
   sourceJob
 }: AnswerAssetCardProps) {
   const [feedbackDraft, setFeedbackDraft] = useState<AssetUsageFeedbackDraft>(() => createFeedbackDraft(asset));
+  const [answerDraft, setAnswerDraft] = useState(asset.improvedAnswer);
+  const [versionNote, setVersionNote] = useState('');
 
   useEffect(() => {
     setFeedbackDraft(createFeedbackDraft(asset));
+    setAnswerDraft(asset.improvedAnswer);
+    setVersionNote('');
   }, [asset]);
 
+  const answerVersions = getAnswerVersions(asset);
   const visibleInterviewSessions = interviewSessions.filter(
     (session) => !feedbackDraft.usedForJobId || session.jobFileId === feedbackDraft.usedForJobId
   );
@@ -58,6 +64,19 @@ export function AnswerAssetCard({
     onUpdateAsset(updateAnswerAssetUsageFeedback(asset, feedbackDraft));
   }
 
+  function handleSaveAnswerVersion() {
+    const updated = saveAnswerAssetVersion(asset, {
+      answer: answerDraft,
+      note: versionNote,
+      source: 'manual-edit'
+    });
+    onUpdateAsset(updated);
+  }
+
+  function handleRestoreVersion(versionId: string) {
+    onUpdateAsset(restoreAnswerAssetVersion(asset, versionId));
+  }
+
   return (
     <article className="asset-card asset-card--prioritized">
       <header>
@@ -69,8 +88,21 @@ export function AnswerAssetCard({
       </header>
 
       <section className="asset-section asset-section--answer asset-section--primary">
-        <strong>优化后的完整回答</strong>
-        <p>{asset.improvedAnswer}</p>
+        <div className="asset-answer-heading">
+          <strong>当前推荐回答</strong>
+          <span>{answerVersions.length} 个历史版本</span>
+        </div>
+        <textarea value={answerDraft} onChange={(event) => setAnswerDraft(event.target.value)} />
+        <div className="asset-version-actions">
+          <input
+            value={versionNote}
+            placeholder="版本说明，例如：补充真实项目指标"
+            onChange={(event) => setVersionNote(event.target.value)}
+          />
+          <button type="button" className="secondary-action" onClick={handleSaveAnswerVersion} disabled={answerDraft.trim() === asset.improvedAnswer.trim()}>
+            保存为新版本
+          </button>
+        </div>
       </section>
 
       <section className="asset-section asset-section--issue">
@@ -172,6 +204,28 @@ export function AnswerAssetCard({
         <summary>查看原问题和原回答</summary>
         <strong>{asset.originalQuestion}</strong>
         <p>{asset.originalAnswer}</p>
+      </details>
+
+      <details className="asset-version-history">
+        <summary>查看历史回答版本</summary>
+        {answerVersions.length > 0 ? (
+          <div className="asset-version-list">
+            {answerVersions.map((version) => (
+              <article key={version.id}>
+                <div>
+                  <strong>{version.note}</strong>
+                  <span>{version.createdAt.slice(0, 10)} · {version.source === 'manual-edit' ? '手动编辑' : version.source}</span>
+                </div>
+                <p>{version.answer}</p>
+                <button type="button" className="ghost-action" onClick={() => handleRestoreVersion(version.id)}>
+                  恢复为当前版本
+                </button>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p>还没有历史版本。保存新版本后，上一版回答会自动保留在这里。</p>
+        )}
       </details>
 
       <p className="usage-note">

@@ -147,6 +147,10 @@ export function buildAssetLibraryMarkdown({ assets, interviewSessions, jobFiles 
         '',
         asset.usageFeedback?.interviewerFollowUp ? `**面试官追问：** ${asset.usageFeedback.interviewerFollowUp}` : '',
         asset.usageFeedback?.outcomeNote ? `**使用后复盘：** ${asset.usageFeedback.outcomeNote}` : '',
+        '',
+        '**历史回答版本：**',
+        '',
+        ...formatAnswerVersions(asset),
         ''
       ];
     })
@@ -188,6 +192,12 @@ function formatAssets(assets: AnswerAsset[]) {
 
 function toList(values: string[]) {
   return values.length > 0 ? values.map((value) => `- ${value}`) : ['- 暂无'];
+}
+
+function formatAnswerVersions(asset: AnswerAsset) {
+  if (!asset.answerVersions || asset.answerVersions.length === 0) return ['- 暂无历史版本'];
+
+  return asset.answerVersions.map((version) => `- ${version.createdAt.slice(0, 10)}：${version.note}。${version.answer}`);
 }
 
 function unique(values: string[]) {

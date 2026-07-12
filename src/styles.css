@@ -725,6 +725,104 @@ h3 {
   color: #172033;
 }
 
+.asset-answer-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.asset-answer-heading span {
+  color: #65758f;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.asset-section--primary textarea {
+  width: 100%;
+  min-height: 190px;
+  resize: vertical;
+  border: 1px solid #c9d9f5;
+  border-radius: 8px;
+  padding: 12px;
+  color: #27354a;
+  background: #ffffff;
+  line-height: 1.7;
+}
+
+.asset-section--primary textarea:focus,
+.asset-version-actions input:focus {
+  outline: 2px solid rgba(47, 111, 237, 0.18);
+  border-color: #2f6fed;
+}
+
+.asset-version-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.asset-version-actions input {
+  min-width: 0;
+  flex: 1;
+  border: 1px solid #c9d9f5;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.asset-version-actions .secondary-action,
+.asset-version-list .ghost-action {
+  border: 1px solid #cfd9e8;
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.asset-version-actions .secondary-action {
+  color: #2f6fed;
+  background: #eef4ff;
+}
+
+.asset-version-actions .secondary-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
+.asset-version-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.asset-version-list article {
+  display: grid;
+  gap: 8px;
+  border: 1px solid #e3e9f2;
+  border-radius: 8px;
+  padding: 12px;
+  background: #fbfcfe;
+}
+
+.asset-version-list article div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.asset-version-list article span {
+  color: #65758f;
+  font-size: 12px;
+}
+
+.asset-version-list .ghost-action {
+  justify-self: start;
+  color: #53647d;
+  background: #ffffff;
+}
+
 .asset-card__answer,
 .training-card p {
   color: #53647d;
@@ -2075,6 +2173,13 @@ body {
   }
 
   .asset-feedback-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .asset-answer-heading,
+  .asset-version-actions,
+  .asset-version-list article div {
     align-items: stretch;
     flex-direction: column;
   }
