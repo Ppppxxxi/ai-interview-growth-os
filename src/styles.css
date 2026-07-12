@@ -1133,6 +1133,13 @@ body {
   font-size: 18px;
 }
 
+.new-job-helper {
+  margin: 0;
+  color: #65758f;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
 .new-job-card label {
   display: grid;
   gap: 6px;
@@ -1171,6 +1178,17 @@ body {
   color: #ffffff;
   background: #27354a;
   font-weight: 800;
+}
+
+.new-job-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.new-job-actions .ghost-action {
+  border: 1px solid #cfd9e8;
+  color: #53647d;
+  background: #ffffff;
 }
 
 .workspace-header {
@@ -1280,6 +1298,46 @@ body {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 10px;
+}
+
+.onboarding-panel {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  padding: 16px;
+}
+
+.onboarding-panel article {
+  display: flex;
+  gap: 10px;
+  border: 1px solid #e3e9f2;
+  border-radius: 8px;
+  padding: 14px;
+  background: #fbfcfe;
+}
+
+.onboarding-panel article > span {
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  color: #ffffff;
+  background: #2f6fed;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.onboarding-panel strong {
+  color: #172033;
+}
+
+.onboarding-panel p {
+  margin: 6px 0 0;
+  color: #65758f;
+  font-size: 13px;
+  line-height: 1.55;
 }
 
 .primary-action,
@@ -2080,6 +2138,7 @@ body {
   .library-layout,
   .workspace-inputs,
   .analysis-steps,
+  .onboarding-panel,
   .compare-panel,
   .support-grid,
   .filter-panel,

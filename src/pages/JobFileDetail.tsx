@@ -3,7 +3,7 @@ import type { FormEvent } from 'react';
 import { analyzeJd } from '../agents/jdAnalyst';
 import { matchExperiences } from '../agents/experienceMatcher';
 import { generateMockInterview } from '../agents/mockInterview';
-import { coldStartDemo, experiences, trainingTasks } from '../domain/sampleData';
+import { coldStartDemo, experiences, jobFiles as sampleJobFiles, trainingTasks } from '../domain/sampleData';
 import type { AnswerAsset, InterviewSession, JobFile, ReviewReport } from '../domain/types';
 import { completeAnalysis, createWorkspaceState, saveGeneratedAsset, startAnalysis } from '../workflow/demoFlow';
 import { buildAnswerExplanation } from '../workflow/answerExplanation';
@@ -50,6 +50,14 @@ const emptyJobForm: NewJobDraft = {
   roleTitle: '',
   direction: 'AI 产品经理',
   jdText: '',
+  stage: '准备中'
+};
+
+const demoJobDraft: NewJobDraft = {
+  company: sampleJobFiles[0]?.company ?? '星河智能',
+  roleTitle: sampleJobFiles[0]?.roleTitle ?? 'AI 产品经理实习生',
+  direction: sampleJobFiles[0]?.direction ?? 'AI 产品经理',
+  jdText: sampleJobFiles[0]?.jdText ?? '',
   stage: '准备中'
 };
 
@@ -133,6 +141,24 @@ export function JobFileDetail({
     (asset) => asset.sourceJobId === selectedJob.id || asset.applicableRoles.includes(selectedJob.direction)
   );
   const linkedTrainingTasks = trainingTasks.filter((task) => task.jobFileId === selectedJob.id);
+  const onboardingSteps = [
+    {
+      title: '确认岗位档案',
+      description: selectedJob.jdText ? `${selectedJob.company} · ${selectedJob.roleTitle}` : '先保存岗位 JD，后续复盘会绑定到这个岗位。'
+    },
+    {
+      title: '粘贴面试对话',
+      description: conversationText.trim() ? '已填入外部 AI 模拟面试对话。' : '复制 ChatGPT、Claude 或其他 AI 工具里的模拟面试记录。'
+    },
+    {
+      title: '生成复盘与回答',
+      description: generatedReview.summary || '系统会整理原问题、原回答、问题点和优化回答。'
+    },
+    {
+      title: '沉淀回答资产',
+      description: linkedAssets.length > 0 ? `${linkedAssets.length} 条回答资产可在资产库检索复用。` : '确认后保存为回答资产，供下一场面试复用。'
+    }
+  ];
   const answerExplanation = buildAnswerExplanation({
     asset: generatedAsset,
     review: generatedReview,
@@ -244,9 +270,13 @@ export function JobFileDetail({
   }
 
   function handleFillExample() {
-    setJdText(selectedJob.jdText);
+    setJdText(selectedJob.jdText || demoJobDraft.jdText);
     setConversationText(coldStartDemo.importedConversation);
     setEditableQuestions(createEditableQuestions(coldStartDemo.importedConversation, primarySession.questions));
+  }
+
+  function handleFillNewJobExample() {
+    setNewJobForm(demoJobDraft);
   }
 
   function handlePreviewParse() {
@@ -365,6 +395,7 @@ export function JobFileDetail({
             <p className="eyebrow">本地保存</p>
             <h2>新建岗位档案</h2>
           </div>
+          <p className="new-job-helper">没有准备好真实 JD 时，可以先填入示例岗位跑完整流程。</p>
           <label>
             <span>公司</span>
             <input value={newJobForm.company} onChange={(event) => handleNewJobChange('company', event.target.value)} />
@@ -385,7 +416,12 @@ export function JobFileDetail({
             <span>JD</span>
             <textarea value={newJobForm.jdText} onChange={(event) => handleNewJobChange('jdText', event.target.value)} />
           </label>
-          <button type="submit">保存岗位档案</button>
+          <div className="new-job-actions">
+            <button type="button" className="ghost-action" onClick={handleFillNewJobExample}>
+              填入示例岗位
+            </button>
+            <button type="submit">保存岗位档案</button>
+          </div>
         </form>
       </aside>
 
@@ -449,6 +485,18 @@ export function JobFileDetail({
               保存当前 JD
             </button>
           </div>
+        </section>
+
+        <section className="onboarding-panel">
+          {onboardingSteps.map((step, index) => (
+            <article key={step.title}>
+              <span>{index + 1}</span>
+              <div>
+                <strong>{step.title}</strong>
+                <p>{step.description}</p>
+              </div>
+            </article>
+          ))}
         </section>
 
         <section className="workspace-inputs">
