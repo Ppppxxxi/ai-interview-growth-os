@@ -14,6 +14,12 @@ import {
   updateQuestionFollowUps
 } from '../workflow/conversationDraft';
 import { buildDemoPipelineResult } from '../workflow/demoPipeline';
+import { downloadMarkdown } from '../workflow/downloadMarkdown';
+import {
+  buildInterviewReviewMarkdown,
+  buildJobPrepMarkdown,
+  createMarkdownFileName
+} from '../workflow/markdownExport';
 import type { NewJobDraft } from '../workflow/personalWorkspace';
 
 type JobFileDetailProps = {
@@ -236,6 +242,40 @@ export function JobFileDetail({
     setEditableQuestions(createEditableQuestions(conversationText, primarySession.questions));
   }
 
+  function handleExportCurrentReview() {
+    const markdown = buildInterviewReviewMarkdown({
+      job: selectedJob,
+      session: generatedSession,
+      review: generatedReview,
+      assets: detailAssets
+    });
+
+    downloadMarkdown(
+      createMarkdownFileName([selectedJob.company, selectedJob.roleTitle, generatedSession.createdAt, '面试复盘']),
+      markdown
+    );
+  }
+
+  function handleExportJobPrepPack() {
+    const sessionIds = new Set(jobSessions.map((session) => session.id));
+    const jobReviews = reviewReports.filter(
+      (review) => review.jobFileId === selectedJob.id || sessionIds.has(review.sessionId)
+    );
+    const savedJobAssets = answerAssets.filter(
+      (asset) => asset.sourceJobId === selectedJob.id || asset.applicableRoles.includes(selectedJob.direction)
+    );
+    const jobAssets = upsertById([generatedAsset, ...savedJobAssets]);
+
+    const markdown = buildJobPrepMarkdown({
+      job: selectedJob,
+      sessions: jobSessions.length > 0 ? jobSessions : [generatedSession],
+      reviews: jobReviews.length > 0 ? jobReviews : [generatedReview],
+      assets: jobAssets
+    });
+
+    downloadMarkdown(createMarkdownFileName([selectedJob.company, selectedJob.roleTitle, '考前准备包']), markdown);
+  }
+
   function handleQuestionFieldChange(questionId: string, field: 'question' | 'answer' | 'feedback', value: string) {
     setEditableQuestions((current) => updateQuestionField(current, questionId, field, value));
   }
@@ -424,6 +464,12 @@ export function JobFileDetail({
             </div>
             <div className="interview-detail-actions">
               <span>{generatedSession.createdAt}</span>
+              <button className="secondary-action" type="button" onClick={handleExportCurrentReview}>
+                导出本场复盘
+              </button>
+              <button className="ghost-action" type="button" onClick={handleExportJobPrepPack}>
+                导出岗位准备包
+              </button>
               {canDeleteSelectedRecord && (
                 <button className="danger-action" type="button" onClick={handleDeleteSelectedRecord}>
                   删除这场记录
@@ -687,6 +733,15 @@ function createDraftAsset(job: JobFile, sessionId: string, reviewId: string): An
     usageNote: '保存前请确认回答符合你的真实经历。',
     confidence: 'low'
   };
+}
+
+function upsertById(assets: AnswerAsset[]) {
+  const seen = new Set<string>();
+  return assets.filter((asset) => {
+    if (seen.has(asset.id)) return false;
+    seen.add(asset.id);
+    return true;
+  });
 }
 
 function InfoList({ title, items }: { title: string; items: string[] }) {

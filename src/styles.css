@@ -1644,6 +1644,10 @@ body {
 }
 
 .library-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
   padding: 28px;
 }
 
@@ -1657,6 +1661,41 @@ body {
   margin: 12px 0 0;
   color: #53647d;
   line-height: 1.7;
+}
+
+.library-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.library-header-actions .secondary-action,
+.library-header-actions .ghost-action,
+.interview-detail-actions .secondary-action,
+.interview-detail-actions .ghost-action {
+  border: 1px solid #cfd9e8;
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.library-header-actions .secondary-action,
+.interview-detail-actions .secondary-action {
+  color: #2f6fed;
+  background: #eef4ff;
+}
+
+.library-header-actions .ghost-action,
+.interview-detail-actions .ghost-action {
+  color: #53647d;
+  background: #ffffff;
+}
+
+.library-header-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
 }
 
 .library-filters {
@@ -1908,6 +1947,15 @@ body {
     flex-direction: column;
   }
 
+  .library-header {
+    flex-direction: column;
+  }
+
+  .library-header-actions {
+    justify-content: stretch;
+    width: 100%;
+  }
+
   .input-helper-panel {
     align-items: stretch;
     flex-direction: column;
@@ -1928,6 +1976,8 @@ body {
   }
 
   .interview-detail-actions,
+  .library-header-actions .secondary-action,
+  .library-header-actions .ghost-action,
   .danger-action {
     width: 100%;
   }

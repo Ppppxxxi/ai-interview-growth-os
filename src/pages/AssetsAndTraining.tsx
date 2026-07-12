@@ -10,6 +10,8 @@ import {
   type AssetUsageFilter
 } from '../workflow/assetSearch';
 import { getAssetUsageStatus, usageStatusLabels } from '../workflow/assetUsageFeedback';
+import { downloadMarkdown } from '../workflow/downloadMarkdown';
+import { buildAssetLibraryMarkdown, createMarkdownFileName } from '../workflow/markdownExport';
 
 type AssetsAndTrainingProps = {
   answerAssets: AnswerAsset[];
@@ -54,6 +56,29 @@ export function AssetsAndTraining({ answerAssets, interviewSessions, jobFiles, o
     setFilters(getDefaultAssetSearchFilters());
   }
 
+  function handleExportFilteredAssets() {
+    const assets = searchResults.map((result) => result.asset);
+    const markdown = buildAssetLibraryMarkdown({
+      assets,
+      jobFiles,
+      interviewSessions
+    });
+
+    downloadMarkdown(createMarkdownFileName(['回答资产合集', filters.query.trim() || '当前筛选']), markdown);
+  }
+
+  function handleExportSelectedAsset() {
+    if (!selectedAsset) return;
+
+    const markdown = buildAssetLibraryMarkdown({
+      assets: [selectedAsset],
+      jobFiles,
+      interviewSessions
+    });
+
+    downloadMarkdown(createMarkdownFileName([selectedAsset.questionType, '回答资产']), markdown);
+  }
+
   return (
     <div className="asset-library" id="assets">
       <section className="library-header">
@@ -61,6 +86,14 @@ export function AssetsAndTraining({ answerAssets, interviewSessions, jobFiles, o
           <p className="eyebrow">回答资产库</p>
           <h1>下次面试能直接用的回答</h1>
           <p>按岗位、问题类型快速查找。每条都附带原回答对比和具体用法建议。</p>
+        </div>
+        <div className="library-header-actions">
+          <button type="button" className="secondary-action" onClick={handleExportFilteredAssets} disabled={searchResults.length === 0}>
+            导出当前结果
+          </button>
+          <button type="button" className="ghost-action" onClick={handleExportSelectedAsset} disabled={!selectedAsset}>
+            导出当前资产
+          </button>
         </div>
       </section>
 
