@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build a portfolio-ready Web App Demo for AI 面试成长 OS that runs locally, demonstrates the complete loop from job file and interview import to structured review, ability map, answer assets, and training tasks.
+**Goal:** Build a product-case-ready Web App prototype for AI 面试成长 OS that runs locally, demonstrates the complete loop from job file and interview import to structured review, ability map, answer assets, and training tasks.
 
 **Architecture:** Use a client-side React + TypeScript app with deterministic local "AI Agent" functions for MVP demos. Domain logic lives in pure TypeScript modules with Vitest coverage; React pages consume typed sample data and agent outputs. Real LLM API integration is intentionally deferred so the demo is stable, privacy-safe, and GitHub-friendly.
 
@@ -409,7 +409,7 @@ export const experiences: Experience[] = [
     context: '准备 AI 产品经理求职时，发现多轮模拟面试信息割裂、复盘材料难沉淀。',
     task: '定义面试成长产品的核心用户、痛点、功能闭环和 MVP 范围。',
     action: '梳理用户旅程，设计岗位档案、复盘评分、回答资产和训练任务模块。',
-    result: '形成可执行 PRD 和可交互 Demo 范围，用于求职作品集展示。',
+    result: '形成可执行 PRD 和可交互产品原型范围，用于产品案例展示。',
     abilityTags: ['roleUnderstanding', 'productAnalysis', 'aiProductThinking', 'structuredCommunication'],
     evidenceMetrics: ['完成 1 份中文设计规格', '沉淀 6 个能力评分维度', '定义 5 个 Agent 能力步骤'],
     applicableQuestionTypes: ['AI 产品设计', '用户痛点分析', 'MVP 范围设计']
@@ -2141,7 +2141,7 @@ Spec coverage:
 
 Intentional MVP reductions:
 
-- This plan uses deterministic local TypeScript logic instead of a real LLM API. That keeps the first GitHub demo stable, private, and runnable without API keys.
+- This plan uses deterministic local TypeScript logic instead of a real LLM API. That keeps the first public product prototype stable, private, and runnable without API keys.
 - Real-time question-by-question interviewing is deferred. The MVP still includes built-in mock interview generation and displays generated questions in the job file detail page.
 
 No-placeholder check:
