@@ -264,10 +264,12 @@ export function AnswerAssetCard({
 }
 
 function createFeedbackDraft(asset: AnswerAsset): AssetUsageFeedbackDraft {
+  const status = getAssetUsageStatus(asset);
+
   return {
-    status: getAssetUsageStatus(asset),
+    status,
     usedAt: asset.usageFeedback?.usedAt,
-    usedForJobId: asset.usageFeedback?.usedForJobId ?? asset.sourceJobId,
+    usedForJobId: status === 'unused' ? undefined : asset.usageFeedback?.usedForJobId ?? asset.sourceJobId,
     usedForInterviewId: asset.usageFeedback?.usedForInterviewId,
     interviewerFollowUp: asset.usageFeedback?.interviewerFollowUp,
     outcomeNote: asset.usageFeedback?.outcomeNote

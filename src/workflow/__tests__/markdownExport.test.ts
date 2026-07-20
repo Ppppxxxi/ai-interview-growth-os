@@ -44,7 +44,7 @@ describe('markdown export', () => {
 
     expect(markdown).toContain('# 回答资产合集');
     expect(markdown).toContain('来源岗位：星河智能 AI 产品经理实习生');
-    expect(markdown).toContain('使用状态：已使用，效果不错');
+    expect(markdown).toContain('使用状态：待实战验证');
   });
 
   it('creates a safe markdown file name', () => {

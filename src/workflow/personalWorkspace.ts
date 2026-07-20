@@ -4,6 +4,7 @@ export const PERSONAL_WORKSPACE_STORAGE_KEY = 'ai-interview-growth-os:v0.2:works
 
 export type StorageLike = {
   getItem: (key: string) => string | null;
+  removeItem: (key: string) => void;
   setItem: (key: string, value: string) => void;
 };
 
@@ -25,6 +26,11 @@ export type PersonalWorkspaceData = {
   updatedAt: string;
 };
 
+export function hasPersonalWorkspace(storage: StorageLike | undefined) {
+  if (!storage) return false;
+  return Boolean(storage.getItem(PERSONAL_WORKSPACE_STORAGE_KEY));
+}
+
 export function createPersonalWorkspaceData(
   jobFiles: JobFile[],
   answerAssets: AnswerAsset[],
@@ -42,6 +48,21 @@ export function createPersonalWorkspaceData(
     selectedJobId,
     updatedAt
   };
+}
+
+export function createEmptyPersonalWorkspaceData(updatedAt = new Date().toISOString()): PersonalWorkspaceData {
+  const firstJob: JobFile = {
+    id: `job-user-first-${Date.now().toString(36)}`,
+    company: '我的目标公司',
+    roleTitle: 'AI 产品经理',
+    direction: 'AI 产品经理',
+    jdText: '',
+    stage: '准备中',
+    status: '待粘贴 JD 和面试对话',
+    interviewSessionIds: []
+  };
+
+  return createPersonalWorkspaceData([firstJob], [], firstJob.id, updatedAt);
 }
 
 export function readPersonalWorkspace(storage: StorageLike | undefined, fallback: PersonalWorkspaceData): PersonalWorkspaceData {
@@ -69,6 +90,11 @@ export function readPersonalWorkspace(storage: StorageLike | undefined, fallback
 export function writePersonalWorkspace(storage: StorageLike | undefined, data: PersonalWorkspaceData) {
   if (!storage) return;
   storage.setItem(PERSONAL_WORKSPACE_STORAGE_KEY, JSON.stringify(data));
+}
+
+export function clearPersonalWorkspace(storage: StorageLike | undefined) {
+  if (!storage) return;
+  storage.removeItem(PERSONAL_WORKSPACE_STORAGE_KEY);
 }
 
 export function getBrowserStorage(): StorageLike | undefined {

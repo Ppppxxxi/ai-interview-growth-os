@@ -24,7 +24,7 @@ describe('searchAnswerAssets', () => {
       {
         ...getDefaultAssetSearchFilters(),
         sourceJobId: 'job-platform-pm-c',
-        usageStatus: 'used'
+        usageStatus: 'unused'
       },
       jobFiles
     );

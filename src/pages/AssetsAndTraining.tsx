@@ -83,7 +83,7 @@ export function AssetsAndTraining({ answerAssets, interviewSessions, jobFiles, o
     <div className="asset-library" id="assets">
       <section className="library-header">
         <div>
-          <p className="eyebrow">回答资产库</p>
+          <p className="eyebrow">可复用回答</p>
           <h1>下次面试能直接用的回答</h1>
           <p>按岗位、问题类型快速查找。每条都附带原回答对比和具体用法建议。</p>
         </div>
@@ -195,7 +195,7 @@ export function AssetsAndTraining({ answerAssets, interviewSessions, jobFiles, o
           ) : (
             <section className="empty-panel">
               <h2>没有匹配的回答资产</h2>
-              <p>调整筛选条件，或先在岗位工作台生成一条新的回答资产。</p>
+              <p>调整筛选条件，或先在“准备本场面试”中生成一条新的可复用回答。</p>
             </section>
           )}
         </main>

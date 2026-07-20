@@ -17,10 +17,9 @@ describe('sampleData answer asset integrity', () => {
     }
   });
 
-  it('uses a complete source chain for assets marked as used in interviews', () => {
+  it('keeps sample answer assets unverified until users record real usage', () => {
     const usedAssets = answerAssets.filter((asset) => asset.usedInInterview);
 
-    expect(usedAssets.length).toBeGreaterThanOrEqual(1);
-    expect(usedAssets.map((asset) => asset.id)).toContain('asset-session-ai-pm-a-1');
+    expect(usedAssets).toHaveLength(0);
   });
 });
