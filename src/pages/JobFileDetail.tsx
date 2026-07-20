@@ -2,9 +2,17 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { analyzeJd } from '../agents/jdAnalyst';
 import { matchExperiences } from '../agents/experienceMatcher';
+import { parseInterviewMaterial } from '../agents/materialImportParser';
 import { generateMockInterview } from '../agents/mockInterview';
 import { coldStartDemo, experiences, jobFiles as sampleJobFiles, trainingTasks } from '../domain/sampleData';
-import type { AnswerAsset, InterviewSession, JobFile, ReviewReport } from '../domain/types';
+import type {
+  AnswerAsset,
+  InterviewMaterialDraft,
+  InterviewMaterialInputType,
+  InterviewSession,
+  JobFile,
+  ReviewReport
+} from '../domain/types';
 import { completeAnalysis, createWorkspaceState, saveGeneratedAsset, startAnalysis } from '../workflow/demoFlow';
 import { buildAnswerExplanation } from '../workflow/answerExplanation';
 import {
@@ -20,6 +28,7 @@ import {
   buildJobPrepMarkdown,
   createMarkdownFileName
 } from '../workflow/markdownExport';
+import { buildMaterialImportSavePayload } from '../workflow/materialImportDraft';
 import type { NewJobDraft } from '../workflow/personalWorkspace';
 
 type JobFileDetailProps = {
@@ -60,6 +69,27 @@ const demoJobDraft: NewJobDraft = {
   jdText: sampleJobFiles[0]?.jdText ?? '',
   stage: '准备中'
 };
+
+const materialTypeOptions: Array<{ value: InterviewMaterialInputType; label: string }> = [
+  { value: 'auto', label: '自动识别' },
+  { value: 'mock_interview_dialogue', label: 'AI 模拟面试对话' },
+  { value: 'real_interview_memory', label: '真实面试回忆' },
+  { value: 'review_notes', label: '复盘笔记' },
+  { value: 'mixed_material', label: '混合材料' }
+];
+
+const materialExample = `公司：新国都
+岗位：AI 产品经理
+方向：AI + 支付商户服务
+
+面试复盘：
+面试官问我为什么投递新国都，我只回答了自己看好 AI + 支付方向，没有把商户服务场景、公司业务和岗位职责连起来。
+
+AB 实验分流机制答得比较空。我只说可以看转化率，没有说明实验目标、实验组/对照组、核心指标、护栏指标和异常处理。
+
+评测口径和指标体系没有分层。面试官追问如何证明 AI 助手真的提升商户服务效率，我只说满意度和使用次数。
+
+AI Agent 链路拆解也不完整。我讲了“导入材料、生成回答”，但没有讲清楚输入输出、用户确认点、低置信兜底和保存后的复用边界。`;
 
 export function JobFileDetail({
   answerAssets,
@@ -122,6 +152,10 @@ export function JobFileDetail({
   const [editableAnswer, setEditableAnswer] = useState(primaryAsset.improvedAnswer);
   const [editableQuestions, setEditableQuestions] = useState(() => createEditableQuestions(initialConversationText, primarySession.questions));
   const [selectedRecordId, setSelectedRecordId] = useState(primarySession.id);
+  const [materialType, setMaterialType] = useState<InterviewMaterialInputType>('auto');
+  const [materialText, setMaterialText] = useState('');
+  const [materialDraft, setMaterialDraft] = useState<InterviewMaterialDraft | undefined>();
+  const [selectedMaterialItemIds, setSelectedMaterialItemIds] = useState<Set<string>>(() => new Set());
   const answerTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
@@ -135,6 +169,9 @@ export function JobFileDetail({
     setEditableAnswer(primaryAsset.improvedAnswer);
     setEditableQuestions(createEditableQuestions(initialConversationText, primarySession.questions));
     setSelectedRecordId(primarySession.id);
+    setMaterialText('');
+    setMaterialDraft(undefined);
+    setSelectedMaterialItemIds(new Set());
   }, [initialConversationText, initialState, primaryAsset, primaryReview, primarySession, selectedJob]);
 
   const linkedAssets = answerAssets.filter(
@@ -171,6 +208,10 @@ export function JobFileDetail({
       : [generatedAsset];
   const canDeleteSelectedRecord = jobSessions.some((session) => session.id === selectedRecordId);
   const hasConversationText = conversationText.trim().length > 0;
+  const hasMaterialText = materialText.trim().length > 0;
+  const materialSelectedCount = materialDraft
+    ? materialDraft.interviewItems.filter((item) => selectedMaterialItemIds.has(item.id)).length
+    : 0;
   const hasGeneratedResult = !generatedSession.id.endsWith('-draft');
   const canGenerate = jdText.trim().length > 0 && hasConversationText && workspaceState.status !== 'generating';
   const isExampleJob = sampleJobFiles.some((job) => job.id === selectedJob.id);
@@ -279,6 +320,94 @@ export function JobFileDetail({
     setJdText(selectedJob.jdText || demoJobDraft.jdText);
     setConversationText(coldStartDemo.importedConversation);
     setEditableQuestions(createEditableQuestions(coldStartDemo.importedConversation, primarySession.questions));
+  }
+
+  function handleFillMaterialExample() {
+    setMaterialType('auto');
+    setMaterialText(materialExample);
+    setMaterialDraft(undefined);
+    setSelectedMaterialItemIds(new Set());
+  }
+
+  function handleParseMaterial() {
+    if (!hasMaterialText) return;
+
+    const draft = parseInterviewMaterial({
+      rawText: materialText,
+      sourceType: materialType,
+      fallbackJob: { ...selectedJob, jdText }
+    });
+    const defaultSelectedIds = draft.interviewItems
+      .filter((item) => item.answerAssetCandidate && item.confidence !== 'low')
+      .map((item) => item.id);
+    setMaterialDraft(draft);
+    setSelectedMaterialItemIds(new Set(defaultSelectedIds));
+  }
+
+  function handleToggleMaterialItem(itemId: string) {
+    setSelectedMaterialItemIds((current) => {
+      const next = new Set(current);
+      if (next.has(itemId)) {
+        next.delete(itemId);
+      } else {
+        next.add(itemId);
+      }
+      return next;
+    });
+  }
+
+  function handleMaterialDraftItemChange(
+    itemId: string,
+    field: 'title' | 'question' | 'originalAnswer' | 'issue' | 'improvementSuggestion' | 'improvedAnswer',
+    value: string
+  ) {
+    setMaterialDraft((current) =>
+      current
+        ? {
+            ...current,
+            interviewItems: current.interviewItems.map((item) =>
+              item.id === itemId
+                ? {
+                    ...item,
+                    [field]: value
+                  }
+                : item
+            )
+          }
+        : current
+    );
+  }
+
+  function handleSaveMaterialDraft() {
+    if (!materialDraft) return;
+
+    const payload = buildMaterialImportSavePayload({
+      draft: materialDraft,
+      selectedItemIds: selectedMaterialItemIds,
+      job: { ...selectedJob, jdText },
+      rawText: materialText,
+      runId: Date.now().toString(36)
+    });
+    const nextAsset = payload.assets[0] ?? createDraftAsset(selectedJob, payload.session.id, payload.review.id);
+
+    onSaveInterviewRecord(payload.session, payload.review);
+    payload.assets.forEach((asset) => onSaveAsset(asset));
+    setGeneratedSession(payload.session);
+    setGeneratedReview(payload.review);
+    setGeneratedAsset(nextAsset);
+    setEditableAnswer(nextAsset.improvedAnswer);
+    setSelectedRecordId(payload.session.id);
+    setConversationText(materialText);
+    setEditableQuestions(payload.session.questions);
+    setWorkspaceState((current) => {
+      const completed = completeAnalysis({
+        ...current,
+        session: payload.session,
+        review: payload.review,
+        generatedAsset: nextAsset
+      });
+      return payload.assets.length > 0 ? saveGeneratedAsset(completed) : completed;
+    });
   }
 
   function handleFillNewJobExample() {
@@ -440,12 +569,154 @@ export function JobFileDetail({
           <div>
             <p className="eyebrow">{selectedJob.company} · {selectedJob.roleTitle}</p>
             {isExampleJob && <span className="example-badge">示例数据</span>}
-            <h1>导入面试对话，生成下次可用回答</h1>
-            <p>把这轮面试里的原问题、原回答和点评整理成复盘，并沉淀为后续轮次可使用的回答资产。</p>
+            <h1>导入面试材料，生成下次可用回答</h1>
+            <p>把模拟面试对话、真实面试回忆或复盘笔记整理成可确认草稿，再保存为本岗位面试记录和回答资产。</p>
           </div>
           <button className="primary-action" type="button" onClick={handleGenerate} disabled={!canGenerate}>
             {workspaceState.status === 'generating' ? '正在生成...' : '生成复盘与优化回答'}
           </button>
+        </section>
+
+        <section className="material-import-panel">
+          <div className="section-heading material-import-heading">
+            <div>
+              <p className="eyebrow">主入口</p>
+              <h2>导入一整份面试材料</h2>
+              <p>支持粘贴 AI 模拟面试对话、真实面试回忆、复盘笔记或混合材料。系统先生成草稿，你确认后再保存。</p>
+            </div>
+            <div className="material-import-actions">
+              <button className="ghost-action" type="button" onClick={handleFillMaterialExample}>
+                填入材料示例
+              </button>
+              <button className="primary-action" type="button" onClick={handleParseMaterial} disabled={!hasMaterialText}>
+                解析材料
+              </button>
+            </div>
+          </div>
+
+          <div className="material-import-inputs">
+            <label>
+              <span>材料类型</span>
+              <select
+                value={materialType}
+                onChange={(event) => setMaterialType(event.target.value as InterviewMaterialInputType)}
+              >
+                {materialTypeOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>面试材料</span>
+              <textarea
+                value={materialText}
+                placeholder={'粘贴一整段材料即可，例如：\n公司/岗位/JD\n面试官问了什么\n我当时怎么答\n追问和点评\n我自己的复盘笔记'}
+                onChange={(event) => setMaterialText(event.target.value)}
+              />
+            </label>
+          </div>
+
+          {materialDraft ? (
+            <div className="material-draft-panel">
+              <div className="material-draft-summary">
+                <div>
+                  <strong>{materialDraft.globalInsights.summary}</strong>
+                  <span>
+                    识别为：{materialTypeOptions.find((option) => option.value === materialDraft.sourceType)?.label ?? '面试材料'} · 已勾选 {materialSelectedCount} 条回答资产
+                  </span>
+                </div>
+                <button className="primary-action" type="button" onClick={handleSaveMaterialDraft}>
+                  保存为面试记录与回答资产
+                </button>
+              </div>
+              {materialDraft.missingInfoWarnings.length > 0 && (
+                <div className="material-warning-list">
+                  {materialDraft.missingInfoWarnings.map((warning) => (
+                    <span key={warning}>{warning}</span>
+                  ))}
+                </div>
+              )}
+              <div className="material-draft-list">
+                {materialDraft.interviewItems.map((item, index) => (
+                  <article
+                    className={
+                      selectedMaterialItemIds.has(item.id)
+                        ? 'material-draft-card material-draft-card--selected'
+                        : 'material-draft-card'
+                    }
+                    key={item.id}
+                  >
+                    <div className="material-draft-card-heading">
+                      <div>
+                        <span>条目 {index + 1}</span>
+                        <input
+                          value={item.title}
+                          onChange={(event) => handleMaterialDraftItemChange(item.id, 'title', event.target.value)}
+                        />
+                      </div>
+                      <label className={item.answerAssetCandidate ? 'material-save-check' : 'material-save-check material-save-check--disabled'}>
+                        <input
+                          type="checkbox"
+                          checked={selectedMaterialItemIds.has(item.id)}
+                          disabled={!item.answerAssetCandidate}
+                          onChange={() => handleToggleMaterialItem(item.id)}
+                        />
+                        <span>{item.answerAssetCandidate ? '保存为回答资产' : '仅保存为复盘记录'}</span>
+                      </label>
+                    </div>
+                    <div className="material-draft-grid">
+                      <label>
+                        <span>原问题</span>
+                        <textarea
+                          value={item.question ?? ''}
+                          onChange={(event) => handleMaterialDraftItemChange(item.id, 'question', event.target.value)}
+                        />
+                      </label>
+                      <label>
+                        <span>原回答或材料片段</span>
+                        <textarea
+                          value={item.originalAnswer ?? ''}
+                          onChange={(event) => handleMaterialDraftItemChange(item.id, 'originalAnswer', event.target.value)}
+                        />
+                      </label>
+                      <label>
+                        <span>具体问题</span>
+                        <textarea
+                          value={item.issue ?? ''}
+                          onChange={(event) => handleMaterialDraftItemChange(item.id, 'issue', event.target.value)}
+                        />
+                      </label>
+                      <label>
+                        <span>建议这样改</span>
+                        <textarea
+                          value={item.improvementSuggestion ?? ''}
+                          onChange={(event) => handleMaterialDraftItemChange(item.id, 'improvementSuggestion', event.target.value)}
+                        />
+                      </label>
+                    </div>
+                    <label className="material-improved-answer">
+                      <span>下次可用回答</span>
+                      <textarea
+                        value={item.improvedAnswer ?? ''}
+                        onChange={(event) => handleMaterialDraftItemChange(item.id, 'improvedAnswer', event.target.value)}
+                      />
+                    </label>
+                    <div className="material-draft-meta">
+                      <span>置信度：{item.confidence === 'high' ? '高' : item.confidence === 'medium' ? '中' : '低'}</span>
+                      {item.assetCandidateReason && <span>{item.assetCandidateReason}</span>}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <section className="empty-panel empty-panel--inline material-empty-panel">
+              <h2>粘贴材料后先生成可确认草稿</h2>
+              <p>草稿会拆出问题、原回答、具体问题、修改建议和可复用回答。你可以逐条编辑，再决定保存哪些回答资产。</p>
+            </section>
+          )}
         </section>
 
         <details className="job-edit-panel">

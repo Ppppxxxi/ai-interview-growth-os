@@ -1125,7 +1125,8 @@ body {
 .library-header,
 .asset-index,
 .asset-detail-pane,
-.library-training {
+.library-training,
+.material-import-panel {
   min-width: 0;
 }
 
@@ -1139,6 +1140,7 @@ body {
 .workspace-sidebar,
 .side-panel,
 .workspace-header,
+.material-import-panel,
 .input-helper-panel,
 .workspace-inputs,
 .parsed-conversation-panel,
@@ -1295,6 +1297,230 @@ body {
   margin: 12px 0 0;
   color: #53647d;
   line-height: 1.7;
+}
+
+.material-import-panel {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+}
+
+.material-import-heading,
+.material-draft-summary,
+.material-draft-card-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.material-import-heading {
+  margin-bottom: 0;
+}
+
+.material-import-heading h2,
+.material-draft-summary strong {
+  margin: 0;
+}
+
+.material-import-heading p:not(.eyebrow),
+.material-draft-summary span,
+.material-draft-meta span {
+  color: #65758f;
+  line-height: 1.6;
+}
+
+.material-import-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.material-import-actions .ghost-action {
+  border: 1px solid #cfd9e8;
+  border-radius: 8px;
+  padding: 11px 14px;
+  color: #53647d;
+  background: #ffffff;
+  font-weight: 800;
+}
+
+.material-import-inputs {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  gap: 14px;
+}
+
+.material-import-inputs label,
+.material-draft-grid label,
+.material-improved-answer {
+  display: grid;
+  gap: 8px;
+  color: #40516a;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.material-import-inputs select,
+.material-import-inputs textarea,
+.material-draft-card input,
+.material-draft-grid textarea,
+.material-improved-answer textarea {
+  width: 100%;
+  border: 1px solid #d7dfeb;
+  border-radius: 8px;
+  padding: 11px 12px;
+  color: #27354a;
+  background: #fbfcfe;
+}
+
+.material-import-inputs select {
+  height: 44px;
+}
+
+.material-import-inputs textarea {
+  min-height: 190px;
+  resize: vertical;
+  line-height: 1.65;
+}
+
+.material-import-inputs select:focus,
+.material-import-inputs textarea:focus,
+.material-draft-card input:focus,
+.material-draft-grid textarea:focus,
+.material-improved-answer textarea:focus {
+  outline: 2px solid rgba(47, 111, 237, 0.18);
+  border-color: #2f6fed;
+}
+
+.material-empty-panel {
+  margin-top: 0;
+}
+
+.material-draft-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.material-draft-summary {
+  align-items: center;
+  border: 1px solid #dce8ff;
+  border-radius: 8px;
+  padding: 14px;
+  background: #f4f8ff;
+}
+
+.material-draft-summary div {
+  display: grid;
+  gap: 4px;
+}
+
+.material-warning-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.material-warning-list span {
+  border-radius: 999px;
+  padding: 6px 10px;
+  color: #8a4b00;
+  background: #fff3d6;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.material-draft-list {
+  display: grid;
+  gap: 12px;
+}
+
+.material-draft-card {
+  display: grid;
+  gap: 12px;
+  border: 1px solid #e3e9f2;
+  border-radius: 8px;
+  padding: 14px;
+  background: #fbfcfe;
+}
+
+.material-draft-card--selected {
+  border-color: #9bbcff;
+  box-shadow: inset 3px 0 0 #2f6fed;
+}
+
+.material-draft-card-heading > div {
+  display: grid;
+  flex: 1;
+  gap: 6px;
+}
+
+.material-draft-card-heading > div > span {
+  color: #65758f;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.material-draft-card input {
+  background: #ffffff;
+  font-weight: 900;
+}
+
+.material-save-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #cfd9e8;
+  border-radius: 999px;
+  padding: 8px 10px;
+  color: #27354a;
+  background: #ffffff;
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.material-save-check input {
+  width: auto;
+}
+
+.material-save-check--disabled {
+  color: #8a97a8;
+  background: #f3f6fa;
+}
+
+.material-draft-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.material-draft-grid textarea {
+  min-height: 92px;
+  resize: vertical;
+  line-height: 1.6;
+}
+
+.material-improved-answer textarea {
+  min-height: 132px;
+  resize: vertical;
+  line-height: 1.65;
+}
+
+.material-draft-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.material-draft-meta span {
+  border-radius: 999px;
+  padding: 5px 9px;
+  background: #eef2f7;
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .example-badge {
@@ -2271,6 +2497,8 @@ body {
 @media (max-width: 920px) {
   .product-workspace,
   .library-layout,
+  .material-import-inputs,
+  .material-draft-grid,
   .workspace-inputs,
   .analysis-steps,
   .onboarding-panel,
@@ -2309,6 +2537,22 @@ body {
 
   .workspace-header {
     flex-direction: column;
+  }
+
+  .material-import-heading,
+  .material-draft-summary,
+  .material-draft-card-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .material-import-actions {
+    justify-content: stretch;
+    width: 100%;
+  }
+
+  .material-import-actions .ghost-action {
+    flex: 1;
   }
 
   .job-edit-grid {
@@ -2429,6 +2673,7 @@ body {
   }
 
   .workspace-header,
+  .material-import-panel,
   .library-header {
     padding: 20px;
   }
@@ -2441,6 +2686,7 @@ body {
   .workspace-inputs,
   .analysis-steps,
   .input-helper-panel,
+  .material-import-panel,
   .parsed-conversation-panel,
   .interview-detail-panel,
   .explanation-panel,
