@@ -1,9 +1,28 @@
-import { useState } from 'react';
-import { answerAssets as initialAnswerAssets, jobFiles } from './domain/sampleData';
-import type { AnswerAsset } from './domain/types';
+import { useEffect, useState } from 'react';
+import {
+  answerAssets as initialAnswerAssets,
+  interviewSessions as initialInterviewSessions,
+  jobFiles as initialJobFiles,
+  reviewReports as initialReviewReports
+} from './domain/sampleData';
+import type { AnswerAsset, InterviewSession, JobFile, ReviewReport } from './domain/types';
 import { AssetsAndTraining } from './pages/AssetsAndTraining';
 import { GrowthDashboard } from './pages/GrowthDashboard';
 import { JobFileDetail } from './pages/JobFileDetail';
+import {
+  attachInterviewSessionToJob,
+  createJobFileFromDraft,
+  createPersonalWorkspaceData,
+  getBrowserStorage,
+  type NewJobDraft,
+  readPersonalWorkspace,
+  removeJobFile,
+  removeInterviewRecord,
+  upsertInterviewSession,
+  upsertJobFile,
+  upsertReviewReport,
+  writePersonalWorkspace
+} from './workflow/personalWorkspace';
 import { upsertAnswerAsset } from './workflow/runtimeAssets';
 
 type AppView = 'workspace' | 'assets' | 'growth';
@@ -16,11 +35,79 @@ const navItems: Array<{ id: AppView; label: string }> = [
 
 export default function App() {
   const [view, setView] = useState<AppView>('workspace');
-  const [selectedJobId, setSelectedJobId] = useState(jobFiles[0]?.id ?? '');
-  const [runtimeAssets, setRuntimeAssets] = useState(initialAnswerAssets);
+  const [workspaceData, setWorkspaceData] = useState(() =>
+    readPersonalWorkspace(
+      getBrowserStorage(),
+      createPersonalWorkspaceData(
+        initialJobFiles,
+        initialAnswerAssets,
+        initialJobFiles[0]?.id ?? '',
+        new Date().toISOString(),
+        initialInterviewSessions,
+        initialReviewReports
+      )
+    )
+  );
+
+  useEffect(() => {
+    writePersonalWorkspace(getBrowserStorage(), workspaceData);
+  }, [workspaceData]);
 
   function handleSaveAsset(asset: AnswerAsset) {
-    setRuntimeAssets((currentAssets) => upsertAnswerAsset(currentAssets, asset));
+    setWorkspaceData((current) => ({
+      ...current,
+      answerAssets: upsertAnswerAsset(current.answerAssets, asset),
+      updatedAt: new Date().toISOString()
+    }));
+  }
+
+  function handleSelectJob(jobId: string) {
+    setWorkspaceData((current) => ({
+      ...current,
+      selectedJobId: jobId,
+      updatedAt: new Date().toISOString()
+    }));
+  }
+
+  function handleCreateJob(draft: NewJobDraft) {
+    setWorkspaceData((current) => {
+      const nextJob = createJobFileFromDraft(draft, current.jobFiles.length);
+      return {
+        ...current,
+        jobFiles: upsertJobFile(current.jobFiles, nextJob),
+        selectedJobId: nextJob.id,
+        updatedAt: new Date().toISOString()
+      };
+    });
+  }
+
+  function handleUpdateJob(nextJob: JobFile) {
+    setWorkspaceData((current) => ({
+      ...current,
+      jobFiles: upsertJobFile(current.jobFiles, nextJob),
+      updatedAt: new Date().toISOString()
+    }));
+  }
+
+  function handleDeleteJob(jobId: string) {
+    setWorkspaceData((current) => {
+      if (current.jobFiles.length <= 1) return current;
+      return removeJobFile(current, jobId);
+    });
+  }
+
+  function handleSaveInterviewRecord(session: InterviewSession, review: ReviewReport) {
+    setWorkspaceData((current) => ({
+      ...current,
+      interviewSessions: upsertInterviewSession(current.interviewSessions, session),
+      reviewReports: upsertReviewReport(current.reviewReports, review),
+      jobFiles: attachInterviewSessionToJob(current.jobFiles, session),
+      updatedAt: new Date().toISOString()
+    }));
+  }
+
+  function handleDeleteInterviewRecord(sessionId: string) {
+    setWorkspaceData((current) => removeInterviewRecord(current, sessionId));
   }
 
   return (
@@ -45,15 +132,36 @@ export default function App() {
       </header>
       {view === 'workspace' && (
         <JobFileDetail
-          selectedJobId={selectedJobId}
-          onSelectJob={setSelectedJobId}
-          answerAssets={runtimeAssets}
+          selectedJobId={workspaceData.selectedJobId}
+          onSelectJob={handleSelectJob}
+          jobFiles={workspaceData.jobFiles}
+          interviewSessions={workspaceData.interviewSessions}
+          reviewReports={workspaceData.reviewReports}
+          answerAssets={workspaceData.answerAssets}
+          onCreateJob={handleCreateJob}
+          onUpdateJob={handleUpdateJob}
+          onDeleteJob={handleDeleteJob}
+          onSaveInterviewRecord={handleSaveInterviewRecord}
+          onDeleteInterviewRecord={handleDeleteInterviewRecord}
           onSaveAsset={handleSaveAsset}
           onOpenAssets={() => setView('assets')}
         />
       )}
-      {view === 'assets' && <AssetsAndTraining answerAssets={runtimeAssets} />}
-      {view === 'growth' && <GrowthDashboard answerAssets={runtimeAssets} />}
+      {view === 'assets' && (
+        <AssetsAndTraining
+          answerAssets={workspaceData.answerAssets}
+          interviewSessions={workspaceData.interviewSessions}
+          jobFiles={workspaceData.jobFiles}
+          onUpdateAsset={handleSaveAsset}
+        />
+      )}
+      {view === 'growth' && (
+        <GrowthDashboard
+          answerAssets={workspaceData.answerAssets}
+          jobFiles={workspaceData.jobFiles}
+          reviewReports={workspaceData.reviewReports}
+        />
+      )}
     </main>
   );
 }

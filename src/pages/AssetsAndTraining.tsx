@@ -1,40 +1,83 @@
 import { useMemo, useState } from 'react';
 import { AnswerAssetCard } from '../components/AnswerAssetCard';
 import { TrainingTaskCard } from '../components/TrainingTaskCard';
-import { interviewSessions, jobFiles, trainingTasks } from '../domain/sampleData';
-import type { AnswerAsset } from '../domain/types';
-
-type FilterKey = 'all' | string;
+import { trainingTasks } from '../domain/sampleData';
+import type { AnswerAsset, InterviewSession, JobFile } from '../domain/types';
+import {
+  getDefaultAssetSearchFilters,
+  searchAnswerAssets,
+  type AssetSearchFilters,
+  type AssetUsageFilter
+} from '../workflow/assetSearch';
+import { getAssetUsageStatus, usageStatusLabels } from '../workflow/assetUsageFeedback';
+import { downloadMarkdown } from '../workflow/downloadMarkdown';
+import { buildAssetLibraryMarkdown, createMarkdownFileName } from '../workflow/markdownExport';
 
 type AssetsAndTrainingProps = {
   answerAssets: AnswerAsset[];
+  interviewSessions: InterviewSession[];
+  jobFiles: JobFile[];
+  onUpdateAsset: (asset: AnswerAsset) => void;
 };
 
-export function AssetsAndTraining({ answerAssets }: AssetsAndTrainingProps) {
-  const [direction, setDirection] = useState<FilterKey>('all');
-  const [questionType, setQuestionType] = useState<FilterKey>('all');
-  const [weakness, setWeakness] = useState<FilterKey>('all');
-  const [confidence, setConfidence] = useState<FilterKey>('all');
+type FilterOption = {
+  value: string;
+  label: string;
+};
+
+export function AssetsAndTraining({ answerAssets, interviewSessions, jobFiles, onUpdateAsset }: AssetsAndTrainingProps) {
+  const [filters, setFilters] = useState<AssetSearchFilters>(() => getDefaultAssetSearchFilters());
   const [selectedAssetId, setSelectedAssetId] = useState(answerAssets[0]?.id ?? '');
 
   const directions = unique(answerAssets.flatMap((asset) => asset.applicableRoles));
   const questionTypes = unique(answerAssets.map((asset) => asset.questionType));
   const weaknesses = unique(answerAssets.map((asset) => asset.weaknessTag));
   const confidences = unique(answerAssets.map((asset) => asset.confidence));
+  const sourceJobOptions = jobFiles
+    .filter((job) => answerAssets.some((asset) => asset.sourceJobId === job.id))
+    .map((job) => ({ value: job.id, label: `${job.company} · ${job.roleTitle}` }));
 
-  const filteredAssets = useMemo(
-    () =>
-      answerAssets.filter((asset) => {
-        const matchesDirection = direction === 'all' || asset.applicableRoles.includes(direction);
-        const matchesType = questionType === 'all' || asset.questionType === questionType;
-        const matchesWeakness = weakness === 'all' || asset.weaknessTag === weakness;
-        const matchesConfidence = confidence === 'all' || asset.confidence === confidence;
-        return matchesDirection && matchesType && matchesWeakness && matchesConfidence;
-      }),
-    [confidence, direction, questionType, weakness]
+  const searchResults = useMemo(
+    () => searchAnswerAssets(answerAssets, filters, jobFiles),
+    [answerAssets, filters, jobFiles]
   );
 
-  const selectedAsset = filteredAssets.find((asset) => asset.id === selectedAssetId) ?? filteredAssets[0];
+  const selectedResult = searchResults.find((result) => result.asset.id === selectedAssetId) ?? searchResults[0];
+  const selectedAsset = selectedResult?.asset;
+  const hasActiveFilters = Object.entries(filters).some(([key, value]) =>
+    key === 'query' ? value.trim().length > 0 : value !== 'all'
+  );
+
+  function updateFilter<Key extends keyof AssetSearchFilters>(key: Key, value: AssetSearchFilters[Key]) {
+    setFilters((current) => ({ ...current, [key]: value }));
+  }
+
+  function resetFilters() {
+    setFilters(getDefaultAssetSearchFilters());
+  }
+
+  function handleExportFilteredAssets() {
+    const assets = searchResults.map((result) => result.asset);
+    const markdown = buildAssetLibraryMarkdown({
+      assets,
+      jobFiles,
+      interviewSessions
+    });
+
+    downloadMarkdown(createMarkdownFileName(['回答资产合集', filters.query.trim() || '当前筛选']), markdown);
+  }
+
+  function handleExportSelectedAsset() {
+    if (!selectedAsset) return;
+
+    const markdown = buildAssetLibraryMarkdown({
+      assets: [selectedAsset],
+      jobFiles,
+      interviewSessions
+    });
+
+    downloadMarkdown(createMarkdownFileName([selectedAsset.questionType, '回答资产']), markdown);
+  }
 
   return (
     <div className="asset-library" id="assets">
@@ -44,23 +87,84 @@ export function AssetsAndTraining({ answerAssets }: AssetsAndTrainingProps) {
           <h1>下次面试能直接用的回答</h1>
           <p>按岗位、问题类型快速查找。每条都附带原回答对比和具体用法建议。</p>
         </div>
+        <div className="library-header-actions">
+          <button type="button" className="secondary-action" onClick={handleExportFilteredAssets} disabled={searchResults.length === 0}>
+            导出当前结果
+          </button>
+          <button type="button" className="ghost-action" onClick={handleExportSelectedAsset} disabled={!selectedAsset}>
+            导出当前资产
+          </button>
+        </div>
       </section>
 
       <section className="filter-panel library-filters">
-        <FilterSelect label="岗位方向" value={direction} values={directions} onChange={setDirection} />
-        <FilterSelect label="问题类型" value={questionType} values={questionTypes} onChange={setQuestionType} />
-        <FilterSelect label="能力短板" value={weakness} values={weaknesses} onChange={setWeakness} />
-        <FilterSelect label="置信度" value={confidence} values={confidences} onChange={setConfidence} />
+        <label className="filter-search">
+          <span>关键词</span>
+          <input
+            type="search"
+            value={filters.query}
+            placeholder="搜指标、追问、岗位或问题"
+            onChange={(event) => updateFilter('query', event.target.value)}
+          />
+        </label>
+        <FilterSelect
+          label="岗位方向"
+          value={filters.direction}
+          options={toOptions(directions)}
+          onChange={(value) => updateFilter('direction', value)}
+        />
+        <FilterSelect
+          label="问题类型"
+          value={filters.questionType}
+          options={toOptions(questionTypes)}
+          onChange={(value) => updateFilter('questionType', value)}
+        />
+        <FilterSelect
+          label="能力短板"
+          value={filters.weakness}
+          options={toOptions(weaknesses)}
+          onChange={(value) => updateFilter('weakness', value)}
+        />
+        <FilterSelect
+          label="来源岗位"
+          value={filters.sourceJobId}
+          options={sourceJobOptions}
+          onChange={(value) => updateFilter('sourceJobId', value)}
+        />
+        <FilterSelect
+          label="置信度"
+          value={filters.confidence}
+          options={toOptions(confidences)}
+          onChange={(value) => updateFilter('confidence', value)}
+        />
+        <FilterSelect
+          label="使用状态"
+          value={filters.usageStatus}
+          options={[
+            { value: 'used', label: '已使用' },
+            { value: 'unused', label: '待验证' }
+          ]}
+          onChange={(value) => updateFilter('usageStatus', value as AssetUsageFilter)}
+        />
+        <div className="filter-actions">
+          <span>{searchResults.length} 条结果</span>
+          <button type="button" className="ghost-action" onClick={resetFilters} disabled={!hasActiveFilters}>
+            清空筛选
+          </button>
+        </div>
       </section>
 
       <section className="library-layout">
         <aside className="asset-index">
           <div className="section-heading">
             <p className="eyebrow">全部资产</p>
-            <h2>{filteredAssets.length} 条可复用回答</h2>
+            <h2>{searchResults.length} 条可复用回答</h2>
+            <p className="result-summary">
+              {filters.query.trim() ? `正在检索“${filters.query.trim()}”相关回答` : '输入关键词，快速定位下次面试能用的回答'}
+            </p>
           </div>
           <div className="asset-index-list">
-            {filteredAssets.map((asset) => (
+            {searchResults.map(({ asset, matchedFields }) => (
               <button
                 className={asset.id === selectedAsset?.id ? 'asset-index-item asset-index-item--active' : 'asset-index-item'}
                 key={asset.id}
@@ -69,7 +173,10 @@ export function AssetsAndTraining({ answerAssets }: AssetsAndTrainingProps) {
               >
                 <strong>{asset.questionType}</strong>
                 <span>{asset.originalQuestion}</span>
-                <small>{asset.usedInInterview ? '已复用' : '待验证'} · {asset.confidence === 'high' ? '高置信' : '中置信'}</small>
+                <small>
+                  {usageStatusLabels[getAssetUsageStatus(asset)]} · {asset.confidence === 'high' ? '高置信' : '中置信'}
+                </small>
+                {matchedFields.length > 0 && <em>匹配：{matchedFields.join('、')}</em>}
               </button>
             ))}
           </div>
@@ -79,8 +186,11 @@ export function AssetsAndTraining({ answerAssets }: AssetsAndTrainingProps) {
           {selectedAsset ? (
             <AnswerAssetCard
               asset={selectedAsset}
+              jobFiles={jobFiles}
+              interviewSessions={interviewSessions}
               sourceInterview={interviewSessions.find((session) => session.id === selectedAsset.sourceInterviewId)}
               sourceJob={jobFiles.find((job) => job.id === selectedAsset.sourceJobId)}
+              onUpdateAsset={onUpdateAsset}
             />
           ) : (
             <section className="empty-panel">
@@ -113,22 +223,22 @@ export function AssetsAndTraining({ answerAssets }: AssetsAndTrainingProps) {
 function FilterSelect({
   label,
   onChange,
-  value,
-  values
+  options,
+  value
 }: {
   label: string;
   onChange: (value: string) => void;
+  options: FilterOption[];
   value: string;
-  values: string[];
 }) {
   return (
     <label>
       <span>{label}</span>
       <select value={value} onChange={(event) => onChange(event.target.value)}>
         <option value="all">全部</option>
-        {values.map((item) => (
-          <option key={item} value={item}>
-            {item}
+        {options.map((item) => (
+          <option key={item.value} value={item.value}>
+            {item.label}
           </option>
         ))}
       </select>
@@ -138,4 +248,8 @@ function FilterSelect({
 
 function unique(values: string[]) {
   return Array.from(new Set(values));
+}
+
+function toOptions(values: string[]): FilterOption[] {
+  return values.map((value) => ({ value, label: value }));
 }

@@ -84,6 +84,7 @@ export type AnswerAsset = {
   originalAnswer: string;
   issue: string;
   improvedAnswer: string;
+  answerVersions?: AnswerAssetVersion[];
   applicableRoles: string[];
   applicableQuestions: string[];
   weaknessTag: string;
@@ -92,9 +93,30 @@ export type AnswerAsset = {
   sourceReviewId: string;
   reuseScope: string;
   usedInInterview: boolean;
+  usageFeedback?: AnswerAssetUsageFeedback;
   linkedExperienceId?: string;
   usageNote: string;
   confidence: 'high' | 'medium' | 'low';
+};
+
+export type AnswerAssetVersion = {
+  id: string;
+  answer: string;
+  note: string;
+  createdAt: string;
+  source: 'generated' | 'manual-edit' | 'usage-feedback';
+};
+
+export type AnswerAssetUsageStatus = 'unused' | 'used-effective' | 'used-needs-polish' | 'needs-rewrite';
+
+export type AnswerAssetUsageFeedback = {
+  status: AnswerAssetUsageStatus;
+  usedAt?: string;
+  usedForJobId?: string;
+  usedForInterviewId?: string;
+  interviewerFollowUp?: string;
+  outcomeNote?: string;
+  updatedAt: string;
 };
 
 export type TrainingTask = {

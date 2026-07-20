@@ -18,7 +18,7 @@ export const experiences: Experience[] = [
     context: '准备 AI 产品经理求职时，发现模拟面试对话分散在不同 session，复盘和优化回答难以沉淀。',
     task: '定义面试成长系统的核心闭环：外部对话导入、结构化复盘、回答资产沉淀和后续复用。',
     action: '梳理冷启动路径，设计岗位工作台、复盘解释、回答资产生成和同方向复用机制。',
-    result: '形成可展示的本地 Demo，用于说明 AI 产品经理对用户痛点、AI Agent 边界和 MVP 取舍的理解。',
+    result: '形成可展示的本地产品原型，用于说明 AI 产品经理对用户痛点、AI Agent 边界和 MVP 取舍的理解。',
     abilityTags: ['roleUnderstanding', 'productAnalysis', 'aiProductThinking', 'structuredCommunication'],
     evidenceMetrics: ['完成 1 条端到端演示链路', '沉淀 1 条高价值回答资产', '定义 5 个 Agent 输入输出合约'],
     applicableQuestionTypes: ['AI 产品效果评估', 'MVP 范围设计', '面试复盘产品设计']

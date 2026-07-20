@@ -7,6 +7,8 @@ type DemoPipelineInput = {
   job: JobFile;
   conversationText: string;
   fallbackConversationText: string;
+  questionsOverride?: InterviewSession['questions'];
+  runId?: string;
 };
 
 type DemoPipelineResult = {
@@ -15,9 +17,9 @@ type DemoPipelineResult = {
   asset: AnswerAsset;
 };
 
-function makeSession(job: JobFile, rawConversation: string, questions: InterviewSession['questions']): InterviewSession {
+function makeSession(job: JobFile, rawConversation: string, questions: InterviewSession['questions'], runId = 'generated'): InterviewSession {
   return {
-    id: `session-${job.id}-generated`,
+    id: `session-${job.id}-${runId}`,
     jobFileId: job.id,
     source: 'externalImport',
     interviewType: '外部 AI 模拟面试对话导入',
@@ -27,11 +29,16 @@ function makeSession(job: JobFile, rawConversation: string, questions: Interview
   };
 }
 
-export function buildDemoPipelineResult({ conversationText, fallbackConversationText, job }: DemoPipelineInput): DemoPipelineResult {
+export function buildDemoPipelineResult({ conversationText, fallbackConversationText, job, questionsOverride, runId }: DemoPipelineInput): DemoPipelineResult {
   const parsedQuestions = parseImportedConversation(conversationText);
-  const rawConversation = parsedQuestions.length > 0 ? conversationText : fallbackConversationText;
-  const questions = parsedQuestions.length > 0 ? parsedQuestions : parseImportedConversation(fallbackConversationText);
-  const session = makeSession(job, rawConversation, questions);
+  const hasConfirmedQuestions = Boolean(questionsOverride?.length);
+  const rawConversation = hasConfirmedQuestions || parsedQuestions.length > 0 ? conversationText : fallbackConversationText;
+  const questions = questionsOverride?.length
+    ? questionsOverride
+    : parsedQuestions.length > 0
+      ? parsedQuestions
+      : parseImportedConversation(fallbackConversationText);
+  const session = makeSession(job, rawConversation, questions, runId);
   const review = evaluateInterview(job, session);
   const asset = generateAnswerAsset(job, session, review);
 
