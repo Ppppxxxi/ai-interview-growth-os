@@ -8,6 +8,15 @@ export type AbilityDimension =
 
 export type InterviewSource = 'builtInMock' | 'externalImport';
 
+export type InterviewMaterialInputType =
+  | 'auto'
+  | 'mock_interview_dialogue'
+  | 'real_interview_memory'
+  | 'review_notes'
+  | 'mixed_material';
+
+export type InterviewMaterialSourceType = Exclude<InterviewMaterialInputType, 'auto'>;
+
 export type AbilityScore = {
   dimension: AbilityDimension;
   label: string;
@@ -54,6 +63,40 @@ export type InterviewQuestion = {
   answer: string;
   followUps: string[];
   feedback: string;
+};
+
+export type InterviewMaterialDraftItem = {
+  id: string;
+  title: string;
+  question?: string;
+  originalAnswer?: string;
+  followUps?: string[];
+  issue?: string;
+  evidence?: string;
+  improvementSuggestion?: string;
+  improvedAnswer?: string;
+  answerAssetCandidate: boolean;
+  assetCandidateReason?: string;
+  confidence: 'high' | 'medium' | 'low';
+  rejectedReason?: string;
+};
+
+export type InterviewMaterialDraft = {
+  sourceType: InterviewMaterialSourceType;
+  jobContext: {
+    company?: string;
+    role?: string;
+    direction?: string;
+    jdText?: string;
+  };
+  interviewItems: InterviewMaterialDraftItem[];
+  globalInsights: {
+    summary?: string;
+    strengths?: string[];
+    weaknesses?: string[];
+    nextPrepTopics?: string[];
+  };
+  missingInfoWarnings: string[];
 };
 
 export type InterviewSession = {
