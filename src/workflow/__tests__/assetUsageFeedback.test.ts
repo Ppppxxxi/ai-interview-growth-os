@@ -4,7 +4,7 @@ import { getAssetUsageStatus, updateAnswerAssetUsageFeedback } from '../assetUsa
 
 describe('asset usage feedback', () => {
   it('falls back to legacy usedInInterview state', () => {
-    expect(getAssetUsageStatus(answerAssets[0])).toBe('used-effective');
+    expect(getAssetUsageStatus({ ...answerAssets[0], usedInInterview: true })).toBe('used-effective');
   });
 
   it('marks an asset as used and stores interview outcome notes', () => {

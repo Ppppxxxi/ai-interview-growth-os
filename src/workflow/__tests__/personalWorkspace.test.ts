@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { answerAssets, interviewSessions, jobFiles, reviewReports } from '../../domain/sampleData';
 import {
   attachInterviewSessionToJob,
+  clearPersonalWorkspace,
+  createEmptyPersonalWorkspaceData,
   createJobFileFromDraft,
   createPersonalWorkspaceData,
+  hasPersonalWorkspace,
   PERSONAL_WORKSPACE_STORAGE_KEY,
   readPersonalWorkspace,
   removeJobFile,
@@ -20,6 +23,9 @@ function createMemoryStorage(initialValue?: string) {
 
   return {
     getItem: (key: string) => store.get(key) ?? null,
+    removeItem: (key: string) => {
+      store.delete(key);
+    },
     setItem: (key: string, value: string) => {
       store.set(key, value);
     }
@@ -48,6 +54,27 @@ describe('personalWorkspace', () => {
     writePersonalWorkspace(storage, data);
 
     expect(storage.getItem(PERSONAL_WORKSPACE_STORAGE_KEY)).toBe(JSON.stringify(data));
+  });
+
+  it('detects and clears persisted workspace data', () => {
+    const data = createPersonalWorkspaceData(jobFiles, answerAssets, jobFiles[0].id, '2026-07-10T00:00:00.000Z');
+    const storage = createMemoryStorage(JSON.stringify(data));
+
+    expect(hasPersonalWorkspace(storage)).toBe(true);
+    clearPersonalWorkspace(storage);
+
+    expect(hasPersonalWorkspace(storage)).toBe(false);
+    expect(storage.getItem(PERSONAL_WORKSPACE_STORAGE_KEY)).toBeNull();
+  });
+
+  it('creates an empty first-use workspace', () => {
+    const workspace = createEmptyPersonalWorkspaceData('2026-07-20T00:00:00.000Z');
+
+    expect(workspace.jobFiles).toHaveLength(1);
+    expect(workspace.answerAssets).toHaveLength(0);
+    expect(workspace.interviewSessions).toHaveLength(0);
+    expect(workspace.reviewReports).toHaveLength(0);
+    expect(workspace.jobFiles[0].status).toBe('待粘贴 JD 和面试对话');
   });
 
   it('hydrates old persisted data with fallback sessions and reviews', () => {

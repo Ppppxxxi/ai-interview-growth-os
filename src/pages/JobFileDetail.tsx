@@ -170,8 +170,14 @@ export function JobFileDetail({
       ? relatedRecordAssets
       : [generatedAsset];
   const canDeleteSelectedRecord = jobSessions.some((session) => session.id === selectedRecordId);
+  const hasConversationText = conversationText.trim().length > 0;
+  const hasGeneratedResult = !generatedSession.id.endsWith('-draft');
+  const canGenerate = jdText.trim().length > 0 && hasConversationText && workspaceState.status !== 'generating';
+  const isExampleJob = sampleJobFiles.some((job) => job.id === selectedJob.id);
 
   function handleGenerate() {
+    if (!canGenerate) return;
+
     const runId = `generated-${Date.now().toString(36)}`;
     const generated = buildDemoPipelineResult({
       job: { ...selectedJob, jdText },
@@ -373,7 +379,7 @@ export function JobFileDetail({
     <div className="product-workspace" id="workspace">
       <aside className="workspace-sidebar">
         <div className="sidebar-heading">
-          <p className="eyebrow">岗位工作台</p>
+          <p className="eyebrow">准备本场面试</p>
           <h2>准备中的岗位</h2>
         </div>
         <div className="file-list">
@@ -386,16 +392,16 @@ export function JobFileDetail({
             >
               <strong>{jobFile.company}</strong>
               <span>{jobFile.roleTitle}</span>
-              <small>{jobFile.status}</small>
+              <small>{sampleJobFiles.some((job) => job.id === jobFile.id) ? `示例 · ${jobFile.status}` : jobFile.status}</small>
             </button>
           ))}
         </div>
         <form className="new-job-card" onSubmit={handleNewJobSubmit}>
           <div className="section-heading">
             <p className="eyebrow">本地保存</p>
-            <h2>新建岗位档案</h2>
+            <h2>新建目标岗位</h2>
           </div>
-          <p className="new-job-helper">没有准备好真实 JD 时，可以先填入示例岗位跑完整流程。</p>
+          <p className="new-job-helper">填写公司、岗位和 JD 后，本场复盘会自动绑定到这个岗位。</p>
           <label>
             <span>公司</span>
             <input value={newJobForm.company} onChange={(event) => handleNewJobChange('company', event.target.value)} />
@@ -414,7 +420,11 @@ export function JobFileDetail({
           </label>
           <label>
             <span>JD</span>
-            <textarea value={newJobForm.jdText} onChange={(event) => handleNewJobChange('jdText', event.target.value)} />
+            <textarea
+              value={newJobForm.jdText}
+              placeholder="粘贴岗位描述、职责要求和能力要求"
+              onChange={(event) => handleNewJobChange('jdText', event.target.value)}
+            />
           </label>
           <div className="new-job-actions">
             <button type="button" className="ghost-action" onClick={handleFillNewJobExample}>
@@ -429,18 +439,20 @@ export function JobFileDetail({
         <section className="workspace-header">
           <div>
             <p className="eyebrow">{selectedJob.company} · {selectedJob.roleTitle}</p>
+            {isExampleJob && <span className="example-badge">示例数据</span>}
             <h1>导入面试对话，生成下次可用回答</h1>
             <p>把这轮面试里的原问题、原回答和点评整理成复盘，并沉淀为后续轮次可使用的回答资产。</p>
           </div>
-          <button className="primary-action" type="button" onClick={handleGenerate} disabled={workspaceState.status === 'generating'}>
+          <button className="primary-action" type="button" onClick={handleGenerate} disabled={!canGenerate}>
             {workspaceState.status === 'generating' ? '正在生成...' : '生成复盘与优化回答'}
           </button>
         </section>
 
-        <section className="job-edit-panel">
-          <div className="section-heading">
+        <details className="job-edit-panel">
+          <summary>编辑岗位信息</summary>
+          <div className="section-heading job-edit-summary-heading">
             <p className="eyebrow">岗位档案</p>
-            <h2>编辑当前岗位信息</h2>
+            <h2>当前岗位信息</h2>
           </div>
           <div className="job-edit-grid">
             <label>
@@ -469,7 +481,7 @@ export function JobFileDetail({
             </button>
             {jobFiles.length <= 1 && <span>至少保留一个岗位档案。</span>}
           </div>
-        </section>
+        </details>
 
         <section className="input-helper-panel">
           <div>
@@ -479,7 +491,7 @@ export function JobFileDetail({
           </div>
           <div className="input-helper-actions">
             <button className="secondary-action" type="button" onClick={handleFillExample}>
-              填入示例内容
+              使用示例内容
             </button>
             <button className="ghost-action" type="button" onClick={handleSaveCurrentJob}>
               保存当前 JD
@@ -502,11 +514,19 @@ export function JobFileDetail({
         <section className="workspace-inputs">
           <label>
             <span>JD 文本</span>
-            <textarea value={jdText} onChange={(event) => setJdText(event.target.value)} />
+            <textarea
+              value={jdText}
+              placeholder="粘贴目标岗位 JD。例如：岗位职责、任职要求、产品方向、能力关键词。"
+              onChange={(event) => setJdText(event.target.value)}
+            />
           </label>
           <label>
             <span>外部 AI 模拟面试对话</span>
-            <textarea value={conversationText} onChange={(event) => setConversationText(event.target.value)} />
+            <textarea
+              value={conversationText}
+              placeholder={'粘贴 ChatGPT、Claude 或其他 AI 工具里的模拟面试记录。建议包含：\n面试官：...\n候选人：...\n面试官追问：...\nAI 点评：...'}
+              onChange={(event) => setConversationText(event.target.value)}
+            />
           </label>
         </section>
 
@@ -514,62 +534,73 @@ export function JobFileDetail({
           <div className="section-heading parsed-conversation-heading">
             <div>
               <p className="eyebrow">解析结果确认</p>
-              <h2>先确认系统读对了什么，再生成复盘</h2>
+              <h2>检查问题和回答是否识别正确</h2>
+              <p>如果识别错了，可以先改正，避免生成错误复盘。</p>
             </div>
-            <button className="secondary-action" type="button" onClick={handlePreviewParse}>
+            <button className="secondary-action" type="button" onClick={handlePreviewParse} disabled={!hasConversationText}>
               解析并预览
             </button>
           </div>
-          <div className="parsed-question-list">
-            {editableQuestions.map((question, index) => (
-              <article className="parsed-question-card" key={question.id}>
-                <div className="parsed-question-title">
-                  <strong>问题 {index + 1}</strong>
-                  <span>{question.feedback ? '已识别点评' : '可手动补充点评'}</span>
-                </div>
-                <label>
-                  <span>原问题</span>
-                  <textarea
-                    value={question.question}
-                    onChange={(event) => handleQuestionFieldChange(question.id, 'question', event.target.value)}
-                  />
-                </label>
-                <label>
-                  <span>原回答</span>
-                  <textarea
-                    value={question.answer}
-                    onChange={(event) => handleQuestionFieldChange(question.id, 'answer', event.target.value)}
-                  />
-                </label>
-                <label>
-                  <span>追问，每行一个</span>
-                  <textarea
-                    value={question.followUps.join('\n')}
-                    onChange={(event) => handleQuestionFollowUpsChange(question.id, event.target.value)}
-                  />
-                </label>
-                <label>
-                  <span>AI 点评</span>
-                  <textarea
-                    value={question.feedback}
-                    onChange={(event) => handleQuestionFieldChange(question.id, 'feedback', event.target.value)}
-                  />
-                </label>
+          {hasConversationText ? (
+            <div className="parsed-question-list">
+              {editableQuestions.map((question, index) => (
+                <article className="parsed-question-card" key={question.id}>
+                  <div className="parsed-question-title">
+                    <strong>问题 {index + 1}</strong>
+                    <span>{question.feedback ? '已识别点评' : '可手动补充点评'}</span>
+                  </div>
+                  <label>
+                    <span>原问题</span>
+                    <textarea
+                      value={question.question}
+                      onChange={(event) => handleQuestionFieldChange(question.id, 'question', event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    <span>原回答</span>
+                    <textarea
+                      value={question.answer}
+                      onChange={(event) => handleQuestionFieldChange(question.id, 'answer', event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    <span>追问，每行一个</span>
+                    <textarea
+                      value={question.followUps.join('\n')}
+                      onChange={(event) => handleQuestionFollowUpsChange(question.id, event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    <span>AI 点评</span>
+                    <textarea
+                      value={question.feedback}
+                      onChange={(event) => handleQuestionFieldChange(question.id, 'feedback', event.target.value)}
+                    />
+                  </label>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <section className="empty-panel empty-panel--inline">
+              <h2>还没有可解析的面试对话</h2>
+              <p>粘贴一段模拟面试记录后，点击“解析并预览”，这里会显示识别出的原问题、原回答、追问和点评。</p>
+            </section>
+          )}
+        </section>
+
+        {(hasConversationText || hasGeneratedResult) && (
+          <section className="analysis-steps">
+            {workspaceState.steps.map((step) => (
+              <article className={`analysis-step analysis-step--${step.status}`} key={step.id}>
+                <span>{step.status === 'done' ? '完成' : step.status === 'active' ? '进行中' : '等待'}</span>
+                <strong>{step.label}</strong>
               </article>
             ))}
-          </div>
-        </section>
+          </section>
+        )}
 
-        <section className="analysis-steps">
-          {workspaceState.steps.map((step) => (
-            <article className={`analysis-step analysis-step--${step.status}`} key={step.id}>
-              <span>{step.status === 'done' ? '完成' : step.status === 'active' ? '进行中' : '等待'}</span>
-              <strong>{step.label}</strong>
-            </article>
-          ))}
-        </section>
-
-        <section className="interview-detail-panel">
+        {hasGeneratedResult ? (
+          <section className="interview-detail-panel">
           <div className="section-heading interview-detail-heading">
             <div>
               <p className="eyebrow">面试记录详情</p>
@@ -636,9 +667,16 @@ export function JobFileDetail({
               <p>这场记录还没有保存回答资产。</p>
             )}
           </div>
-        </section>
+          </section>
+        ) : (
+          <section className="empty-result-panel">
+            <p className="eyebrow">生成结果</p>
+            <h2>生成后，这里会展示复盘和优化回答</h2>
+            <p>你会看到原问题、原回答、具体问题点、修改依据，以及一条可编辑的优化回答。</p>
+          </section>
+        )}
 
-        <section className="compare-panel">
+        {hasGeneratedResult && <section className="compare-panel">
           <div className="compare-card compare-card--original">
             <p className="eyebrow">原回答</p>
             <h2>{generatedSession.questions[0]?.question}</h2>
@@ -667,9 +705,9 @@ export function JobFileDetail({
               <span>{generatedAsset.reuseScope}</span>
             </div>
           </div>
-        </section>
+        </section>}
 
-        <section className="explanation-panel">
+        {hasGeneratedResult && <section className="explanation-panel">
           <div className="section-heading">
             <p className="eyebrow">修改依据</p>
             <h2>为什么建议这样改</h2>
@@ -692,7 +730,7 @@ export function JobFileDetail({
               <p>{answerExplanation.risk}</p>
             </article>
           </div>
-        </section>
+        </section>}
 
         <section className="support-grid">
           <section className="panel">

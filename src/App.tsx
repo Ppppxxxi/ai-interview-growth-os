@@ -11,9 +11,12 @@ import { GrowthDashboard } from './pages/GrowthDashboard';
 import { JobFileDetail } from './pages/JobFileDetail';
 import {
   attachInterviewSessionToJob,
+  clearPersonalWorkspace,
+  createEmptyPersonalWorkspaceData,
   createJobFileFromDraft,
   createPersonalWorkspaceData,
   getBrowserStorage,
+  hasPersonalWorkspace,
   type NewJobDraft,
   readPersonalWorkspace,
   removeJobFile,
@@ -28,30 +31,63 @@ import { upsertAnswerAsset } from './workflow/runtimeAssets';
 type AppView = 'workspace' | 'assets' | 'growth';
 
 const navItems: Array<{ id: AppView; label: string }> = [
-  { id: 'workspace', label: '岗位工作台' },
-  { id: 'assets', label: '回答资产库' },
-  { id: 'growth', label: '全局成长' }
+  { id: 'workspace', label: '准备本场面试' },
+  { id: 'assets', label: '可复用回答' },
+  { id: 'growth', label: '复盘总结' }
 ];
+
+function createSampleWorkspaceData() {
+  return createPersonalWorkspaceData(
+    initialJobFiles,
+    initialAnswerAssets,
+    initialJobFiles[0]?.id ?? '',
+    new Date().toISOString(),
+    initialInterviewSessions,
+    initialReviewReports
+  );
+}
 
 export default function App() {
   const [view, setView] = useState<AppView>('workspace');
-  const [workspaceData, setWorkspaceData] = useState(() =>
-    readPersonalWorkspace(
-      getBrowserStorage(),
-      createPersonalWorkspaceData(
-        initialJobFiles,
-        initialAnswerAssets,
-        initialJobFiles[0]?.id ?? '',
-        new Date().toISOString(),
-        initialInterviewSessions,
-        initialReviewReports
-      )
-    )
-  );
+  const [hasStarted, setHasStarted] = useState(() => hasPersonalWorkspace(getBrowserStorage()));
+  const [workspaceData, setWorkspaceData] = useState(() => {
+    const fallback = createEmptyPersonalWorkspaceData();
+    return hasPersonalWorkspace(getBrowserStorage()) ? readPersonalWorkspace(getBrowserStorage(), fallback) : fallback;
+  });
 
   useEffect(() => {
+    if (!hasStarted) return;
     writePersonalWorkspace(getBrowserStorage(), workspaceData);
-  }, [workspaceData]);
+  }, [hasStarted, workspaceData]);
+
+  function handleStartBlank() {
+    setWorkspaceData(createEmptyPersonalWorkspaceData());
+    setHasStarted(true);
+    setView('workspace');
+  }
+
+  function handleStartWithExample() {
+    setWorkspaceData(createSampleWorkspaceData());
+    setHasStarted(true);
+    setView('workspace');
+  }
+
+  function handleRestoreExample() {
+    const confirmed = window.confirm('恢复示例数据会覆盖当前浏览器里的本地数据，是否继续？');
+    if (!confirmed) return;
+    setWorkspaceData(createSampleWorkspaceData());
+    setHasStarted(true);
+    setView('workspace');
+  }
+
+  function handleClearLocalData() {
+    const confirmed = window.confirm('清空本地数据后，当前岗位、面试记录和回答资产会从这个浏览器删除，是否继续？');
+    if (!confirmed) return;
+    clearPersonalWorkspace(getBrowserStorage());
+    setWorkspaceData(createEmptyPersonalWorkspaceData());
+    setHasStarted(false);
+    setView('workspace');
+  }
 
   function handleSaveAsset(asset: AnswerAsset) {
     setWorkspaceData((current) => ({
@@ -117,20 +153,35 @@ export default function App() {
           <strong>AI 面试成长 OS</strong>
           <span>把外部 AI 面试对话沉淀成下次可用回答</span>
         </div>
-        <nav aria-label="主导航">
-          {navItems.map((item) => (
-            <button
-              className={view === item.id ? 'nav-button nav-button--active' : 'nav-button'}
-              key={item.id}
-              type="button"
-              onClick={() => setView(item.id)}
-            >
-              {item.label}
-            </button>
-          ))}
-        </nav>
+        <div className="topbar-actions">
+          {hasStarted && (
+            <nav aria-label="主导航">
+              {navItems.map((item) => (
+                <button
+                  className={view === item.id ? 'nav-button nav-button--active' : 'nav-button'}
+                  key={item.id}
+                  type="button"
+                  onClick={() => setView(item.id)}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </nav>
+          )}
+          {hasStarted && (
+            <div className="data-actions" aria-label="本地数据管理">
+              <button type="button" className="ghost-action" onClick={handleRestoreExample}>
+                恢复示例
+              </button>
+              <button type="button" className="ghost-action" onClick={handleClearLocalData}>
+                清空本地数据
+              </button>
+            </div>
+          )}
+        </div>
       </header>
-      {view === 'workspace' && (
+      {!hasStarted && <WelcomePanel onStartBlank={handleStartBlank} onStartWithExample={handleStartWithExample} />}
+      {hasStarted && view === 'workspace' && (
         <JobFileDetail
           selectedJobId={workspaceData.selectedJobId}
           onSelectJob={handleSelectJob}
@@ -147,7 +198,7 @@ export default function App() {
           onOpenAssets={() => setView('assets')}
         />
       )}
-      {view === 'assets' && (
+      {hasStarted && view === 'assets' && (
         <AssetsAndTraining
           answerAssets={workspaceData.answerAssets}
           interviewSessions={workspaceData.interviewSessions}
@@ -155,7 +206,7 @@ export default function App() {
           onUpdateAsset={handleSaveAsset}
         />
       )}
-      {view === 'growth' && (
+      {hasStarted && view === 'growth' && (
         <GrowthDashboard
           answerAssets={workspaceData.answerAssets}
           jobFiles={workspaceData.jobFiles}
@@ -163,5 +214,48 @@ export default function App() {
         />
       )}
     </main>
+  );
+}
+
+function WelcomePanel({
+  onStartBlank,
+  onStartWithExample
+}: {
+  onStartBlank: () => void;
+  onStartWithExample: () => void;
+}) {
+  return (
+    <section className="welcome-panel">
+      <div>
+        <p className="eyebrow">开始使用</p>
+        <h1>把面试对话变成下次可用回答</h1>
+        <p>
+          粘贴目标岗位 JD 和一段 AI 模拟面试对话，系统会帮你整理原问题、原回答、具体问题点和优化回答。
+          你确认后再保存为可复用回答。
+        </p>
+        <div className="welcome-actions">
+          <button type="button" className="primary-action" onClick={onStartBlank}>
+            开始准备我的面试
+          </button>
+          <button type="button" className="secondary-action" onClick={onStartWithExample}>
+            使用示例体验
+          </button>
+        </div>
+      </div>
+      <div className="welcome-flow" aria-label="产品流程">
+        <article>
+          <strong>1. 粘贴材料</strong>
+          <span>JD + 外部 AI 模拟面试对话</span>
+        </article>
+        <article>
+          <strong>2. 检查识别结果</strong>
+          <span>确认问题、回答和点评没有识别错</span>
+        </article>
+        <article>
+          <strong>3. 生成可用回答</strong>
+          <span>先编辑确认，再沉淀为可复用回答</span>
+        </article>
+      </div>
+    </section>
   );
 }

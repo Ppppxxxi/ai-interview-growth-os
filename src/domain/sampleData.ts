@@ -171,8 +171,8 @@ export const answerAssets: AnswerAsset[] = [
     sourceJobId: 'job-ai-pm-a',
     sourceInterviewId: 'session-ai-pm-a-1',
     sourceReviewId: 'review-ai-pm-a-1',
-    reuseScope: '已用于星河智能 AI 产品经理后续准备',
-    usedInInterview: true,
+    reuseScope: '适合同岗位后续轮次或同方向类似问题，使用前请补充真实业务场景。',
+    usedInInterview: false,
     linkedExperienceId: 'exp-research-agent',
     usageNote: '适合在星河智能后续轮次，或其他 AI 产品经理岗位被问到“产品效果评估 / 指标体系”时复用；使用前补一句具体业务场景。',
     confidence: 'high'
@@ -191,8 +191,8 @@ export const answerAssets: AnswerAsset[] = [
     sourceJobId: 'job-platform-pm-c',
     sourceInterviewId: 'session-platform-pm-demo',
     sourceReviewId: 'review-platform-pm-demo',
-    reuseScope: '同方向类似岗位',
-    usedInInterview: true,
+    reuseScope: '同方向类似岗位，使用前请结合具体业务目标补充案例。',
+    usedInInterview: false,
     linkedExperienceId: 'exp-fintech-research',
     usageNote: '适合平台产品或 AI 产品中的需求取舍问题，回答时要补充具体业务目标。',
     confidence: 'medium'

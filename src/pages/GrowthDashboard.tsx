@@ -16,7 +16,7 @@ export function GrowthDashboard({ answerAssets, jobFiles, reviewReports }: Growt
   return (
     <div className="dashboard-grid dashboard-grid--growth">
       <section className="hero-panel">
-        <p className="eyebrow">全局成长</p>
+        <p className="eyebrow">复盘总结</p>
         <h1>查看已沉淀的问题、回答和考前训练</h1>
         <p>这里汇总当前已经有证据的复盘结果。完成更多面试复盘后，再展示跨岗位重复问题和能力变化。</p>
         <div className="hero-stats">
@@ -30,7 +30,7 @@ export function GrowthDashboard({ answerAssets, jobFiles, reviewReports }: Growt
           </span>
           <span>
             <strong>{reusedAssets.length}</strong>
-            已实战使用
+            已验证使用
           </span>
         </div>
       </section>
