@@ -13,7 +13,7 @@ type MaterialImportParserInput = {
   fallbackJob?: JobFile;
 };
 
-const companyKeywords = ['新国都', '星河智能', '云启科技', '澜舟协同'];
+const companyKeywords = ['晴川智能', '星河智能', '云启科技', '澜舟协同'];
 
 function normalizeText(text: string) {
   return text.replace(/\r\n/g, '\n').trim();
@@ -111,7 +111,7 @@ function buildKeywordItems(text: string): InterviewMaterialDraftItem[] {
         evidence: excerpt(text, ['AB', 'A/B', '实验', '分流']),
         improvementSuggestion: '先明确业务目标和实验假设，再说明实验组/对照组、核心指标、护栏指标、样本周期和异常处理。',
         improvedAnswer:
-          '我会先把实验目标转成可验证假设，例如“新流程能提升商户开通成功率”。然后设计实验组和对照组，确保用户分流随机且稳定；核心指标看开通成功率或关键行为完成率，护栏指标看投诉率、页面退出率和人工客服量。实验前会估算样本量和周期，实验中监控异常波动，实验后不仅看显著性，也会拆分新老用户、渠道和设备差异，避免把短期波动误判为产品收益。',
+          '我会先把实验目标转成可验证假设，例如“新流程能提升关键任务完成率”。然后设计实验组和对照组，确保用户分流随机且稳定；核心指标看任务完成率或关键行为完成率，护栏指标看问题反馈率、页面退出率和人工支持量。实验前会估算样本量和周期，实验中监控异常波动，实验后不仅看显著性，也会拆分新老用户、渠道和设备差异，避免把短期波动误判为产品收益。',
         confidence: 'high'
       })
     );
@@ -134,18 +134,18 @@ function buildKeywordItems(text: string): InterviewMaterialDraftItem[] {
     );
   }
 
-  if (/公司|业务|新国都|支付|商户|行业/.test(text)) {
+  if (/公司|业务|行业|场景|用户/.test(text)) {
     items.push(
       makeItem({
         id: 'item-company-business',
         title: '公司业务理解',
         question: '你为什么投递这家公司？你怎么理解它的业务和产品机会？',
-        originalAnswer: excerpt(text, ['公司', '业务', '新国都', '支付', '商户']),
+        originalAnswer: excerpt(text, ['公司', '业务', '行业', '场景', '用户']),
         issue: '回答容易只说“看好行业”或“匹配岗位”，没有把公司业务、目标用户和岗位职责连起来。',
-        evidence: excerpt(text, ['公司', '业务', '新国都', '支付', '商户']),
+        evidence: excerpt(text, ['公司', '业务', '行业', '场景', '用户']),
         improvementSuggestion: '用“公司业务-用户场景-岗位能做什么-自己的匹配点”组织回答。',
         improvedAnswer:
-          '我关注这家公司不是只因为它在 AI 或支付方向，而是因为它的用户场景足够具体。以商户服务为例，商户在收款、经营分析、营销触达和客服咨询里都会产生高频问题，AI 产品可以把分散的服务能力变成更低门槛的助手体验。这个岗位需要把业务需求、用户路径和效果指标连接起来，而我之前做过 AI Agent 求职助手的产品拆解，也持续在做结构化复盘和指标设计，所以我希望把这种能力迁移到更真实的商业场景里。',
+          '我关注这家公司不是只因为它在 AI 方向，而是因为它的用户场景足够具体。以企业知识库助手为例，员工在检索制度、查找项目资料、复用方案模板和处理高频咨询时都会遇到信息分散的问题，AI 产品可以把分散知识变成更低门槛的助手体验。这个岗位需要把业务需求、用户路径和效果指标连接起来，而我之前做过 AI Agent 求职助手的产品拆解，也持续在做结构化复盘和指标设计，所以我希望把这种能力迁移到更真实的业务场景里。',
         confidence: 'medium'
       })
     );

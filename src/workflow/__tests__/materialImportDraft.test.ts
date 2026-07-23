@@ -6,7 +6,7 @@ import { buildMaterialImportSavePayload } from '../materialImportDraft';
 const draft: InterviewMaterialDraft = {
   sourceType: 'mixed_material',
   jobContext: {
-    company: '新国都',
+    company: '晴川智能',
     role: 'AI 产品经理'
   },
   interviewItems: [
