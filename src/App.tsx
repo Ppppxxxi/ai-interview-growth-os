@@ -31,9 +31,9 @@ import { upsertAnswerAsset } from './workflow/runtimeAssets';
 type AppView = 'workspace' | 'assets' | 'growth';
 
 const navItems: Array<{ id: AppView; label: string }> = [
-  { id: 'workspace', label: '准备本场面试' },
-  { id: 'assets', label: '可复用回答' },
-  { id: 'growth', label: '复盘总结' }
+  { id: 'workspace', label: '生成本场回答' },
+  { id: 'assets', label: '我的回答库' },
+  { id: 'growth', label: '面试复盘' }
 ];
 
 function createSampleWorkspaceData() {
@@ -151,7 +151,7 @@ export default function App() {
       <header className="topbar">
         <div>
           <strong>AI 面试成长 OS</strong>
-          <span>把外部 AI 面试对话沉淀成下次可用回答</span>
+          <span>导入面试材料，生成下次可用回答</span>
         </div>
         <div className="topbar-actions">
           {hasStarted && (
@@ -228,10 +228,10 @@ function WelcomePanel({
     <section className="welcome-panel">
       <div>
         <p className="eyebrow">开始使用</p>
-        <h1>把面试对话变成下次可用回答</h1>
+        <h1>粘贴面试材料，拿到下次可以直接改用的回答</h1>
         <p>
-          粘贴目标岗位 JD 和一段 AI 模拟面试对话，系统会帮你整理原问题、原回答、具体问题点和优化回答。
-          你确认后再保存为可复用回答。
+          不需要先整理完整档案。把 JD、模拟面试对话、真实面试回忆或复盘笔记粘贴进来，先生成可确认草稿，
+          再保存你愿意复用的回答。
         </p>
         <div className="welcome-actions">
           <button type="button" className="primary-action" onClick={onStartBlank}>
@@ -244,16 +244,16 @@ function WelcomePanel({
       </div>
       <div className="welcome-flow" aria-label="产品流程">
         <article>
-          <strong>1. 粘贴材料</strong>
-          <span>JD + 外部 AI 模拟面试对话</span>
+          <strong>1. 粘贴一整段材料</strong>
+          <span>JD、问答、追问、点评或复盘笔记都可以混在一起</span>
         </article>
         <article>
-          <strong>2. 检查识别结果</strong>
-          <span>确认问题、回答和点评没有识别错</span>
+          <strong>2. 检查可确认草稿</strong>
+          <span>确认问题、原回答、具体问题和修改建议</span>
         </article>
         <article>
-          <strong>3. 生成可用回答</strong>
-          <span>先编辑确认，再沉淀为可复用回答</span>
+          <strong>3. 保存下次可用回答</strong>
+          <span>保存到当前岗位，也能在回答库里继续修改</span>
         </article>
       </div>
     </section>

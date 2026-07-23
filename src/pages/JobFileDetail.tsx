@@ -78,16 +78,16 @@ const materialTypeOptions: Array<{ value: InterviewMaterialInputType; label: str
   { value: 'mixed_material', label: '混合材料' }
 ];
 
-const materialExample = `公司：新国都
+const materialExample = `公司：晴川智能
 岗位：AI 产品经理
-方向：AI + 支付商户服务
+方向：AI + 企业知识库助手
 
 面试复盘：
-面试官问我为什么投递新国都，我只回答了自己看好 AI + 支付方向，没有把商户服务场景、公司业务和岗位职责连起来。
+面试官问我为什么投递晴川智能，我只回答了自己看好 AI + 企业服务方向，没有把知识库检索场景、公司业务和岗位职责连起来。
 
 AB 实验分流机制答得比较空。我只说可以看转化率，没有说明实验目标、实验组/对照组、核心指标、护栏指标和异常处理。
 
-评测口径和指标体系没有分层。面试官追问如何证明 AI 助手真的提升商户服务效率，我只说满意度和使用次数。
+评测口径和指标体系没有分层。面试官追问如何证明 AI 助手真的提升员工知识检索效率，我只说满意度和使用次数。
 
 AI Agent 链路拆解也不完整。我讲了“导入材料、生成回答”，但没有讲清楚输入输出、用户确认点、低置信兜底和保存后的复用边界。`;
 
@@ -178,24 +178,6 @@ export function JobFileDetail({
     (asset) => asset.sourceJobId === selectedJob.id || asset.applicableRoles.includes(selectedJob.direction)
   );
   const linkedTrainingTasks = trainingTasks.filter((task) => task.jobFileId === selectedJob.id);
-  const onboardingSteps = [
-    {
-      title: '确认岗位档案',
-      description: selectedJob.jdText ? `${selectedJob.company} · ${selectedJob.roleTitle}` : '先保存岗位 JD，后续复盘会绑定到这个岗位。'
-    },
-    {
-      title: '粘贴面试对话',
-      description: conversationText.trim() ? '已填入外部 AI 模拟面试对话。' : '复制 ChatGPT、Claude 或其他 AI 工具里的模拟面试记录。'
-    },
-    {
-      title: '生成复盘与回答',
-      description: generatedReview.summary || '系统会整理原问题、原回答、问题点和优化回答。'
-    },
-    {
-      title: '沉淀回答资产',
-      description: linkedAssets.length > 0 ? `${linkedAssets.length} 条回答资产可在资产库检索复用。` : '确认后保存为回答资产，供下一场面试复用。'
-    }
-  ];
   const answerExplanation = buildAnswerExplanation({
     asset: generatedAsset,
     review: generatedReview,
@@ -215,6 +197,7 @@ export function JobFileDetail({
   const hasGeneratedResult = !generatedSession.id.endsWith('-draft');
   const canGenerate = jdText.trim().length > 0 && hasConversationText && workspaceState.status !== 'generating';
   const isExampleJob = sampleJobFiles.some((job) => job.id === selectedJob.id);
+  const hasWorkspaceContext = hasGeneratedResult || jobSessions.length > 0 || linkedAssets.length > 0;
 
   function handleGenerate() {
     if (!canGenerate) return;
@@ -508,7 +491,7 @@ export function JobFileDetail({
     <div className="product-workspace" id="workspace">
       <aside className="workspace-sidebar">
         <div className="sidebar-heading">
-          <p className="eyebrow">准备本场面试</p>
+          <p className="eyebrow">目标岗位</p>
           <h2>准备中的岗位</h2>
         </div>
         <div className="file-list">
@@ -525,43 +508,42 @@ export function JobFileDetail({
             </button>
           ))}
         </div>
-        <form className="new-job-card" onSubmit={handleNewJobSubmit}>
-          <div className="section-heading">
-            <p className="eyebrow">本地保存</p>
-            <h2>新建目标岗位</h2>
-          </div>
-          <p className="new-job-helper">填写公司、岗位和 JD 后，本场复盘会自动绑定到这个岗位。</p>
-          <label>
-            <span>公司</span>
-            <input value={newJobForm.company} onChange={(event) => handleNewJobChange('company', event.target.value)} />
-          </label>
-          <label>
-            <span>岗位</span>
-            <input value={newJobForm.roleTitle} onChange={(event) => handleNewJobChange('roleTitle', event.target.value)} />
-          </label>
-          <label>
-            <span>方向</span>
-            <input value={newJobForm.direction} onChange={(event) => handleNewJobChange('direction', event.target.value)} />
-          </label>
-          <label>
-            <span>阶段</span>
-            <input value={newJobForm.stage} onChange={(event) => handleNewJobChange('stage', event.target.value)} />
-          </label>
-          <label>
-            <span>JD</span>
-            <textarea
-              value={newJobForm.jdText}
-              placeholder="粘贴岗位描述、职责要求和能力要求"
-              onChange={(event) => handleNewJobChange('jdText', event.target.value)}
-            />
-          </label>
-          <div className="new-job-actions">
-            <button type="button" className="ghost-action" onClick={handleFillNewJobExample}>
-              填入示例岗位
-            </button>
-            <button type="submit">保存岗位档案</button>
-          </div>
-        </form>
+        <details className="new-job-card">
+          <summary>新建目标岗位</summary>
+          <form onSubmit={handleNewJobSubmit}>
+            <p className="new-job-helper">填写公司、岗位和 JD 后，本场复盘会自动绑定到这个岗位。</p>
+            <label>
+              <span>公司</span>
+              <input value={newJobForm.company} onChange={(event) => handleNewJobChange('company', event.target.value)} />
+            </label>
+            <label>
+              <span>岗位</span>
+              <input value={newJobForm.roleTitle} onChange={(event) => handleNewJobChange('roleTitle', event.target.value)} />
+            </label>
+            <label>
+              <span>方向</span>
+              <input value={newJobForm.direction} onChange={(event) => handleNewJobChange('direction', event.target.value)} />
+            </label>
+            <label>
+              <span>阶段</span>
+              <input value={newJobForm.stage} onChange={(event) => handleNewJobChange('stage', event.target.value)} />
+            </label>
+            <label>
+              <span>JD</span>
+              <textarea
+                value={newJobForm.jdText}
+                placeholder="粘贴岗位描述、职责要求和能力要求"
+                onChange={(event) => handleNewJobChange('jdText', event.target.value)}
+              />
+            </label>
+            <div className="new-job-actions">
+              <button type="button" className="ghost-action" onClick={handleFillNewJobExample}>
+                填入示例岗位
+              </button>
+              <button type="submit">保存岗位档案</button>
+            </div>
+          </form>
+        </details>
       </aside>
 
       <main className="workspace-center">
@@ -569,34 +551,58 @@ export function JobFileDetail({
           <div>
             <p className="eyebrow">{selectedJob.company} · {selectedJob.roleTitle}</p>
             {isExampleJob && <span className="example-badge">示例数据</span>}
-            <h1>导入面试材料，生成下次可用回答</h1>
-            <p>把模拟面试对话、真实面试回忆或复盘笔记整理成可确认草稿，再保存为本岗位面试记录和回答资产。</p>
+            <h1>开始新一场面试复盘</h1>
+            <p>第一步只需要粘贴一整段材料。系统会先拆成可确认草稿，你再决定哪些回答值得保存。</p>
           </div>
-          <button className="primary-action" type="button" onClick={handleGenerate} disabled={!canGenerate}>
-            {workspaceState.status === 'generating' ? '正在生成...' : '生成复盘与优化回答'}
-          </button>
+          <div className="workspace-header-status" aria-label="当前状态">
+            <span>{jobSessions.length} 场记录</span>
+            <span>{linkedAssets.length} 条回答</span>
+          </div>
         </section>
 
         <section className="material-import-panel">
           <div className="section-heading material-import-heading">
             <div>
-              <p className="eyebrow">主入口</p>
-              <h2>导入一整份面试材料</h2>
-              <p>支持粘贴 AI 模拟面试对话、真实面试回忆、复盘笔记或混合材料。系统先生成草稿，你确认后再保存。</p>
+              <p className="eyebrow">本场任务</p>
+              <h2>粘贴材料，先得到一份可确认草稿</h2>
+              <p>支持 AI 模拟面试对话、真实面试回忆、复盘笔记或混合材料。通常保持“自动识别”即可。</p>
             </div>
             <div className="material-import-actions">
               <button className="ghost-action" type="button" onClick={handleFillMaterialExample}>
                 填入材料示例
               </button>
               <button className="primary-action" type="button" onClick={handleParseMaterial} disabled={!hasMaterialText}>
-                解析材料
+                生成可确认草稿
               </button>
             </div>
           </div>
 
+          <div className="material-flow-steps" aria-label="当前流程">
+            <article className={hasMaterialText ? 'material-flow-step material-flow-step--done' : 'material-flow-step material-flow-step--active'}>
+              <span>1</span>
+              <strong>粘贴材料</strong>
+            </article>
+            <article className={materialDraft ? 'material-flow-step material-flow-step--active' : 'material-flow-step'}>
+              <span>2</span>
+              <strong>检查草稿</strong>
+            </article>
+            <article className={hasGeneratedResult ? 'material-flow-step material-flow-step--done' : 'material-flow-step'}>
+              <span>3</span>
+              <strong>保存回答</strong>
+            </article>
+          </div>
+
           <div className="material-import-inputs">
             <label>
-              <span>材料类型</span>
+              <span>面试材料</span>
+              <textarea
+                value={materialText}
+                placeholder={'粘贴一整段材料即可，例如：\n公司/岗位/JD\n面试官问了什么\n我当时怎么答\n追问和点评\n我自己的复盘笔记'}
+                onChange={(event) => setMaterialText(event.target.value)}
+              />
+            </label>
+            <label>
+              <span>识别方式</span>
               <select
                 value={materialType}
                 onChange={(event) => setMaterialType(event.target.value as InterviewMaterialInputType)}
@@ -607,14 +613,7 @@ export function JobFileDetail({
                   </option>
                 ))}
               </select>
-            </label>
-            <label>
-              <span>面试材料</span>
-              <textarea
-                value={materialText}
-                placeholder={'粘贴一整段材料即可，例如：\n公司/岗位/JD\n面试官问了什么\n我当时怎么答\n追问和点评\n我自己的复盘笔记'}
-                onChange={(event) => setMaterialText(event.target.value)}
-              />
+              <small>不确定时保持自动识别。</small>
             </label>
           </div>
 
@@ -714,7 +713,7 @@ export function JobFileDetail({
           ) : (
             <section className="empty-panel empty-panel--inline material-empty-panel">
               <h2>粘贴材料后先生成可确认草稿</h2>
-              <p>草稿会拆出问题、原回答、具体问题、修改建议和可复用回答。你可以逐条编辑，再决定保存哪些回答资产。</p>
+              <p>草稿会拆出问题、原回答、具体问题、修改建议和下次可用回答。你可以逐条编辑，再决定保存哪些回答。</p>
             </section>
           )}
         </section>
@@ -754,121 +753,116 @@ export function JobFileDetail({
           </div>
         </details>
 
-        <section className="input-helper-panel">
-          <div>
-            <p className="eyebrow">快速开始</p>
-            <h2>粘贴 JD 和一段模拟面试对话</h2>
-            <p>支持直接复制 ChatGPT、Claude 或其他 AI 工具里的问答记录。生成后先查看依据，再决定是否保存为回答资产。</p>
-          </div>
-          <div className="input-helper-actions">
-            <button className="secondary-action" type="button" onClick={handleFillExample}>
-              使用示例内容
-            </button>
-            <button className="ghost-action" type="button" onClick={handleSaveCurrentJob}>
-              保存当前 JD
-            </button>
-          </div>
-        </section>
+        <details className="advanced-import-panel">
+          <summary>高级导入：我已经整理好了 JD 和标准问答</summary>
 
-        <section className="onboarding-panel">
-          {onboardingSteps.map((step, index) => (
-            <article key={step.title}>
-              <span>{index + 1}</span>
-              <div>
-                <strong>{step.title}</strong>
-                <p>{step.description}</p>
-              </div>
-            </article>
-          ))}
-        </section>
-
-        <section className="workspace-inputs">
-          <label>
-            <span>JD 文本</span>
-            <textarea
-              value={jdText}
-              placeholder="粘贴目标岗位 JD。例如：岗位职责、任职要求、产品方向、能力关键词。"
-              onChange={(event) => setJdText(event.target.value)}
-            />
-          </label>
-          <label>
-            <span>外部 AI 模拟面试对话</span>
-            <textarea
-              value={conversationText}
-              placeholder={'粘贴 ChatGPT、Claude 或其他 AI 工具里的模拟面试记录。建议包含：\n面试官：...\n候选人：...\n面试官追问：...\nAI 点评：...'}
-              onChange={(event) => setConversationText(event.target.value)}
-            />
-          </label>
-        </section>
-
-        <section className="parsed-conversation-panel">
-          <div className="section-heading parsed-conversation-heading">
+          <section className="input-helper-panel">
             <div>
-              <p className="eyebrow">解析结果确认</p>
-              <h2>检查问题和回答是否识别正确</h2>
-              <p>如果识别错了，可以先改正，避免生成错误复盘。</p>
+              <p className="eyebrow">标准格式导入</p>
+              <h2>粘贴 JD 和一段模拟面试对话</h2>
+              <p>适合已经整理成“面试官 / 候选人 / AI 点评”格式的材料。一般情况下直接使用上方主入口即可。</p>
             </div>
-            <button className="secondary-action" type="button" onClick={handlePreviewParse} disabled={!hasConversationText}>
-              解析并预览
-            </button>
-          </div>
-          {hasConversationText ? (
-            <div className="parsed-question-list">
-              {editableQuestions.map((question, index) => (
-                <article className="parsed-question-card" key={question.id}>
-                  <div className="parsed-question-title">
-                    <strong>问题 {index + 1}</strong>
-                    <span>{question.feedback ? '已识别点评' : '可手动补充点评'}</span>
-                  </div>
-                  <label>
-                    <span>原问题</span>
-                    <textarea
-                      value={question.question}
-                      onChange={(event) => handleQuestionFieldChange(question.id, 'question', event.target.value)}
-                    />
-                  </label>
-                  <label>
-                    <span>原回答</span>
-                    <textarea
-                      value={question.answer}
-                      onChange={(event) => handleQuestionFieldChange(question.id, 'answer', event.target.value)}
-                    />
-                  </label>
-                  <label>
-                    <span>追问，每行一个</span>
-                    <textarea
-                      value={question.followUps.join('\n')}
-                      onChange={(event) => handleQuestionFollowUpsChange(question.id, event.target.value)}
-                    />
-                  </label>
-                  <label>
-                    <span>AI 点评</span>
-                    <textarea
-                      value={question.feedback}
-                      onChange={(event) => handleQuestionFieldChange(question.id, 'feedback', event.target.value)}
-                    />
-                  </label>
+            <div className="input-helper-actions">
+              <button className="secondary-action" type="button" onClick={handleFillExample}>
+                使用示例内容
+              </button>
+              <button className="ghost-action" type="button" onClick={handleSaveCurrentJob}>
+                保存当前 JD
+              </button>
+              <button className="primary-action" type="button" onClick={handleGenerate} disabled={!canGenerate}>
+                {workspaceState.status === 'generating' ? '正在生成...' : '生成复盘与优化回答'}
+              </button>
+            </div>
+          </section>
+
+          <section className="workspace-inputs">
+            <label>
+              <span>JD 文本</span>
+              <textarea
+                value={jdText}
+                placeholder="粘贴目标岗位 JD。例如：岗位职责、任职要求、产品方向、能力关键词。"
+                onChange={(event) => setJdText(event.target.value)}
+              />
+            </label>
+            <label>
+              <span>外部 AI 模拟面试对话</span>
+              <textarea
+                value={conversationText}
+                placeholder={'粘贴 ChatGPT、Claude 或其他 AI 工具里的模拟面试记录。建议包含：\n面试官：...\n候选人：...\n面试官追问：...\nAI 点评：...'}
+                onChange={(event) => setConversationText(event.target.value)}
+              />
+            </label>
+          </section>
+
+          <section className="parsed-conversation-panel">
+            <div className="section-heading parsed-conversation-heading">
+              <div>
+                <p className="eyebrow">解析结果确认</p>
+                <h2>检查问题和回答是否识别正确</h2>
+                <p>如果识别错了，可以先改正，避免生成错误复盘。</p>
+              </div>
+              <button className="secondary-action" type="button" onClick={handlePreviewParse} disabled={!hasConversationText}>
+                解析并预览
+              </button>
+            </div>
+            {hasConversationText ? (
+              <div className="parsed-question-list">
+                {editableQuestions.map((question, index) => (
+                  <article className="parsed-question-card" key={question.id}>
+                    <div className="parsed-question-title">
+                      <strong>问题 {index + 1}</strong>
+                      <span>{question.feedback ? '已识别点评' : '可手动补充点评'}</span>
+                    </div>
+                    <label>
+                      <span>原问题</span>
+                      <textarea
+                        value={question.question}
+                        onChange={(event) => handleQuestionFieldChange(question.id, 'question', event.target.value)}
+                      />
+                    </label>
+                    <label>
+                      <span>原回答</span>
+                      <textarea
+                        value={question.answer}
+                        onChange={(event) => handleQuestionFieldChange(question.id, 'answer', event.target.value)}
+                      />
+                    </label>
+                    <label>
+                      <span>追问，每行一个</span>
+                      <textarea
+                        value={question.followUps.join('\n')}
+                        onChange={(event) => handleQuestionFollowUpsChange(question.id, event.target.value)}
+                      />
+                    </label>
+                    <label>
+                      <span>AI 点评</span>
+                      <textarea
+                        value={question.feedback}
+                        onChange={(event) => handleQuestionFieldChange(question.id, 'feedback', event.target.value)}
+                      />
+                    </label>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <section className="empty-panel empty-panel--inline">
+                <h2>还没有可解析的面试对话</h2>
+                <p>粘贴一段模拟面试记录后，点击“解析并预览”，这里会显示识别出的原问题、原回答、追问和点评。</p>
+              </section>
+            )}
+          </section>
+
+          {(hasConversationText || hasGeneratedResult) && (
+            <section className="analysis-steps">
+              {workspaceState.steps.map((step) => (
+                <article className={`analysis-step analysis-step--${step.status}`} key={step.id}>
+                  <span>{step.status === 'done' ? '完成' : step.status === 'active' ? '进行中' : '等待'}</span>
+                  <strong>{step.label}</strong>
                 </article>
               ))}
-            </div>
-          ) : (
-            <section className="empty-panel empty-panel--inline">
-              <h2>还没有可解析的面试对话</h2>
-              <p>粘贴一段模拟面试记录后，点击“解析并预览”，这里会显示识别出的原问题、原回答、追问和点评。</p>
             </section>
           )}
-        </section>
-
-        {(hasConversationText || hasGeneratedResult) && (
-          <section className="analysis-steps">
-            {workspaceState.steps.map((step) => (
-              <article className={`analysis-step analysis-step--${step.status}`} key={step.id}>
-                <span>{step.status === 'done' ? '完成' : step.status === 'active' ? '进行中' : '等待'}</span>
-                <strong>{step.label}</strong>
-              </article>
-            ))}
-          </section>
-        )}
+        </details>
 
         {hasGeneratedResult ? (
           <section className="interview-detail-panel">
@@ -939,13 +933,7 @@ export function JobFileDetail({
             )}
           </div>
           </section>
-        ) : (
-          <section className="empty-result-panel">
-            <p className="eyebrow">生成结果</p>
-            <h2>生成后，这里会展示复盘和优化回答</h2>
-            <p>你会看到原问题、原回答、具体问题点、修改依据，以及一条可编辑的优化回答。</p>
-          </section>
-        )}
+        ) : null}
 
         {hasGeneratedResult && <section className="compare-panel">
           <div className="compare-card compare-card--original">
@@ -1003,7 +991,7 @@ export function JobFileDetail({
           </div>
         </section>}
 
-        <section className="support-grid">
+        {hasGeneratedResult && <section className="support-grid">
           <section className="panel">
             <div className="section-heading">
               <p className="eyebrow">岗位准备</p>
@@ -1035,10 +1023,18 @@ export function JobFileDetail({
               ))}
             </div>
           </section>
-        </section>
+        </section>}
       </main>
 
       <aside className="workspace-right">
+        {!hasWorkspaceContext ? (
+          <section className="side-panel side-panel--next">
+            <p className="eyebrow">下一步</p>
+            <h2>先粘贴一段面试材料</h2>
+            <p>可以是 AI 模拟面试对话、真实面试回忆、复盘笔记，或者这些内容混在一起。生成草稿后，这里会显示本场记录和下次可用回答。</p>
+          </section>
+        ) : (
+          <>
         <section className="side-panel">
           <p className="eyebrow">该岗位面试记录</p>
           <h2>{jobSessions.length} 场记录</h2>
@@ -1067,11 +1063,11 @@ export function JobFileDetail({
         </section>
 
         <section className="side-panel side-panel--asset">
-          <p className="eyebrow">本岗位回答资产</p>
-          <h2>{workspaceState.status === 'assetSaved' ? '已确认保存' : '待确认'}</h2>
+          <p className="eyebrow">本岗位回答</p>
+          <h2>{workspaceState.status === 'assetSaved' || linkedAssets.length > 0 ? '可继续复用' : '可保存回答'}</h2>
           <strong>{generatedAsset.questionType}</strong>
           <p>{generatedAsset.applicableQuestions[0]}</p>
-          <button type="button" onClick={onOpenAssets}>打开资产库</button>
+          <button type="button" onClick={onOpenAssets}>打开我的回答库</button>
         </section>
 
         <section className="side-panel">
@@ -1093,11 +1089,13 @@ export function JobFileDetail({
               <article key={question}>
                 <strong>问题 {index + 1}</strong>
                 <p>{question}</p>
-                <span>{linkedAssets[0]?.questionType ?? '待生成回答资产'}</span>
+                <span>{linkedAssets[0]?.questionType ?? '生成后可补充回答'}</span>
               </article>
             ))}
           </div>
         </section>
+          </>
+        )}
       </aside>
     </div>
   );
@@ -1150,7 +1148,7 @@ function createDraftAsset(job: JobFile, sessionId: string, reviewId: string): An
     sourceJobId: job.id,
     sourceInterviewId: sessionId,
     sourceReviewId: reviewId,
-    reuseScope: '待确认适用范围',
+    reuseScope: '保存后显示适用范围',
     usedInInterview: false,
     usageNote: '保存前请确认回答符合你的真实经历。',
     confidence: 'low'

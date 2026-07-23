@@ -7,17 +7,17 @@ describe('parseInterviewMaterial', () => {
     const draft = parseInterviewMaterial({
       fallbackJob: jobFiles[0],
       sourceType: 'auto',
-      rawText: `公司：新国都
+      rawText: `公司：晴川智能
 岗位：AI 产品经理
-方向：AI + 支付商户服务
-面试复盘：我对新国都支付商户业务理解不够，只说了看好 AI。
+方向：AI + 企业知识库助手
+面试复盘：我对晴川智能企业知识库业务理解不够，只说了看好 AI。
 AB 实验分流机制答得比较空，只提到看转化率。
 评测口径和指标体系没有分层。
 AI Agent 链路拆解时没有讲清楚输入输出、用户确认和兜底。`
     });
 
     expect(draft.sourceType).toBe('review_notes');
-    expect(draft.jobContext.company).toBe('新国都');
+    expect(draft.jobContext.company).toBe('晴川智能');
     expect(draft.jobContext.role).toBe('AI 产品经理');
     expect(draft.interviewItems.map((item) => item.title)).toEqual(
       expect.arrayContaining(['AB 实验设计', '评测口径设计', '公司业务理解', 'AI Agent 链路拆解'])
