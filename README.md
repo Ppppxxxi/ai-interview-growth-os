@@ -150,6 +150,7 @@ v0.3.1 聚焦真实使用时的首屏理解和流程连续性，不扩展 AI 能
 - [Product Case Study](docs/PRODUCT_CASE_STUDY.md)：面向 AI 产品经理方向的产品案例文档。
 - [Agent contracts / LLM 替换方案](docs/agents/agent-contracts.md)：每个 Agent 的输入、输出、prompt 目标、失败兜底和用户确认点。
 - [GitHub 发布检查清单](docs/GITHUB_RELEASE_CHECKLIST.md)：发布前需要检查的工程、文档和演示项。
+- [推送到上线校验流程](docs/DEPLOYMENT_VALIDATION_WORKFLOW.md)：每次从本地提交到线上验证的固定执行步骤。
 - [公开仓库风险检查](docs/PUBLIC_REPO_RISK.md)：当前公开风险、已做保护和发布建议。
 - [设计与执行过程文档](docs/superpowers/)：保留产品收敛、UI 优化和可信工作流的迭代过程。
 
