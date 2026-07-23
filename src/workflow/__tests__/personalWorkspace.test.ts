@@ -6,6 +6,7 @@ import {
   createEmptyPersonalWorkspaceData,
   createJobFileFromDraft,
   createPersonalWorkspaceData,
+  hasRealWorkspaceData,
   hasPersonalWorkspace,
   PERSONAL_WORKSPACE_STORAGE_KEY,
   readPersonalWorkspace,
@@ -75,6 +76,21 @@ describe('personalWorkspace', () => {
     expect(workspace.interviewSessions).toHaveLength(0);
     expect(workspace.reviewReports).toHaveLength(0);
     expect(workspace.jobFiles[0].status).toBe('待粘贴 JD 和面试对话');
+  });
+
+  it('detects whether a workspace has real user data', () => {
+    const emptyWorkspace = createEmptyPersonalWorkspaceData('2026-07-20T00:00:00.000Z');
+    const editedFirstJob = {
+      ...emptyWorkspace,
+      jobFiles: [{ ...emptyWorkspace.jobFiles[0], company: '我的真实目标公司' }]
+    };
+    const sampleWorkspace = createPersonalWorkspaceData(jobFiles, [], jobFiles[0].id, '2026-07-10T00:00:00.000Z');
+    const sampleIds = jobFiles.map((job) => job.id);
+
+    expect(hasRealWorkspaceData(emptyWorkspace, sampleIds)).toBe(false);
+    expect(hasRealWorkspaceData(editedFirstJob, sampleIds)).toBe(true);
+    expect(hasRealWorkspaceData(sampleWorkspace, sampleIds)).toBe(false);
+    expect(hasRealWorkspaceData({ ...emptyWorkspace, interviewSessions: [interviewSessions[0]] }, sampleIds)).toBe(true);
   });
 
   it('hydrates old persisted data with fallback sessions and reviews', () => {

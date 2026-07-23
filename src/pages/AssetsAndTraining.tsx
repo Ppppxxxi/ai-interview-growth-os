@@ -195,7 +195,7 @@ export function AssetsAndTraining({ answerAssets, interviewSessions, jobFiles, o
           ) : (
             <section className="empty-panel">
               <h2>没有匹配的回答资产</h2>
-              <p>调整筛选条件，或先在“准备本场面试”中生成一条新的可复用回答。</p>
+              <p>调整筛选条件，或先从“开始新面试”生成一条新的可用回答。</p>
             </section>
           )}
         </main>

@@ -65,6 +65,19 @@ export function createEmptyPersonalWorkspaceData(updatedAt = new Date().toISOStr
   return createPersonalWorkspaceData([firstJob], [], firstJob.id, updatedAt);
 }
 
+export function hasRealWorkspaceData(data: PersonalWorkspaceData, sampleJobIds: Iterable<string> = []) {
+  const sampleIds = new Set(sampleJobIds);
+  const hasUserJob = data.jobFiles.some((job) => {
+    if (sampleIds.has(job.id)) return false;
+    if (job.id.startsWith('job-user-first-')) {
+      return Boolean(job.jdText.trim()) || job.company !== '我的目标公司' || job.roleTitle !== 'AI 产品经理';
+    }
+    return true;
+  });
+
+  return hasUserJob || data.interviewSessions.length > 0 || data.reviewReports.length > 0 || data.answerAssets.length > 0;
+}
+
 export function readPersonalWorkspace(storage: StorageLike | undefined, fallback: PersonalWorkspaceData): PersonalWorkspaceData {
   if (!storage) return fallback;
 

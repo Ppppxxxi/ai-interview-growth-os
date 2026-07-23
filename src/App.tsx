@@ -7,6 +7,7 @@ import {
 } from './domain/sampleData';
 import type { AnswerAsset, InterviewSession, JobFile, ReviewReport } from './domain/types';
 import { AssetsAndTraining } from './pages/AssetsAndTraining';
+import { FocusFlowPage } from './pages/FocusFlowPage';
 import { GrowthDashboard } from './pages/GrowthDashboard';
 import { JobFileDetail } from './pages/JobFileDetail';
 import {
@@ -16,6 +17,7 @@ import {
   createJobFileFromDraft,
   createPersonalWorkspaceData,
   getBrowserStorage,
+  hasRealWorkspaceData,
   hasPersonalWorkspace,
   type NewJobDraft,
   readPersonalWorkspace,
@@ -28,10 +30,10 @@ import {
 } from './workflow/personalWorkspace';
 import { upsertAnswerAsset } from './workflow/runtimeAssets';
 
-type AppView = 'workspace' | 'assets' | 'growth';
+type AppView = 'focus' | 'workspace' | 'assets' | 'growth';
 
 const navItems: Array<{ id: AppView; label: string }> = [
-  { id: 'workspace', label: '生成本场回答' },
+  { id: 'workspace', label: '工作台' },
   { id: 'assets', label: '我的回答库' },
   { id: 'growth', label: '面试复盘' }
 ];
@@ -47,24 +49,31 @@ function createSampleWorkspaceData() {
   );
 }
 
+function createInitialAppState() {
+  const storage = getBrowserStorage();
+  const fallback = createEmptyPersonalWorkspaceData();
+  const persisted = hasPersonalWorkspace(storage);
+  const workspace = persisted ? readPersonalWorkspace(storage, fallback) : fallback;
+  const sampleJobIds = initialJobFiles.map((job) => job.id);
+  const hasData = hasRealWorkspaceData(workspace, sampleJobIds);
+
+  return {
+    hasStarted: persisted,
+    view: hasData ? ('workspace' as AppView) : ('focus' as AppView),
+    workspace
+  };
+}
+
 export default function App() {
-  const [view, setView] = useState<AppView>('workspace');
-  const [hasStarted, setHasStarted] = useState(() => hasPersonalWorkspace(getBrowserStorage()));
-  const [workspaceData, setWorkspaceData] = useState(() => {
-    const fallback = createEmptyPersonalWorkspaceData();
-    return hasPersonalWorkspace(getBrowserStorage()) ? readPersonalWorkspace(getBrowserStorage(), fallback) : fallback;
-  });
+  const [initialAppState] = useState(createInitialAppState);
+  const [view, setView] = useState<AppView>(initialAppState.view);
+  const [hasStarted, setHasStarted] = useState(initialAppState.hasStarted);
+  const [workspaceData, setWorkspaceData] = useState(initialAppState.workspace);
 
   useEffect(() => {
     if (!hasStarted) return;
     writePersonalWorkspace(getBrowserStorage(), workspaceData);
   }, [hasStarted, workspaceData]);
-
-  function handleStartBlank() {
-    setWorkspaceData(createEmptyPersonalWorkspaceData());
-    setHasStarted(true);
-    setView('workspace');
-  }
 
   function handleStartWithExample() {
     setWorkspaceData(createSampleWorkspaceData());
@@ -86,10 +95,11 @@ export default function App() {
     clearPersonalWorkspace(getBrowserStorage());
     setWorkspaceData(createEmptyPersonalWorkspaceData());
     setHasStarted(false);
-    setView('workspace');
+    setView('focus');
   }
 
   function handleSaveAsset(asset: AnswerAsset) {
+    setHasStarted(true);
     setWorkspaceData((current) => ({
       ...current,
       answerAssets: upsertAnswerAsset(current.answerAssets, asset),
@@ -98,6 +108,7 @@ export default function App() {
   }
 
   function handleSelectJob(jobId: string) {
+    setHasStarted(true);
     setWorkspaceData((current) => ({
       ...current,
       selectedJobId: jobId,
@@ -106,6 +117,7 @@ export default function App() {
   }
 
   function handleCreateJob(draft: NewJobDraft) {
+    setHasStarted(true);
     setWorkspaceData((current) => {
       const nextJob = createJobFileFromDraft(draft, current.jobFiles.length);
       return {
@@ -118,6 +130,7 @@ export default function App() {
   }
 
   function handleUpdateJob(nextJob: JobFile) {
+    setHasStarted(true);
     setWorkspaceData((current) => ({
       ...current,
       jobFiles: upsertJobFile(current.jobFiles, nextJob),
@@ -126,6 +139,7 @@ export default function App() {
   }
 
   function handleDeleteJob(jobId: string) {
+    setHasStarted(true);
     setWorkspaceData((current) => {
       if (current.jobFiles.length <= 1) return current;
       return removeJobFile(current, jobId);
@@ -133,6 +147,7 @@ export default function App() {
   }
 
   function handleSaveInterviewRecord(session: InterviewSession, review: ReviewReport) {
+    setHasStarted(true);
     setWorkspaceData((current) => ({
       ...current,
       interviewSessions: upsertInterviewSession(current.interviewSessions, session),
@@ -143,6 +158,7 @@ export default function App() {
   }
 
   function handleDeleteInterviewRecord(sessionId: string) {
+    setHasStarted(true);
     setWorkspaceData((current) => removeInterviewRecord(current, sessionId));
   }
 
@@ -156,6 +172,13 @@ export default function App() {
         <div className="topbar-actions">
           {hasStarted && (
             <nav aria-label="主导航">
+              <button
+                className={view === 'focus' ? 'nav-button nav-button--active' : 'nav-button'}
+                type="button"
+                onClick={() => setView('focus')}
+              >
+                开始新面试
+              </button>
               {navItems.map((item) => (
                 <button
                   className={view === item.id ? 'nav-button nav-button--active' : 'nav-button'}
@@ -180,7 +203,31 @@ export default function App() {
           )}
         </div>
       </header>
-      {!hasStarted && <WelcomePanel onStartBlank={handleStartBlank} onStartWithExample={handleStartWithExample} />}
+      {!hasStarted && view === 'focus' && (
+        <FocusFlowPage
+          selectedJobId={workspaceData.selectedJobId}
+          jobFiles={workspaceData.jobFiles}
+          onUpdateJob={handleUpdateJob}
+          onSaveInterviewRecord={handleSaveInterviewRecord}
+          onSaveAsset={handleSaveAsset}
+          onFinish={(target) => {
+            setHasStarted(true);
+            setView(target);
+          }}
+          onUseExample={handleStartWithExample}
+        />
+      )}
+      {hasStarted && view === 'focus' && (
+        <FocusFlowPage
+          selectedJobId={workspaceData.selectedJobId}
+          jobFiles={workspaceData.jobFiles}
+          onUpdateJob={handleUpdateJob}
+          onSaveInterviewRecord={handleSaveInterviewRecord}
+          onSaveAsset={handleSaveAsset}
+          onFinish={(target) => setView(target)}
+          onUseExample={handleStartWithExample}
+        />
+      )}
       {hasStarted && view === 'workspace' && (
         <JobFileDetail
           selectedJobId={workspaceData.selectedJobId}
@@ -196,6 +243,7 @@ export default function App() {
           onDeleteInterviewRecord={handleDeleteInterviewRecord}
           onSaveAsset={handleSaveAsset}
           onOpenAssets={() => setView('assets')}
+          onStartFocus={() => setView('focus')}
         />
       )}
       {hasStarted && view === 'assets' && (
@@ -214,48 +262,5 @@ export default function App() {
         />
       )}
     </main>
-  );
-}
-
-function WelcomePanel({
-  onStartBlank,
-  onStartWithExample
-}: {
-  onStartBlank: () => void;
-  onStartWithExample: () => void;
-}) {
-  return (
-    <section className="welcome-panel">
-      <div>
-        <p className="eyebrow">开始使用</p>
-        <h1>粘贴面试材料，拿到下次可以直接改用的回答</h1>
-        <p>
-          不需要先整理完整档案。把 JD、模拟面试对话、真实面试回忆或复盘笔记粘贴进来，先生成可确认草稿，
-          再保存你愿意复用的回答。
-        </p>
-        <div className="welcome-actions">
-          <button type="button" className="primary-action" onClick={onStartBlank}>
-            开始准备我的面试
-          </button>
-          <button type="button" className="secondary-action" onClick={onStartWithExample}>
-            使用示例体验
-          </button>
-        </div>
-      </div>
-      <div className="welcome-flow" aria-label="产品流程">
-        <article>
-          <strong>1. 粘贴一整段材料</strong>
-          <span>JD、问答、追问、点评或复盘笔记都可以混在一起</span>
-        </article>
-        <article>
-          <strong>2. 检查可确认草稿</strong>
-          <span>确认问题、原回答、具体问题和修改建议</span>
-        </article>
-        <article>
-          <strong>3. 保存下次可用回答</strong>
-          <span>保存到当前岗位，也能在回答库里继续修改</span>
-        </article>
-      </div>
-    </section>
   );
 }
