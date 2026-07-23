@@ -45,6 +45,7 @@ type JobFileDetailProps = {
   onDeleteInterviewRecord: (sessionId: string) => void;
   onSaveAsset: (asset: AnswerAsset) => void;
   onOpenAssets?: () => void;
+  onStartFocus?: () => void;
 };
 
 type JobEditDraft = {
@@ -104,7 +105,8 @@ export function JobFileDetail({
   onSaveInterviewRecord,
   onSelectJob,
   onUpdateJob,
-  onOpenAssets
+  onOpenAssets,
+  onStartFocus
 }: JobFileDetailProps) {
   const selectedJob = jobFiles.find((jobFile) => jobFile.id === selectedJobId) ?? jobFiles[0];
   const [newJobForm, setNewJobForm] = useState(emptyJobForm);
@@ -551,171 +553,18 @@ export function JobFileDetail({
           <div>
             <p className="eyebrow">{selectedJob.company} · {selectedJob.roleTitle}</p>
             {isExampleJob && <span className="example-badge">示例数据</span>}
-            <h1>开始新一场面试复盘</h1>
-            <p>第一步只需要粘贴一整段材料。系统会先拆成可确认草稿，你再决定哪些回答值得保存。</p>
+            <h1>管理这个岗位的面试准备</h1>
+            <p>查看这个岗位下的历史面试记录、已保存回答、复盘结论和下一步练习。需要导入新材料时，从聚焦流程开始。</p>
           </div>
-          <div className="workspace-header-status" aria-label="当前状态">
-            <span>{jobSessions.length} 场记录</span>
-            <span>{linkedAssets.length} 条回答</span>
-          </div>
-        </section>
-
-        <section className="material-import-panel">
-          <div className="section-heading material-import-heading">
-            <div>
-              <p className="eyebrow">本场任务</p>
-              <h2>粘贴材料，先得到一份可确认草稿</h2>
-              <p>支持 AI 模拟面试对话、真实面试回忆、复盘笔记或混合材料。通常保持“自动识别”即可。</p>
+          <div className="workspace-header-actions">
+            <div className="workspace-header-status" aria-label="当前状态">
+              <span>{jobSessions.length} 场记录</span>
+              <span>{linkedAssets.length} 条回答</span>
             </div>
-            <div className="material-import-actions">
-              <button className="ghost-action" type="button" onClick={handleFillMaterialExample}>
-                填入材料示例
-              </button>
-              <button className="primary-action" type="button" onClick={handleParseMaterial} disabled={!hasMaterialText}>
-                生成可确认草稿
-              </button>
-            </div>
+            <button className="primary-action" type="button" onClick={onStartFocus}>
+              开始新一场面试
+            </button>
           </div>
-
-          <div className="material-flow-steps" aria-label="当前流程">
-            <article className={hasMaterialText ? 'material-flow-step material-flow-step--done' : 'material-flow-step material-flow-step--active'}>
-              <span>1</span>
-              <strong>粘贴材料</strong>
-            </article>
-            <article className={materialDraft ? 'material-flow-step material-flow-step--active' : 'material-flow-step'}>
-              <span>2</span>
-              <strong>检查草稿</strong>
-            </article>
-            <article className={hasGeneratedResult ? 'material-flow-step material-flow-step--done' : 'material-flow-step'}>
-              <span>3</span>
-              <strong>保存回答</strong>
-            </article>
-          </div>
-
-          <div className="material-import-inputs">
-            <label>
-              <span>面试材料</span>
-              <textarea
-                value={materialText}
-                placeholder={'粘贴一整段材料即可，例如：\n公司/岗位/JD\n面试官问了什么\n我当时怎么答\n追问和点评\n我自己的复盘笔记'}
-                onChange={(event) => setMaterialText(event.target.value)}
-              />
-            </label>
-            <label>
-              <span>识别方式</span>
-              <select
-                value={materialType}
-                onChange={(event) => setMaterialType(event.target.value as InterviewMaterialInputType)}
-              >
-                {materialTypeOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <small>不确定时保持自动识别。</small>
-            </label>
-          </div>
-
-          {materialDraft ? (
-            <div className="material-draft-panel">
-              <div className="material-draft-summary">
-                <div>
-                  <strong>{materialDraft.globalInsights.summary}</strong>
-                  <span>
-                    识别为：{materialTypeOptions.find((option) => option.value === materialDraft.sourceType)?.label ?? '面试材料'} · 已勾选 {materialSelectedCount} 条回答资产
-                  </span>
-                </div>
-                <button className="primary-action" type="button" onClick={handleSaveMaterialDraft}>
-                  保存为面试记录与回答资产
-                </button>
-              </div>
-              {materialDraft.missingInfoWarnings.length > 0 && (
-                <div className="material-warning-list">
-                  {materialDraft.missingInfoWarnings.map((warning) => (
-                    <span key={warning}>{warning}</span>
-                  ))}
-                </div>
-              )}
-              <div className="material-draft-list">
-                {materialDraft.interviewItems.map((item, index) => (
-                  <article
-                    className={
-                      selectedMaterialItemIds.has(item.id)
-                        ? 'material-draft-card material-draft-card--selected'
-                        : 'material-draft-card'
-                    }
-                    key={item.id}
-                  >
-                    <div className="material-draft-card-heading">
-                      <div>
-                        <span>条目 {index + 1}</span>
-                        <input
-                          value={item.title}
-                          onChange={(event) => handleMaterialDraftItemChange(item.id, 'title', event.target.value)}
-                        />
-                      </div>
-                      <label className={item.answerAssetCandidate ? 'material-save-check' : 'material-save-check material-save-check--disabled'}>
-                        <input
-                          type="checkbox"
-                          checked={selectedMaterialItemIds.has(item.id)}
-                          disabled={!item.answerAssetCandidate}
-                          onChange={() => handleToggleMaterialItem(item.id)}
-                        />
-                        <span>{item.answerAssetCandidate ? '保存为回答资产' : '仅保存为复盘记录'}</span>
-                      </label>
-                    </div>
-                    <div className="material-draft-grid">
-                      <label>
-                        <span>原问题</span>
-                        <textarea
-                          value={item.question ?? ''}
-                          onChange={(event) => handleMaterialDraftItemChange(item.id, 'question', event.target.value)}
-                        />
-                      </label>
-                      <label>
-                        <span>原回答或材料片段</span>
-                        <textarea
-                          value={item.originalAnswer ?? ''}
-                          onChange={(event) => handleMaterialDraftItemChange(item.id, 'originalAnswer', event.target.value)}
-                        />
-                      </label>
-                      <label>
-                        <span>具体问题</span>
-                        <textarea
-                          value={item.issue ?? ''}
-                          onChange={(event) => handleMaterialDraftItemChange(item.id, 'issue', event.target.value)}
-                        />
-                      </label>
-                      <label>
-                        <span>建议这样改</span>
-                        <textarea
-                          value={item.improvementSuggestion ?? ''}
-                          onChange={(event) => handleMaterialDraftItemChange(item.id, 'improvementSuggestion', event.target.value)}
-                        />
-                      </label>
-                    </div>
-                    <label className="material-improved-answer">
-                      <span>下次可用回答</span>
-                      <textarea
-                        value={item.improvedAnswer ?? ''}
-                        onChange={(event) => handleMaterialDraftItemChange(item.id, 'improvedAnswer', event.target.value)}
-                      />
-                    </label>
-                    <div className="material-draft-meta">
-                      <span>置信度：{item.confidence === 'high' ? '高' : item.confidence === 'medium' ? '中' : '低'}</span>
-                      {item.assetCandidateReason && <span>{item.assetCandidateReason}</span>}
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <section className="empty-panel empty-panel--inline material-empty-panel">
-              <h2>粘贴材料后先生成可确认草稿</h2>
-              <p>草稿会拆出问题、原回答、具体问题、修改建议和下次可用回答。你可以逐条编辑，再决定保存哪些回答。</p>
-            </section>
-          )}
         </section>
 
         <details className="job-edit-panel">
@@ -751,117 +600,6 @@ export function JobFileDetail({
             </button>
             {jobFiles.length <= 1 && <span>至少保留一个岗位档案。</span>}
           </div>
-        </details>
-
-        <details className="advanced-import-panel">
-          <summary>高级导入：我已经整理好了 JD 和标准问答</summary>
-
-          <section className="input-helper-panel">
-            <div>
-              <p className="eyebrow">标准格式导入</p>
-              <h2>粘贴 JD 和一段模拟面试对话</h2>
-              <p>适合已经整理成“面试官 / 候选人 / AI 点评”格式的材料。一般情况下直接使用上方主入口即可。</p>
-            </div>
-            <div className="input-helper-actions">
-              <button className="secondary-action" type="button" onClick={handleFillExample}>
-                使用示例内容
-              </button>
-              <button className="ghost-action" type="button" onClick={handleSaveCurrentJob}>
-                保存当前 JD
-              </button>
-              <button className="primary-action" type="button" onClick={handleGenerate} disabled={!canGenerate}>
-                {workspaceState.status === 'generating' ? '正在生成...' : '生成复盘与优化回答'}
-              </button>
-            </div>
-          </section>
-
-          <section className="workspace-inputs">
-            <label>
-              <span>JD 文本</span>
-              <textarea
-                value={jdText}
-                placeholder="粘贴目标岗位 JD。例如：岗位职责、任职要求、产品方向、能力关键词。"
-                onChange={(event) => setJdText(event.target.value)}
-              />
-            </label>
-            <label>
-              <span>外部 AI 模拟面试对话</span>
-              <textarea
-                value={conversationText}
-                placeholder={'粘贴 ChatGPT、Claude 或其他 AI 工具里的模拟面试记录。建议包含：\n面试官：...\n候选人：...\n面试官追问：...\nAI 点评：...'}
-                onChange={(event) => setConversationText(event.target.value)}
-              />
-            </label>
-          </section>
-
-          <section className="parsed-conversation-panel">
-            <div className="section-heading parsed-conversation-heading">
-              <div>
-                <p className="eyebrow">解析结果确认</p>
-                <h2>检查问题和回答是否识别正确</h2>
-                <p>如果识别错了，可以先改正，避免生成错误复盘。</p>
-              </div>
-              <button className="secondary-action" type="button" onClick={handlePreviewParse} disabled={!hasConversationText}>
-                解析并预览
-              </button>
-            </div>
-            {hasConversationText ? (
-              <div className="parsed-question-list">
-                {editableQuestions.map((question, index) => (
-                  <article className="parsed-question-card" key={question.id}>
-                    <div className="parsed-question-title">
-                      <strong>问题 {index + 1}</strong>
-                      <span>{question.feedback ? '已识别点评' : '可手动补充点评'}</span>
-                    </div>
-                    <label>
-                      <span>原问题</span>
-                      <textarea
-                        value={question.question}
-                        onChange={(event) => handleQuestionFieldChange(question.id, 'question', event.target.value)}
-                      />
-                    </label>
-                    <label>
-                      <span>原回答</span>
-                      <textarea
-                        value={question.answer}
-                        onChange={(event) => handleQuestionFieldChange(question.id, 'answer', event.target.value)}
-                      />
-                    </label>
-                    <label>
-                      <span>追问，每行一个</span>
-                      <textarea
-                        value={question.followUps.join('\n')}
-                        onChange={(event) => handleQuestionFollowUpsChange(question.id, event.target.value)}
-                      />
-                    </label>
-                    <label>
-                      <span>AI 点评</span>
-                      <textarea
-                        value={question.feedback}
-                        onChange={(event) => handleQuestionFieldChange(question.id, 'feedback', event.target.value)}
-                      />
-                    </label>
-                  </article>
-                ))}
-              </div>
-            ) : (
-              <section className="empty-panel empty-panel--inline">
-                <h2>还没有可解析的面试对话</h2>
-                <p>粘贴一段模拟面试记录后，点击“解析并预览”，这里会显示识别出的原问题、原回答、追问和点评。</p>
-              </section>
-            )}
-          </section>
-
-          {(hasConversationText || hasGeneratedResult) && (
-            <section className="analysis-steps">
-              {workspaceState.steps.map((step) => (
-                <article className={`analysis-step analysis-step--${step.status}`} key={step.id}>
-                  <span>{step.status === 'done' ? '完成' : step.status === 'active' ? '进行中' : '等待'}</span>
-                  <strong>{step.label}</strong>
-                </article>
-              ))}
-            </section>
-          )}
         </details>
 
         {hasGeneratedResult ? (
