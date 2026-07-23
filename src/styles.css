@@ -1126,6 +1126,7 @@ body {
 .asset-index,
 .asset-detail-pane,
 .library-training,
+.advanced-import-panel,
 .material-import-panel {
   min-width: 0;
 }
@@ -1141,6 +1142,7 @@ body {
 .side-panel,
 .workspace-header,
 .material-import-panel,
+.advanced-import-panel,
 .input-helper-panel,
 .workspace-inputs,
 .parsed-conversation-panel,
@@ -1210,6 +1212,21 @@ body {
   border-top: 1px solid #e3e9f2;
   margin-top: 6px;
   padding-top: 16px;
+}
+
+.new-job-card summary {
+  cursor: pointer;
+  color: #27354a;
+  font-weight: 900;
+}
+
+.new-job-card[open] summary {
+  margin-bottom: 10px;
+}
+
+.new-job-card form {
+  display: grid;
+  gap: 10px;
 }
 
 .new-job-card .section-heading {
@@ -1299,6 +1316,24 @@ body {
   line-height: 1.7;
 }
 
+.workspace-header-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.workspace-header-status span {
+  border-radius: 999px;
+  padding: 7px 10px;
+  color: #2f6fed;
+  background: #eef4ff;
+  font-size: 13px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
 .material-import-panel {
   display: grid;
   gap: 16px;
@@ -1330,6 +1365,57 @@ body {
   line-height: 1.6;
 }
 
+.material-flow-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.material-flow-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #e3e9f2;
+  border-radius: 8px;
+  padding: 12px;
+  color: #65758f;
+  background: #fbfcfe;
+}
+
+.material-flow-step span {
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  color: #65758f;
+  background: #eef2f7;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.material-flow-step strong {
+  color: #40516a;
+}
+
+.material-flow-step--active {
+  border-color: #2f6fed;
+  color: #27354a;
+  background: #edf4ff;
+}
+
+.material-flow-step--active span,
+.material-flow-step--done span {
+  color: #ffffff;
+  background: #2f6fed;
+}
+
+.material-flow-step--done {
+  border-color: #9ccdb7;
+  background: #f0fbf5;
+}
+
 .material-import-actions {
   display: flex;
   align-items: center;
@@ -1349,7 +1435,7 @@ body {
 
 .material-import-inputs {
   display: grid;
-  grid-template-columns: 210px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) 220px;
   gap: 14px;
 }
 
@@ -1378,6 +1464,13 @@ body {
 
 .material-import-inputs select {
   height: 44px;
+}
+
+.material-import-inputs small {
+  color: #65758f;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.5;
 }
 
 .material-import-inputs textarea {
@@ -1541,6 +1634,22 @@ body {
   justify-content: space-between;
   gap: 18px;
   padding: 18px 20px;
+}
+
+.advanced-import-panel {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.advanced-import-panel summary {
+  cursor: pointer;
+  color: #40516a;
+  font-weight: 900;
+}
+
+.advanced-import-panel[open] summary {
+  margin-bottom: 12px;
 }
 
 .input-helper-panel h2 {
