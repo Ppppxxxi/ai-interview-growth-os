@@ -192,14 +192,17 @@ export default function App() {
             </nav>
           )}
           {hasStarted && (
-            <div className="data-actions" aria-label="本地数据管理">
-              <button type="button" className="ghost-action" onClick={handleRestoreExample}>
-                恢复示例
-              </button>
-              <button type="button" className="ghost-action" onClick={handleClearLocalData}>
-                清空本地数据
-              </button>
-            </div>
+            <details className="data-menu">
+              <summary>数据管理</summary>
+              <div className="data-menu-list" aria-label="本地数据管理">
+                <button type="button" className="ghost-action" onClick={handleRestoreExample}>
+                  恢复示例
+                </button>
+                <button type="button" className="ghost-action danger-ghost-action" onClick={handleClearLocalData}>
+                  清空本地数据
+                </button>
+              </div>
+            </details>
           )}
         </div>
       </header>

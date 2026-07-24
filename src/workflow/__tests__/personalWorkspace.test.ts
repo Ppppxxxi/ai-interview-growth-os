@@ -137,8 +137,29 @@ describe('personalWorkspace', () => {
       direction: 'AI 产品',
       jdText: '负责 AI 产品规划',
       stage: '准备中',
-      status: '待导入面试对话',
+      status: '待导入面试材料',
       interviewSessionIds: []
+    });
+  });
+
+  it('creates a job file without requiring JD text', () => {
+    const job = createJobFileFromDraft(
+      {
+        company: '新公司',
+        roleTitle: 'AI 产品经理',
+        direction: 'AI 产品',
+        jdText: '',
+        stage: '准备中'
+      },
+      0,
+      1000
+    );
+
+    expect(job).toMatchObject({
+      company: '新公司',
+      roleTitle: 'AI 产品经理',
+      jdText: '',
+      status: '待补充 JD 或面试材料'
     });
   });
 

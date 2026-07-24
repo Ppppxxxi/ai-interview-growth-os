@@ -128,7 +128,7 @@ export function createJobFileFromDraft(draft: NewJobDraft, existingCount: number
     direction,
     jdText: draft.jdText.trim(),
     stage: stage || '准备中',
-    status: '待导入面试对话',
+    status: draft.jdText.trim() ? '待导入面试材料' : '待补充 JD 或面试材料',
     interviewSessionIds: []
   };
 }
