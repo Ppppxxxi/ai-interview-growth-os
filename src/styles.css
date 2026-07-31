@@ -101,13 +101,20 @@ a {
   top: calc(100% + 8px);
   z-index: 20;
   display: grid;
-  min-width: 150px;
+  width: min(300px, calc(100vw - 32px));
   gap: 8px;
   border: 1px solid #dce3ef;
   border-radius: 8px;
   padding: 10px;
   background: #ffffff;
   box-shadow: 0 14px 36px rgba(23, 32, 51, 0.12);
+}
+
+.data-menu-list p {
+  margin: 0;
+  color: #65758f;
+  font-size: 12px;
+  line-height: 1.6;
 }
 
 .data-menu .ghost-action,
@@ -350,6 +357,69 @@ a {
 .focus-flow-card--primary {
   border-color: #abc6f7;
   background: #f7fbff;
+}
+
+.focus-privacy-note {
+  border: 1px solid #dbe8d5;
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #40516a;
+  background: #f6fbf3;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.focus-privacy-note strong {
+  color: #23633c;
+}
+
+.focus-recognition-summary {
+  display: grid;
+  grid-template-columns: minmax(220px, 2fr) repeat(4, minmax(96px, 1fr));
+  gap: 10px;
+}
+
+.focus-recognition-summary article {
+  display: grid;
+  gap: 4px;
+  border: 1px solid #dce3ef;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #f8fbff;
+}
+
+.focus-recognition-summary span {
+  color: #65758f;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.focus-recognition-summary strong {
+  color: #27354a;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.focus-low-confidence-hints {
+  border: 1px solid #ffe0a8;
+  border-radius: 8px;
+  padding: 12px;
+  color: #6f4a00;
+  background: #fffaf0;
+}
+
+.focus-low-confidence-hints strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.focus-low-confidence-hints ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.focus-low-confidence-hints li + li {
+  margin-top: 4px;
 }
 
 .focus-job-grid,
@@ -2890,6 +2960,7 @@ body {
   .library-layout,
   .focus-flow-steps,
   .focus-job-grid,
+  .focus-recognition-summary,
   .focus-draft-grid,
   .material-import-inputs,
   .material-draft-grid,

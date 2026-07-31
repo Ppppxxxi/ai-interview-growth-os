@@ -90,7 +90,7 @@ export default function App() {
   }
 
   function handleClearLocalData() {
-    const confirmed = window.confirm('清空本地数据后，当前岗位、面试记录和回答资产会从这个浏览器删除，是否继续？');
+    const confirmed = window.confirm('清空本地数据后，当前岗位、面试记录和我的回答库会从这个浏览器删除，是否继续？');
     if (!confirmed) return;
     clearPersonalWorkspace(getBrowserStorage());
     setWorkspaceData(createEmptyPersonalWorkspaceData());
@@ -195,6 +195,7 @@ export default function App() {
             <details className="data-menu">
               <summary>数据管理</summary>
               <div className="data-menu-list" aria-label="本地数据管理">
+                <p>数据只保存在当前浏览器。清空会删除本机岗位、面试记录和我的回答库；恢复示例会重置为虚构示例数据。</p>
                 <button type="button" className="ghost-action" onClick={handleRestoreExample}>
                   恢复示例
                 </button>
