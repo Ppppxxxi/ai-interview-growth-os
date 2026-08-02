@@ -61,6 +61,7 @@ export function FocusFlowPage({
   const hasMaterial = materialText.trim().length > 0;
   const selectedCount = materialDraft ? materialDraft.interviewItems.filter((item) => selectedItemIds.has(item.id)).length : 0;
   const flowStep = savedSummary ? 4 : answersGenerated ? 3 : materialDraft ? 2 : hasMaterial ? 1 : 0;
+  const recognitionSummary = materialDraft ? buildRecognitionSummary(materialDraft) : undefined;
 
   function updateJobDraft(field: keyof FocusJobDraft, value: string) {
     setJobDraft((current) => ({
@@ -240,6 +241,10 @@ export function FocusFlowPage({
             解析材料
           </button>
         </div>
+        <div className="focus-privacy-note" aria-label="隐私与本地保存说明">
+          <strong>本地处理：</strong>
+          当前版本仅保存在本机浏览器，不接真实 LLM，不上传服务器。保存前请确认材料已去除真实公司、姓名和联系方式。
+        </div>
         <textarea
           className="focus-material-input"
           value={materialText}
@@ -266,11 +271,31 @@ export function FocusFlowPage({
               </button>
             )}
           </div>
+          {recognitionSummary && (
+            <div className="focus-recognition-summary" aria-label="识别摘要">
+              {recognitionSummary.metrics.map((metric) => (
+                <article key={metric.label}>
+                  <span>{metric.label}</span>
+                  <strong>{metric.value}</strong>
+                </article>
+              ))}
+            </div>
+          )}
           {materialDraft.missingInfoWarnings.length > 0 && (
             <div className="material-warning-list">
               {materialDraft.missingInfoWarnings.map((warning) => (
                 <span key={warning}>{warning}</span>
               ))}
+            </div>
+          )}
+          {recognitionSummary && recognitionSummary.suggestions.length > 0 && (
+            <div className="focus-low-confidence-hints">
+              <strong>建议先确认</strong>
+              <ul>
+                {recognitionSummary.suggestions.map((suggestion) => (
+                  <li key={suggestion}>{suggestion}</li>
+                ))}
+              </ul>
             </div>
           )}
           <div className="focus-draft-list">
@@ -360,6 +385,32 @@ function createFocusJobDraft(job: JobFile): FocusJobDraft {
     roleTitle: job.roleTitle,
     direction: job.direction,
     jdText: job.jdText
+  };
+}
+
+function buildRecognitionSummary(draft: InterviewMaterialDraft) {
+  const questionCount = draft.interviewItems.filter((item) => item.question?.trim()).length;
+  const followUpCount = draft.interviewItems.reduce((count, item) => count + (item.followUps?.length ?? 0), 0);
+  const weaknessCount = draft.interviewItems.filter((item) => item.issue?.trim()).length;
+  const lowConfidenceItemCount = draft.interviewItems.filter((item) => item.confidence === 'low').length;
+  const lowConfidenceCount = lowConfidenceItemCount + draft.missingInfoWarnings.length;
+  const targetRole = [draft.jobContext.company, draft.jobContext.role, draft.jobContext.direction].filter(Boolean).join(' · ') || '待确认岗位';
+  const suggestions = [
+    ...(!draft.jobContext.company ? ['建议补充目标公司，方便后续查看来源。'] : []),
+    ...(!draft.jobContext.role ? ['建议补充目标岗位，避免回答保存到错误岗位。'] : []),
+    ...(!draft.jobContext.direction ? ['建议补充岗位方向，方便同方向岗位复用。'] : []),
+    ...(lowConfidenceItemCount > 0 ? [`有 ${lowConfidenceItemCount} 条低置信草稿，保存前建议补充原问题、原回答或复盘判断。`] : [])
+  ];
+
+  return {
+    metrics: [
+      { label: '目标岗位', value: targetRole },
+      { label: '问题数', value: String(questionCount) },
+      { label: '追问数', value: String(followUpCount) },
+      { label: '薄弱点', value: String(weaknessCount) },
+      { label: '待确认项', value: String(lowConfidenceCount) }
+    ],
+    suggestions
   };
 }
 

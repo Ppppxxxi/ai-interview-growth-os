@@ -483,7 +483,7 @@ export function JobFileDetail({
 
   function handleNewJobSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!newJobForm.company.trim() || !newJobForm.roleTitle.trim() || !newJobForm.jdText.trim()) return;
+    if (!newJobForm.company.trim() || !newJobForm.roleTitle.trim()) return;
 
     onCreateJob(newJobForm);
     setNewJobForm(emptyJobForm);
@@ -513,7 +513,7 @@ export function JobFileDetail({
         <details className="new-job-card">
           <summary>新建目标岗位</summary>
           <form onSubmit={handleNewJobSubmit}>
-            <p className="new-job-helper">填写公司、岗位和 JD 后，本场复盘会自动绑定到这个岗位。</p>
+            <p className="new-job-helper">先填写公司和岗位即可创建，JD 可以在开始新面试时再补充。</p>
             <label>
               <span>公司</span>
               <input value={newJobForm.company} onChange={(event) => handleNewJobChange('company', event.target.value)} />
@@ -531,10 +531,10 @@ export function JobFileDetail({
               <input value={newJobForm.stage} onChange={(event) => handleNewJobChange('stage', event.target.value)} />
             </label>
             <label>
-              <span>JD</span>
+              <span>JD，可选</span>
               <textarea
                 value={newJobForm.jdText}
-                placeholder="粘贴岗位描述、职责要求和能力要求"
+                placeholder="可以先留空，后续在新面试流程里粘贴岗位描述"
                 onChange={(event) => handleNewJobChange('jdText', event.target.value)}
               />
             </label>
