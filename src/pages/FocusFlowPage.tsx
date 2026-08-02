@@ -56,7 +56,7 @@ export function FocusFlowPage({
     setSelectedItemIds(new Set());
     setAnswersGenerated(false);
     setSavedSummary(undefined);
-  }, [selectedJob]);
+  }, [selectedJob.id]);
 
   const hasMaterial = materialText.trim().length > 0;
   const selectedCount = materialDraft ? materialDraft.interviewItems.filter((item) => selectedItemIds.has(item.id)).length : 0;
@@ -71,11 +71,17 @@ export function FocusFlowPage({
   }
 
   function currentJob(): JobFile {
+    const isStarterJob = isEmptyStarterJob(selectedJob);
+    const jobContext = buildUserJobContext(selectedJob, jobDraft);
+    const company = jobContext.company || (isStarterJob ? '未填写公司' : selectedJob.company);
+    const roleTitle = jobContext.roleTitle || (isStarterJob ? '未填写岗位' : selectedJob.roleTitle);
+    const direction = jobContext.direction || (isStarterJob ? '待确认方向' : selectedJob.direction);
+
     return {
       ...selectedJob,
-      company: jobDraft.company.trim() || selectedJob.company,
-      roleTitle: jobDraft.roleTitle.trim() || selectedJob.roleTitle,
-      direction: jobDraft.direction.trim() || selectedJob.direction,
+      company,
+      roleTitle,
+      direction,
       jdText: jobDraft.jdText.trim(),
       status: selectedJob.status === '待粘贴 JD 和面试对话' ? '已开始准备' : selectedJob.status
     };
@@ -98,13 +104,18 @@ export function FocusFlowPage({
   function handleParseMaterial() {
     if (!hasMaterial) return;
 
-    const job = currentJob();
-    onUpdateJob(job);
+    const fallbackJob = buildParserFallbackJob(selectedJob, jobDraft);
     const draft = parseInterviewMaterial({
       rawText: materialText,
       sourceType: 'auto',
-      fallbackJob: job
+      fallbackJob
     });
+    setJobDraft((current) => ({
+      company: current.company.trim() || draft.jobContext.company || '',
+      roleTitle: current.roleTitle.trim() || draft.jobContext.role || '',
+      direction: current.direction.trim() || draft.jobContext.direction || '',
+      jdText: current.jdText.trim() || draft.jobContext.jdText || ''
+    }));
     setMaterialDraft(draft);
     setSelectedItemIds(
       new Set(draft.interviewItems.filter((item) => item.answerAssetCandidate && item.confidence !== 'low').map((item) => item.id))
@@ -204,20 +215,33 @@ export function FocusFlowPage({
       <section className="focus-flow-card">
         <div className="section-heading">
           <p className="eyebrow">目标岗位</p>
-          <h2>先确认这次材料属于哪个岗位</h2>
+          <h2>这场材料保存到哪个岗位</h2>
+          <p>用于保存后归档和检索。不确定可以先留空，系统会优先从粘贴材料中识别。</p>
         </div>
         <div className="focus-job-grid">
           <label>
             <span>公司</span>
-            <input value={jobDraft.company} onChange={(event) => updateJobDraft('company', event.target.value)} />
+            <input
+              value={jobDraft.company}
+              placeholder="例如：晴川智能"
+              onChange={(event) => updateJobDraft('company', event.target.value)}
+            />
           </label>
           <label>
             <span>岗位</span>
-            <input value={jobDraft.roleTitle} onChange={(event) => updateJobDraft('roleTitle', event.target.value)} />
+            <input
+              value={jobDraft.roleTitle}
+              placeholder="例如：AI 产品经理"
+              onChange={(event) => updateJobDraft('roleTitle', event.target.value)}
+            />
           </label>
           <label>
             <span>方向</span>
-            <input value={jobDraft.direction} onChange={(event) => updateJobDraft('direction', event.target.value)} />
+            <input
+              value={jobDraft.direction}
+              placeholder="例如：AI + 企业知识库助手"
+              onChange={(event) => updateJobDraft('direction', event.target.value)}
+            />
           </label>
         </div>
         <label className="focus-full-field">
@@ -380,11 +404,56 @@ export function FocusFlowPage({
 }
 
 function createFocusJobDraft(job: JobFile): FocusJobDraft {
+  if (isEmptyStarterJob(job)) {
+    return {
+      company: '',
+      roleTitle: '',
+      direction: '',
+      jdText: ''
+    };
+  }
+
   return {
     company: job.company,
     roleTitle: job.roleTitle,
     direction: job.direction,
     jdText: job.jdText
+  };
+}
+
+function isEmptyStarterJob(job: JobFile) {
+  return (
+    job.id.startsWith('job-user-first-') &&
+    job.company === '我的目标公司' &&
+    job.roleTitle === 'AI 产品经理' &&
+    !job.jdText.trim() &&
+    job.interviewSessionIds.length === 0
+  );
+}
+
+function buildUserJobContext(job: JobFile, draft: FocusJobDraft) {
+  const isStarterJob = isEmptyStarterJob(job);
+
+  return {
+    company: draft.company.trim() || (isStarterJob ? '' : job.company),
+    roleTitle: draft.roleTitle.trim() || (isStarterJob ? '' : job.roleTitle),
+    direction: draft.direction.trim() || (isStarterJob ? '' : job.direction),
+    jdText: draft.jdText.trim()
+  };
+}
+
+function buildParserFallbackJob(job: JobFile, draft: FocusJobDraft): JobFile | undefined {
+  const context = buildUserJobContext(job, draft);
+  const hasFallbackContext = Boolean(context.company || context.roleTitle || context.direction || context.jdText);
+
+  if (!hasFallbackContext) return undefined;
+
+  return {
+    ...job,
+    company: context.company,
+    roleTitle: context.roleTitle,
+    direction: context.direction,
+    jdText: context.jdText
   };
 }
 
