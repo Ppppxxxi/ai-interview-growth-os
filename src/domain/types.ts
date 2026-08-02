@@ -140,6 +140,17 @@ export type AnswerAsset = {
   linkedExperienceId?: string;
   usageNote: string;
   confidence: 'high' | 'medium' | 'low';
+  confirmationStatus?: AnswerAssetConfirmationStatus;
+  answerRationale?: AnswerRationale;
+};
+
+export type AnswerAssetConfirmationStatus = 'accepted' | 'edited-accepted' | 'generated-draft';
+
+export type AnswerRationale = {
+  sourceQuestion: string;
+  originalIssue: string;
+  rewriteFocus: string;
+  applicabilityBoundary: string;
 };
 
 export type AnswerAssetVersion = {

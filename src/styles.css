@@ -510,9 +510,83 @@ a {
   resize: vertical;
 }
 
+.focus-answer-rationale {
+  border: 1px solid #dbe8d5;
+  border-radius: 8px;
+  padding: 12px;
+  background: #f7fbf4;
+}
+
+.focus-answer-rationale strong {
+  display: block;
+  margin-bottom: 10px;
+  color: #23633c;
+}
+
+.focus-answer-rationale dl,
+.asset-section--rationale dl {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.focus-answer-rationale div,
+.asset-section--rationale div {
+  display: grid;
+  gap: 4px;
+}
+
+.focus-answer-rationale dt,
+.asset-section--rationale dt {
+  color: #40516a;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.focus-answer-rationale dd,
+.asset-section--rationale dd {
+  margin: 0;
+  color: #53647d;
+  line-height: 1.7;
+}
+
 .focus-answer-field textarea {
   min-height: 150px;
   resize: vertical;
+  background: #ffffff;
+}
+
+.focus-answer-confirmation {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  border-top: 1px solid #e3e9f2;
+  padding-top: 12px;
+}
+
+.focus-answer-confirmation span {
+  flex: 1 1 220px;
+  color: #53647d;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.focus-answer-confirmation .secondary-action,
+.focus-answer-confirmation .ghost-action {
+  border: 1px solid #cfd9e8;
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-weight: 900;
+}
+
+.focus-answer-confirmation .secondary-action {
+  color: #2f6fed;
+  background: #eef4ff;
+}
+
+.focus-answer-confirmation .ghost-action {
+  color: #53647d;
   background: #ffffff;
 }
 
@@ -1105,6 +1179,13 @@ h3 {
   white-space: nowrap;
 }
 
+.asset-status-stack {
+  display: flex;
+  align-items: flex-end;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .source-line {
   display: flex;
   flex-wrap: wrap;
@@ -1136,6 +1217,19 @@ h3 {
   border-radius: 8px;
   padding: 12px;
   background: #fff7ed;
+}
+
+.asset-section--rationale {
+  border-top: 0;
+  border-radius: 8px;
+  padding: 12px;
+  background: #f7fbf4;
+}
+
+.asset-section--rationale strong {
+  display: block;
+  margin-bottom: 10px;
+  color: #23633c;
 }
 
 .asset-section--answer {

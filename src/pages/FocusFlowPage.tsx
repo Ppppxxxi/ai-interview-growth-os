@@ -1,6 +1,13 @@
 import { useEffect, useState } from 'react';
 import { parseInterviewMaterial } from '../agents/materialImportParser';
-import type { AnswerAsset, InterviewMaterialDraft, InterviewSession, JobFile, ReviewReport } from '../domain/types';
+import type {
+  AnswerAsset,
+  AnswerAssetConfirmationStatus,
+  InterviewMaterialDraft,
+  InterviewSession,
+  JobFile,
+  ReviewReport
+} from '../domain/types';
 import { buildMaterialImportSavePayload } from '../workflow/materialImportDraft';
 
 type FocusFlowPageProps = {
@@ -46,6 +53,7 @@ export function FocusFlowPage({
   const [materialText, setMaterialText] = useState('');
   const [materialDraft, setMaterialDraft] = useState<InterviewMaterialDraft | undefined>();
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(() => new Set());
+  const [confirmedItemStatuses, setConfirmedItemStatuses] = useState<Map<string, AnswerAssetConfirmationStatus>>(() => new Map());
   const [answersGenerated, setAnswersGenerated] = useState(false);
   const [savedSummary, setSavedSummary] = useState<{ sessionId: string; assetCount: number } | undefined>();
 
@@ -54,12 +62,14 @@ export function FocusFlowPage({
     setMaterialText('');
     setMaterialDraft(undefined);
     setSelectedItemIds(new Set());
+    setConfirmedItemStatuses(new Map());
     setAnswersGenerated(false);
     setSavedSummary(undefined);
   }, [selectedJob.id]);
 
   const hasMaterial = materialText.trim().length > 0;
   const selectedCount = materialDraft ? materialDraft.interviewItems.filter((item) => selectedItemIds.has(item.id)).length : 0;
+  const confirmedCount = confirmedItemStatuses.size;
   const flowStep = savedSummary ? 4 : answersGenerated ? 3 : materialDraft ? 2 : hasMaterial ? 1 : 0;
   const recognitionSummary = materialDraft ? buildRecognitionSummary(materialDraft) : undefined;
 
@@ -97,6 +107,7 @@ export function FocusFlowPage({
     setMaterialText(focusMaterialExample);
     setMaterialDraft(undefined);
     setSelectedItemIds(new Set());
+    setConfirmedItemStatuses(new Map());
     setAnswersGenerated(false);
     setSavedSummary(undefined);
   }
@@ -120,6 +131,7 @@ export function FocusFlowPage({
     setSelectedItemIds(
       new Set(draft.interviewItems.filter((item) => item.answerAssetCandidate && item.confidence !== 'low').map((item) => item.id))
     );
+    setConfirmedItemStatuses(new Map());
     setAnswersGenerated(false);
     setSavedSummary(undefined);
   }
@@ -141,6 +153,15 @@ export function FocusFlowPage({
     field: 'title' | 'question' | 'originalAnswer' | 'issue' | 'improvementSuggestion' | 'improvedAnswer',
     value: string
   ) {
+    if (field === 'improvedAnswer') {
+      setConfirmedItemStatuses((current) => {
+        if (current.get(itemId) !== 'accepted') return current;
+        const next = new Map(current);
+        next.set(itemId, 'edited-accepted');
+        return next;
+      });
+    }
+
     setMaterialDraft((current) =>
       current
         ? {
@@ -158,6 +179,27 @@ export function FocusFlowPage({
     );
   }
 
+  function handleGenerateAnswers() {
+    setAnswersGenerated(true);
+    setConfirmedItemStatuses(new Map());
+  }
+
+  function handleConfirmItem(itemId: string, status: Extract<AnswerAssetConfirmationStatus, 'accepted' | 'edited-accepted'>) {
+    setConfirmedItemStatuses((current) => {
+      const next = new Map(current);
+      next.set(itemId, status);
+      return next;
+    });
+  }
+
+  function handleSkipItem(itemId: string) {
+    setConfirmedItemStatuses((current) => {
+      const next = new Map(current);
+      next.delete(itemId);
+      return next;
+    });
+  }
+
   function handleSave() {
     if (!materialDraft || !answersGenerated) return;
 
@@ -165,7 +207,8 @@ export function FocusFlowPage({
     onUpdateJob(job);
     const payload = buildMaterialImportSavePayload({
       draft: materialDraft,
-      selectedItemIds,
+      selectedItemIds: confirmedItemStatuses.keys(),
+      confirmationStatuses: confirmedItemStatuses,
       job,
       rawText: materialText,
       runId: Date.now().toString(36)
@@ -183,6 +226,7 @@ export function FocusFlowPage({
     setMaterialText('');
     setMaterialDraft(undefined);
     setSelectedItemIds(new Set());
+    setConfirmedItemStatuses(new Map());
     setAnswersGenerated(false);
     setSavedSummary(undefined);
   }
@@ -283,14 +327,18 @@ export function FocusFlowPage({
             <div>
               <p className="eyebrow">确认识别结果</p>
               <h2>{materialDraft.globalInsights.summary}</h2>
-              <p>{answersGenerated ? `已生成 ${selectedCount} 条下次可用回答，可以继续编辑后保存。` : '先确认系统识别是否正确，再生成下次可用回答。'}</p>
+              <p>
+                {answersGenerated
+                  ? `已生成 ${selectedCount} 条下次可用回答，其中 ${confirmedCount} 条已确认采用。`
+                  : '先确认系统识别是否正确，再生成下次可用回答。'}
+              </p>
             </div>
             {answersGenerated ? (
               <button className="primary-action" type="button" onClick={handleSave}>
-                保存到我的回答库
+                {confirmedCount > 0 ? '保存到我的回答库' : '只保存复盘记录'}
               </button>
             ) : (
-              <button className="primary-action" type="button" onClick={() => setAnswersGenerated(true)}>
+              <button className="primary-action" type="button" onClick={handleGenerateAnswers} disabled={selectedCount === 0}>
                 生成下次可用回答
               </button>
             )}
@@ -364,14 +412,49 @@ export function FocusFlowPage({
                     />
                   </label>
                 </div>
-                {answersGenerated && (
-                  <label className="focus-answer-field">
-                    <span>下次可用回答</span>
-                    <textarea
-                      value={item.improvedAnswer ?? ''}
-                      onChange={(event) => handleDraftItemChange(item.id, 'improvedAnswer', event.target.value)}
-                    />
-                  </label>
+                {answersGenerated && selectedItemIds.has(item.id) && (
+                  <>
+                    <div className="focus-answer-rationale">
+                      <strong>改动依据</strong>
+                      <dl>
+                        <div>
+                          <dt>来源问题</dt>
+                          <dd>{item.question || item.title}</dd>
+                        </div>
+                        <div>
+                          <dt>原回答暴露的问题</dt>
+                          <dd>{item.issue || '需要补充具体问题点。'}</dd>
+                        </div>
+                        <div>
+                          <dt>本次改写重点</dt>
+                          <dd>{item.improvementSuggestion || '补充结构、判断依据和可验证指标。'}</dd>
+                        </div>
+                        <div>
+                          <dt>适用边界</dt>
+                          <dd>{buildAnswerBoundary(jobDraft, item)}</dd>
+                        </div>
+                      </dl>
+                    </div>
+                    <label className="focus-answer-field">
+                      <span>下次可用回答</span>
+                      <textarea
+                        value={item.improvedAnswer ?? ''}
+                        onChange={(event) => handleDraftItemChange(item.id, 'improvedAnswer', event.target.value)}
+                      />
+                    </label>
+                    <div className="focus-answer-confirmation" aria-label="回答确认">
+                      <span>{confirmationLabel(confirmedItemStatuses.get(item.id))}</span>
+                      <button type="button" className="secondary-action" onClick={() => handleConfirmItem(item.id, 'accepted')}>
+                        采用
+                      </button>
+                      <button type="button" className="secondary-action" onClick={() => handleConfirmItem(item.id, 'edited-accepted')}>
+                        修改后采用
+                      </button>
+                      <button type="button" className="ghost-action" onClick={() => handleSkipItem(item.id)}>
+                        暂不保存
+                      </button>
+                    </div>
+                  </>
                 )}
               </article>
             ))}
@@ -401,6 +484,19 @@ export function FocusFlowPage({
       )}
     </section>
   );
+}
+
+function confirmationLabel(status: AnswerAssetConfirmationStatus | undefined) {
+  if (status === 'accepted') return '已确认采用';
+  if (status === 'edited-accepted') return '已标记为修改后采用';
+  return '尚未确认，默认不会保存到我的回答库';
+}
+
+function buildAnswerBoundary(jobDraft: FocusJobDraft, item: { confidence: 'high' | 'medium' | 'low' }) {
+  const direction = jobDraft.direction.trim() || '同方向岗位';
+  const confidenceNote = item.confidence === 'low' ? '这条是低置信草稿，使用前必须补充真实经历。' : '使用前仍需核对是否符合你的真实经历。';
+
+  return `优先用于${direction}的同岗位多轮或同方向类似问题；跨岗位使用前需要重新贴合业务场景。${confidenceNote}`;
 }
 
 function createFocusJobDraft(job: JobFile): FocusJobDraft {
