@@ -57,7 +57,29 @@ describe('buildMaterialImportSavePayload', () => {
       originalQuestion: '如何评估 AI 产品是否有效？',
       improvedAnswer: '我会从过程指标、结果指标和长期指标三层评估。',
       sourceInterviewId: payload.session.id,
-      confidence: 'high'
+      confidence: 'high',
+      confirmationStatus: 'accepted',
+      answerRationale: {
+        sourceQuestion: '如何评估 AI 产品是否有效？',
+        originalIssue: '指标不完整。',
+        rewriteFocus: '拆成过程、结果、长期指标。'
+      }
+    });
+  });
+
+  it('marks answers accepted after editing when confirmation status is provided', () => {
+    const payload = buildMaterialImportSavePayload({
+      draft,
+      job: jobFiles[0],
+      rawText: 'raw material',
+      runId: 'test-confirmation',
+      selectedItemIds: ['item-metrics'],
+      confirmationStatuses: new Map([['item-metrics', 'edited-accepted']])
+    });
+
+    expect(payload.assets[0]).toMatchObject({
+      confirmationStatus: 'edited-accepted',
+      usageNote: '这条回答已经修改后采用，使用前仍建议补充具体业务场景。'
     });
   });
 

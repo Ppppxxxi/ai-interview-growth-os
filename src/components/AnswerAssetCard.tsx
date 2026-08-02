@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { AnswerAsset, AnswerAssetUsageStatus, InterviewSession, JobFile } from '../domain/types';
+import { confirmationStatusLabels, getAnswerAssetConfirmationStatus } from '../workflow/answerAssetConfirmation';
 import { getAnswerVersions, restoreAnswerAssetVersion, saveAnswerAssetVersion } from '../workflow/answerAssetVersions';
 import {
   getAssetUsageStatus,
@@ -44,6 +45,8 @@ export function AnswerAssetCard({
   }, [asset]);
 
   const answerVersions = getAnswerVersions(asset);
+  const confirmationStatus = getAnswerAssetConfirmationStatus(asset);
+  const rationale = createAssetRationale(asset);
   const visibleInterviewSessions = interviewSessions.filter(
     (session) => !feedbackDraft.usedForJobId || session.jobFileId === feedbackDraft.usedForJobId
   );
@@ -84,7 +87,10 @@ export function AnswerAssetCard({
           <p className="eyebrow">{asset.questionType}</p>
           <h3>{asset.originalQuestion}</h3>
         </div>
-        <span>{confidenceLabels[asset.confidence]}</span>
+        <div className="asset-status-stack">
+          <span>{confidenceLabels[asset.confidence]}</span>
+          <span>{confirmationStatusLabels[confirmationStatus]}</span>
+        </div>
       </header>
 
       <section className="asset-section asset-section--answer asset-section--primary">
@@ -108,6 +114,28 @@ export function AnswerAssetCard({
       <section className="asset-section asset-section--issue">
         <strong>具体问题点</strong>
         <p>{asset.issue}</p>
+      </section>
+
+      <section className="asset-section asset-section--rationale">
+        <strong>改动依据</strong>
+        <dl>
+          <div>
+            <dt>来源问题</dt>
+            <dd>{rationale.sourceQuestion}</dd>
+          </div>
+          <div>
+            <dt>原回答暴露的问题</dt>
+            <dd>{rationale.originalIssue}</dd>
+          </div>
+          <div>
+            <dt>本次改写重点</dt>
+            <dd>{rationale.rewriteFocus}</dd>
+          </div>
+          <div>
+            <dt>适用边界</dt>
+            <dd>{rationale.applicabilityBoundary}</dd>
+          </div>
+        </dl>
       </section>
 
       <section className="asset-feedback-panel">
@@ -248,6 +276,7 @@ export function AnswerAssetCard({
           <span>{asset.weaknessTag}</span>
           <span>{asset.reuseScope}</span>
           <span>{usageStatusLabels[getAssetUsageStatus(asset)]}</span>
+          <span>{confirmationStatusLabels[confirmationStatus]}</span>
         </div>
 
         <section className="asset-section">
@@ -261,6 +290,15 @@ export function AnswerAssetCard({
       </details>
     </article>
   );
+}
+
+function createAssetRationale(asset: AnswerAsset) {
+  return {
+    sourceQuestion: asset.answerRationale?.sourceQuestion ?? asset.originalQuestion,
+    originalIssue: asset.answerRationale?.originalIssue ?? asset.issue,
+    rewriteFocus: asset.answerRationale?.rewriteFocus ?? asset.usageNote,
+    applicabilityBoundary: asset.answerRationale?.applicabilityBoundary ?? asset.reuseScope
+  };
 }
 
 function createFeedbackDraft(asset: AnswerAsset): AssetUsageFeedbackDraft {

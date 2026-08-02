@@ -9,6 +9,7 @@ import {
   type AssetSearchFilters,
   type AssetUsageFilter
 } from '../workflow/assetSearch';
+import { confirmationStatusLabels, getAnswerAssetConfirmationStatus } from '../workflow/answerAssetConfirmation';
 import { getAssetUsageStatus, usageStatusLabels } from '../workflow/assetUsageFeedback';
 import { downloadMarkdown } from '../workflow/downloadMarkdown';
 import { buildAssetLibraryMarkdown, createMarkdownFileName } from '../workflow/markdownExport';
@@ -174,7 +175,8 @@ export function AssetsAndTraining({ answerAssets, interviewSessions, jobFiles, o
                 <strong>{asset.questionType}</strong>
                 <span>{asset.originalQuestion}</span>
                 <small>
-                  {usageStatusLabels[getAssetUsageStatus(asset)]} · {asset.confidence === 'high' ? '高置信' : '中置信'}
+                  {usageStatusLabels[getAssetUsageStatus(asset)]} · {asset.confidence === 'high' ? '高置信' : '中置信'} ·{' '}
+                  {confirmationStatusLabels[getAnswerAssetConfirmationStatus(asset)]}
                 </small>
                 {matchedFields.length > 0 && <em>匹配：{matchedFields.join('、')}</em>}
               </button>

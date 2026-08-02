@@ -1,8 +1,17 @@
-import type { AnswerAsset, InterviewMaterialDraft, InterviewMaterialDraftItem, InterviewSession, JobFile, ReviewReport } from '../domain/types';
+import type {
+  AnswerAsset,
+  AnswerAssetConfirmationStatus,
+  InterviewMaterialDraft,
+  InterviewMaterialDraftItem,
+  InterviewSession,
+  JobFile,
+  ReviewReport
+} from '../domain/types';
 
 type MaterialImportSaveInput = {
   draft: InterviewMaterialDraft;
   selectedItemIds: Iterable<string>;
+  confirmationStatuses?: ReadonlyMap<string, AnswerAssetConfirmationStatus>;
   job: JobFile;
   rawText: string;
   runId?: string;
@@ -47,17 +56,25 @@ function buildFallbackAnswer(item: InterviewMaterialDraftItem, job: JobFile) {
   return `我会先结合${job.company} ${job.roleTitle}的业务场景说明问题背景，再给出判断框架、关键取舍和验证指标。这个回答需要在保存后结合我的真实经历继续补充案例。`;
 }
 
+function buildReuseScope(job: JobFile) {
+  return `适用于${job.direction}同岗位多轮或同方向类似问题，跨岗位使用前需要重新贴合业务场景。`;
+}
+
 function buildAsset({
   item,
   job,
   reviewId,
-  sessionId
+  sessionId,
+  confirmationStatus = 'accepted'
 }: {
   item: InterviewMaterialDraftItem;
   job: JobFile;
   reviewId: string;
   sessionId: string;
+  confirmationStatus?: AnswerAssetConfirmationStatus;
 }): AnswerAsset {
+  const reuseScope = buildReuseScope(job);
+
   return {
     id: `asset-${sessionId}-${safeId(item.id || item.title)}`,
     questionType: item.title,
@@ -71,15 +88,28 @@ function buildAsset({
     sourceJobId: job.id,
     sourceInterviewId: sessionId,
     sourceReviewId: reviewId,
-    reuseScope: `适用于${job.direction}同岗位多轮或同方向类似问题，跨岗位使用前需要重新贴合业务场景。`,
+    reuseScope,
     usedInInterview: false,
-    usageNote: item.confidence === 'low' ? '低置信草稿，使用前必须补充真实经历和岗位场景。' : '保存前请确认回答符合你的真实经历，再用于下一场面试。',
-    confidence: item.confidence
+    usageNote:
+      item.confidence === 'low'
+        ? '低置信草稿，使用前必须补充真实经历和岗位场景。'
+        : confirmationStatus === 'edited-accepted'
+          ? '这条回答已经修改后采用，使用前仍建议补充具体业务场景。'
+          : '这条回答已经确认采用，后续面试前请再核对真实经历和岗位场景。',
+    confidence: item.confidence,
+    confirmationStatus,
+    answerRationale: {
+      sourceQuestion: item.question || item.title,
+      originalIssue: item.issue || item.improvementSuggestion || '需要补充具体问题点。',
+      rewriteFocus: item.improvementSuggestion || '补充结构、判断依据和可验证指标。',
+      applicabilityBoundary: reuseScope
+    }
   };
 }
 
 export function buildMaterialImportSavePayload({
   draft,
+  confirmationStatuses,
   job,
   rawText,
   runId = Date.now().toString(36),
@@ -117,6 +147,14 @@ export function buildMaterialImportSavePayload({
   return {
     session,
     review,
-    assets: selectedAssetItems.map((item) => buildAsset({ item, job, reviewId, sessionId }))
+    assets: selectedAssetItems.map((item) =>
+      buildAsset({
+        item,
+        job,
+        reviewId,
+        sessionId,
+        confirmationStatus: confirmationStatuses?.get(item.id) ?? 'accepted'
+      })
+    )
   };
 }
