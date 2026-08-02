@@ -69,19 +69,27 @@ export default function App() {
   const [view, setView] = useState<AppView>(initialAppState.view);
   const [hasStarted, setHasStarted] = useState(initialAppState.hasStarted);
   const [workspaceData, setWorkspaceData] = useState(initialAppState.workspace);
+  const [isDataMenuOpen, setIsDataMenuOpen] = useState(false);
 
   useEffect(() => {
     if (!hasStarted) return;
     writePersonalWorkspace(getBrowserStorage(), workspaceData);
   }, [hasStarted, workspaceData]);
 
+  function switchView(nextView: AppView) {
+    setIsDataMenuOpen(false);
+    setView(nextView);
+  }
+
   function handleStartWithExample() {
+    setIsDataMenuOpen(false);
     setWorkspaceData(createSampleWorkspaceData());
     setHasStarted(true);
     setView('workspace');
   }
 
   function handleRestoreExample() {
+    setIsDataMenuOpen(false);
     const confirmed = window.confirm('恢复示例数据会覆盖当前浏览器里的本地数据，是否继续？');
     if (!confirmed) return;
     setWorkspaceData(createSampleWorkspaceData());
@@ -90,6 +98,7 @@ export default function App() {
   }
 
   function handleClearLocalData() {
+    setIsDataMenuOpen(false);
     const confirmed = window.confirm('清空本地数据后，当前岗位、面试记录和我的回答库会从这个浏览器删除，是否继续？');
     if (!confirmed) return;
     clearPersonalWorkspace(getBrowserStorage());
@@ -175,7 +184,7 @@ export default function App() {
               <button
                 className={view === 'focus' ? 'nav-button nav-button--active' : 'nav-button'}
                 type="button"
-                onClick={() => setView('focus')}
+                onClick={() => switchView('focus')}
               >
                 开始新面试
               </button>
@@ -184,7 +193,7 @@ export default function App() {
                   className={view === item.id ? 'nav-button nav-button--active' : 'nav-button'}
                   key={item.id}
                   type="button"
-                  onClick={() => setView(item.id)}
+                  onClick={() => switchView(item.id)}
                 >
                   {item.label}
                 </button>
@@ -192,7 +201,7 @@ export default function App() {
             </nav>
           )}
           {hasStarted && (
-            <details className="data-menu">
+            <details className="data-menu" open={isDataMenuOpen} onToggle={(event) => setIsDataMenuOpen(event.currentTarget.open)}>
               <summary>数据管理</summary>
               <div className="data-menu-list" aria-label="本地数据管理">
                 <p>数据只保存在当前浏览器。清空会删除本机岗位、面试记录和我的回答库；恢复示例会重置为虚构示例数据。</p>
@@ -207,7 +216,7 @@ export default function App() {
           )}
         </div>
       </header>
-      {!hasStarted && view === 'focus' && (
+      {view === 'focus' && (
         <FocusFlowPage
           selectedJobId={workspaceData.selectedJobId}
           jobFiles={workspaceData.jobFiles}
@@ -215,20 +224,10 @@ export default function App() {
           onSaveInterviewRecord={handleSaveInterviewRecord}
           onSaveAsset={handleSaveAsset}
           onFinish={(target) => {
+            setIsDataMenuOpen(false);
             setHasStarted(true);
             setView(target);
           }}
-          onUseExample={handleStartWithExample}
-        />
-      )}
-      {hasStarted && view === 'focus' && (
-        <FocusFlowPage
-          selectedJobId={workspaceData.selectedJobId}
-          jobFiles={workspaceData.jobFiles}
-          onUpdateJob={handleUpdateJob}
-          onSaveInterviewRecord={handleSaveInterviewRecord}
-          onSaveAsset={handleSaveAsset}
-          onFinish={(target) => setView(target)}
           onUseExample={handleStartWithExample}
         />
       )}
@@ -246,8 +245,8 @@ export default function App() {
           onSaveInterviewRecord={handleSaveInterviewRecord}
           onDeleteInterviewRecord={handleDeleteInterviewRecord}
           onSaveAsset={handleSaveAsset}
-          onOpenAssets={() => setView('assets')}
-          onStartFocus={() => setView('focus')}
+          onOpenAssets={() => switchView('assets')}
+          onStartFocus={() => switchView('focus')}
         />
       )}
       {hasStarted && view === 'assets' && (
