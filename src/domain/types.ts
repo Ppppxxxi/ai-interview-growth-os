@@ -1,3 +1,5 @@
+import type { AnswerEvidence, AnswerGeneration } from './materialTypes';
+
 export type AbilityDimension =
   | 'roleUnderstanding'
   | 'productAnalysis'
@@ -72,7 +74,9 @@ export type InterviewMaterialDraftItem = {
   originalAnswer?: string;
   followUps?: string[];
   issue?: string;
-  evidence?: string;
+  evidence?: string | AnswerEvidence[];
+  generation?: AnswerGeneration;
+  missingFacts?: string[];
   improvementSuggestion?: string;
   improvedAnswer?: string;
   answerAssetCandidate: boolean;
@@ -121,6 +125,9 @@ export type ReviewReport = {
 };
 
 export type AnswerAsset = {
+  evidence?: AnswerEvidence[];
+  generation?: AnswerGeneration;
+  missingFacts?: string[];
   id: string;
   questionType: string;
   originalQuestion: string;
@@ -154,6 +161,9 @@ export type AnswerRationale = {
 };
 
 export type AnswerAssetVersion = {
+  evidence?: AnswerEvidence[];
+  generation?: AnswerGeneration;
+  missingFacts?: string[];
   id: string;
   answer: string;
   note: string;
