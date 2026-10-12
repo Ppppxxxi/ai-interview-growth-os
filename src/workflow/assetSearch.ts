@@ -1,10 +1,13 @@
 import type { AnswerAsset, JobFile } from '../domain/types';
+import { isAnswerAssetUserConfirmed } from './answerAssetConfirmation';
 import { getAssetUsageStatus } from './assetUsageFeedback';
 
 export type AssetUsageFilter = 'all' | 'used' | 'unused';
+export type AssetQuickFilter = 'all' | 'next-interview-ready' | 'verified-effective' | 'needs-rewrite' | 'same-direction';
 
 export type AssetSearchFilters = {
   query: string;
+  quickFilter: AssetQuickFilter;
   direction: string;
   questionType: string;
   weakness: string;
@@ -64,6 +67,7 @@ export function searchAnswerAssets(
 export function getDefaultAssetSearchFilters(): AssetSearchFilters {
   return {
     query: '',
+    quickFilter: 'all',
     direction: 'all',
     questionType: 'all',
     weakness: 'all',
@@ -84,7 +88,31 @@ function matchesFilters(asset: AnswerAsset, filters: AssetSearchFilters) {
     (filters.usageStatus === 'used' && getAssetUsageStatus(asset) !== 'unused') ||
     (filters.usageStatus === 'unused' && getAssetUsageStatus(asset) === 'unused');
 
-  return matchesDirection && matchesType && matchesWeakness && matchesConfidence && matchesSourceJob && matchesUsage;
+  return (
+    matchesDirection &&
+    matchesType &&
+    matchesWeakness &&
+    matchesConfidence &&
+    matchesSourceJob &&
+    matchesUsage &&
+    matchesQuickFilter(asset, filters.quickFilter)
+  );
+}
+
+function matchesQuickFilter(asset: AnswerAsset, quickFilter: AssetQuickFilter) {
+  const usageStatus = getAssetUsageStatus(asset);
+
+  if (quickFilter === 'all') return true;
+  if (quickFilter === 'next-interview-ready') {
+    return isAnswerAssetUserConfirmed(asset) && asset.confidence !== 'low' && usageStatus !== 'needs-rewrite';
+  }
+  if (quickFilter === 'verified-effective') return usageStatus === 'used-effective';
+  if (quickFilter === 'needs-rewrite') return usageStatus === 'needs-rewrite';
+  if (quickFilter === 'same-direction') {
+    return asset.applicableRoles.length > 1 || asset.reuseScope.includes('同方向') || asset.reuseScope.includes('类似岗位');
+  }
+
+  return true;
 }
 
 function scoreAsset(asset: AnswerAsset, sourceJob: JobFile | undefined, normalizedQuery: string): AssetSearchResult {

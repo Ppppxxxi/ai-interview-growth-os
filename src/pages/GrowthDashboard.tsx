@@ -1,5 +1,9 @@
+import { useState } from 'react';
+import { BookOpen, CheckCheck, FileCheck2, Radar } from 'lucide-react';
 import { buildGrowthSnapshot } from '../agents/growthPlanner';
+import { AbilityRadar } from '../components/AbilityRadar';
 import { trainingTasks } from '../domain/sampleData';
+import { getAssetUsageStatus } from '../workflow/assetUsageFeedback';
 import type { AnswerAsset, JobFile, ReviewReport } from '../domain/types';
 
 type GrowthDashboardProps = {
@@ -8,99 +12,192 @@ type GrowthDashboardProps = {
   reviewReports: ReviewReport[];
 };
 
-export function GrowthDashboard({ answerAssets, jobFiles, reviewReports }: GrowthDashboardProps) {
+export function GrowthDashboard({
+  answerAssets,
+  jobFiles,
+  reviewReports
+}: GrowthDashboardProps) {
+  const [tab, setTab] = useState<'profile' | 'history'>('profile');
   const snapshot = buildGrowthSnapshot(reviewReports);
-  const mainWeaknesses = snapshot.repeatedWeaknesses.slice(0, 4);
-  const reusedAssets = answerAssets.filter((asset) => asset.usedInInterview);
+  const savedAnswers = answerAssets.filter(
+    (asset) => asset.confirmationStatus !== 'generated-draft'
+  );
+  const verified = savedAnswers.filter(
+    (asset) => getAssetUsageStatus(asset) === 'used-effective'
+  );
+  const categories = Array.from(
+    new Set(savedAnswers.map((asset) => asset.questionType))
+  );
+  const tasks = trainingTasks.filter((task) =>
+    jobFiles.some((job) => job.id === task.jobFileId)
+  );
 
   return (
-    <div className="dashboard-grid dashboard-grid--growth">
-      <section className="hero-panel">
-        <p className="eyebrow">复盘总结</p>
-        <h1>查看已沉淀的问题、回答和考前训练</h1>
-        <p>这里汇总当前已经有证据的复盘结果。完成更多面试复盘后，再展示跨岗位重复问题和能力变化。</p>
-        <div className="hero-stats">
-          <span>
-            <strong>{reviewReports.length}</strong>
-            已完成复盘
-          </span>
-          <span>
-            <strong>{answerAssets.length}</strong>
-            回答资产
-          </span>
-          <span>
-            <strong>{reusedAssets.length}</strong>
-            已验证使用
-          </span>
+    <section className="growth-page">
+      <header className="page-heading">
+        <div>
+          <p className="eyebrow">每一次面试，都有积累</p>
+          <h1>面试复盘</h1>
         </div>
-      </section>
-
-      <section className="panel">
-        <div className="section-heading">
-          <p className="eyebrow">当前主要问题</p>
-          <h2>下一场面试前优先处理</h2>
+        <div className="segmented-control" aria-label="复盘视图">
+          <button
+            type="button"
+            aria-pressed={tab === 'profile'}
+            onClick={() => setTab('profile')}
+          >
+            个人画像
+          </button>
+          <button
+            type="button"
+            aria-pressed={tab === 'history'}
+            onClick={() => setTab('history')}
+          >
+            复盘记录
+          </button>
         </div>
-        {mainWeaknesses.length > 0 ? (
-          <div className="weakness-list">
-            {mainWeaknesses.map((weakness) => (
-              <div className="weakness-row" key={weakness.label}>
-                <span>{weakness.label}</span>
-                <strong>{weakness.count > 1 ? `${weakness.count} 次出现` : '本次复盘出现'}</strong>
+      </header>
+      <div className="growth-stat-band">
+        <div>
+          <FileCheck2 size={20} />
+          <span>面试复盘</span>
+          <strong>
+            {reviewReports.length}
+            <small>场</small>
+          </strong>
+        </div>
+        <div>
+          <BookOpen size={20} />
+          <span>已保存回答</span>
+          <strong>
+            {savedAnswers.length}
+            <small>条</small>
+          </strong>
+        </div>
+        <div>
+          <CheckCheck size={20} />
+          <span>验证有效</span>
+          <strong>
+            {verified.length}
+            <small>条</small>
+          </strong>
+        </div>
+      </div>
+      {tab === 'profile' ? (
+        <>
+          <div className="growth-profile-grid">
+            <section className="growth-radar-panel">
+              <div className="section-title">
+                <h2>
+                  <Radar size={18} />
+                  能力画像
+                </h2>
+                <span>评分 / 5</span>
               </div>
-            ))}
+              <AbilityRadar scores={snapshot.abilityAverages} />
+            </section>
+            <section className="growth-focus-panel">
+              <div className="section-title">
+                <h2>优先补强</h2>
+                <span>{snapshot.repeatedWeaknesses.length} 项</span>
+              </div>
+              <div className="growth-weaknesses">
+                {snapshot.repeatedWeaknesses.length ? (
+                  snapshot.repeatedWeaknesses
+                    .slice(0, 5)
+                    .map((weakness, index) => (
+                      <div key={weakness.label}>
+                        <span className="item-number">
+                          {String(index + 1).padStart(2, '0')}
+                        </span>
+                        <strong>{weakness.label}</strong>
+                        <span>{weakness.count} 次</span>
+                      </div>
+                    ))
+                ) : (
+                  <p className="empty-copy">完成一次复盘后查看</p>
+                )}
+              </div>
+              <div className="profile-tags">
+                <h3>问题关键词</h3>
+                <div className="tag-list">
+                  {categories.length ? (
+                    categories.map((category) => (
+                      <span key={category}>{category}</span>
+                    ))
+                  ) : (
+                    <span>暂无关键词</span>
+                  )}
+                </div>
+                <h3>岗位方向</h3>
+                <div className="tag-list">
+                  {Array.from(
+                    new Set(
+                      jobFiles
+                        .filter((job) => job.interviewSessionIds.length > 0)
+                        .map((job) => job.direction)
+                    )
+                  ).map((direction) => (
+                    <span key={direction}>{direction}</span>
+                  ))}
+                </div>
+              </div>
+            </section>
           </div>
-        ) : (
-          <p className="usage-note">完成一次面试复盘后，这里会显示最需要优先处理的问题。</p>
-        )}
-      </section>
-
-      <section className="panel">
-        <div className="section-heading">
-          <p className="eyebrow">资产沉淀</p>
-          <h2>已沉淀的回答</h2>
+          {tasks.length > 0 && (
+            <details className="growth-practice">
+              <summary>
+                考前练习 <span>{tasks.length} 项</span>
+              </summary>
+              {tasks.map((task) => (
+                <article key={task.id}>
+                  <h3>{task.goal}</h3>
+                  <p>{task.practiceQuestion}</p>
+                  <span>{task.dueLabel}</span>
+                </article>
+              ))}
+            </details>
+          )}
+        </>
+      ) : (
+        <div className="review-timeline">
+          {reviewReports.length ? (
+            [...reviewReports].reverse().map((report, index) => (
+              <details key={report.id}>
+                <summary>
+                  <span className="item-number">
+                    {String(index + 1).padStart(2, '0')}
+                  </span>
+                  <span>
+                    <strong>
+                      {jobFiles.find((job) => job.id === report.jobFileId)
+                        ?.company ?? '面试复盘'}
+                    </strong>
+                    <small>{report.summary}</small>
+                  </span>
+                  <span>{report.weaknesses.length} 个薄弱点</span>
+                </summary>
+                <p>{report.summary}</p>
+                <div className="tag-list">
+                  {report.weaknesses.map((weakness) => (
+                    <span key={weakness}>{weakness}</span>
+                  ))}
+                </div>
+                <ul>
+                  {report.nextActions.map((action) => (
+                    <li key={action}>{action}</li>
+                  ))}
+                </ul>
+              </details>
+            ))
+          ) : (
+            <div className="empty-panel">
+              <FileCheck2 size={32} />
+              <h2>还没有复盘记录</h2>
+              <p>从一场面试开始</p>
+            </div>
+          )}
         </div>
-        <div className="asset-mini-list">
-          {answerAssets.map((asset) => (
-            <article key={asset.id}>
-              <strong>{asset.weaknessTag}</strong>
-              <p>{asset.questionType}</p>
-              <span>{asset.reuseScope}</span>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="panel">
-        <div className="section-heading">
-          <p className="eyebrow">覆盖岗位</p>
-          <h2>适用岗位</h2>
-        </div>
-        <div className="reuse-list">
-          {jobFiles.slice(0, 2).map((job) => (
-            <article key={job.id}>
-              <strong>{job.company}</strong>
-              <p>{job.roleTitle}</p>
-              <span>{job.status}</span>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="panel panel--wide">
-        <div className="section-heading">
-          <p className="eyebrow">下一场面试前</p>
-          <h2>考前优先训练</h2>
-        </div>
-        <div className="task-preview">
-          {trainingTasks.slice(0, 2).map((task) => (
-            <article key={task.id}>
-              <strong>{task.goal}</strong>
-              <p>{task.practiceQuestion}</p>
-              <span>{task.referenceFramework}</span>
-            </article>
-          ))}
-        </div>
-      </section>
-    </div>
+      )}
+    </section>
   );
 }

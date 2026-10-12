@@ -13,19 +13,29 @@ describe('App', () => {
   it('keeps the focused import flow as the first screen without local data', () => {
     vi.stubGlobal('window', {
       location: { search: '' },
-      localStorage: { getItem: () => null, setItem: vi.fn(), removeItem: vi.fn() }
+      localStorage: {
+        getItem: () => null,
+        setItem: vi.fn(),
+        removeItem: vi.fn()
+      }
     });
 
     const html = renderToString(createElement(App));
 
-    expect(html).toContain('粘贴 JD、面试记录或模拟面试对话');
+    expect(html).toContain('开始新面试');
+    expect(html).toContain('面试材料');
+    expect(html).toContain('主导航');
     expect(html).not.toContain('workspace-home-current');
   });
 
   it('opens the production workspace directly in preview mode without stored data', () => {
     vi.stubGlobal('window', {
       location: { search: '?preview=workspace' },
-      localStorage: { getItem: () => null, setItem: vi.fn(), removeItem: vi.fn() }
+      localStorage: {
+        getItem: () => null,
+        setItem: vi.fn(),
+        removeItem: vi.fn()
+      }
     });
 
     const html = renderToString(createElement(App));

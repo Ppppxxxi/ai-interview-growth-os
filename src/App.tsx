@@ -1,11 +1,26 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import {
+  ArchiveRestore,
+  BriefcaseBusiness,
+  ChevronDown,
+  LayoutDashboard,
+  Library,
+  Plus,
+  Radar,
+  Trash2
+} from 'lucide-react';
 import {
   answerAssets as initialAnswerAssets,
   interviewSessions as initialInterviewSessions,
   jobFiles as initialJobFiles,
   reviewReports as initialReviewReports
 } from './domain/sampleData';
-import type { AnswerAsset, InterviewSession, JobFile, ReviewReport } from './domain/types';
+import type {
+  AnswerAsset,
+  InterviewSession,
+  JobFile,
+  ReviewReport
+} from './domain/types';
 import { AssetsAndTraining } from './pages/AssetsAndTraining';
 import { FocusFlowPage } from './pages/FocusFlowPage';
 import { GrowthDashboard } from './pages/GrowthDashboard';
@@ -35,6 +50,7 @@ type AppView = 'focus' | 'workspace' | 'job' | 'assets' | 'growth';
 
 const navItems: Array<{ id: AppView; label: string }> = [
   { id: 'workspace', label: '工作台' },
+  { id: 'job', label: '目标岗位' },
   { id: 'assets', label: '我的回答库' },
   { id: 'growth', label: '面试复盘' }
 ];
@@ -51,15 +67,24 @@ function createSampleWorkspaceData() {
 }
 
 function createInitialAppState() {
-  const isPreviewMode = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('preview') === 'workspace';
+  const isPreviewMode =
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('preview') === 'workspace';
   if (isPreviewMode) {
-    return { hasStarted: true, view: 'workspace' as AppView, workspace: createSampleWorkspaceData(), isPreviewMode };
+    return {
+      hasStarted: true,
+      view: 'workspace' as AppView,
+      workspace: createSampleWorkspaceData(),
+      isPreviewMode
+    };
   }
 
   const storage = getBrowserStorage();
   const fallback = createEmptyPersonalWorkspaceData();
   const persisted = hasPersonalWorkspace(storage);
-  const workspace = persisted ? readPersonalWorkspace(storage, fallback) : fallback;
+  const workspace = persisted
+    ? readPersonalWorkspace(storage, fallback)
+    : fallback;
   const sampleJobIds = initialJobFiles.map((job) => job.id);
   const hasData = hasRealWorkspaceData(workspace, sampleJobIds);
 
@@ -77,6 +102,24 @@ export default function App() {
   const [hasStarted, setHasStarted] = useState(initialAppState.hasStarted);
   const [workspaceData, setWorkspaceData] = useState(initialAppState.workspace);
   const [isDataMenuOpen, setIsDataMenuOpen] = useState(false);
+  const dataMenuRef = useRef<HTMLDetailsElement>(null);
+
+  useEffect(() => {
+    if (!isDataMenuOpen) return;
+    function closeMenu(event: PointerEvent) {
+      if (!dataMenuRef.current?.contains(event.target as Node))
+        setIsDataMenuOpen(false);
+    }
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') setIsDataMenuOpen(false);
+    }
+    document.addEventListener('pointerdown', closeMenu);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeMenu);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isDataMenuOpen]);
 
   useEffect(() => {
     if (!hasStarted || initialAppState.isPreviewMode) return;
@@ -97,7 +140,9 @@ export default function App() {
 
   function handleRestoreExample() {
     setIsDataMenuOpen(false);
-    const confirmed = window.confirm('恢复示例数据会覆盖当前浏览器里的本地数据，是否继续？');
+    const confirmed = window.confirm(
+      '恢复示例数据会覆盖当前浏览器里的本地数据，是否继续？'
+    );
     if (!confirmed) return;
     setWorkspaceData(createSampleWorkspaceData());
     setHasStarted(true);
@@ -106,9 +151,12 @@ export default function App() {
 
   function handleClearLocalData() {
     setIsDataMenuOpen(false);
-    const confirmed = window.confirm('清空本地数据后，当前岗位、面试记录和我的回答库会从这个浏览器删除，是否继续？');
+    const confirmed = window.confirm(
+      '清空本地数据后，当前岗位、面试记录和我的回答库会从这个浏览器删除，是否继续？'
+    );
     if (!confirmed) return;
-    if (!initialAppState.isPreviewMode) clearPersonalWorkspace(getBrowserStorage());
+    if (!initialAppState.isPreviewMode)
+      clearPersonalWorkspace(getBrowserStorage());
     setWorkspaceData(createEmptyPersonalWorkspaceData());
     setHasStarted(false);
     setView('focus');
@@ -162,11 +210,17 @@ export default function App() {
     });
   }
 
-  function handleSaveInterviewRecord(session: InterviewSession, review: ReviewReport) {
+  function handleSaveInterviewRecord(
+    session: InterviewSession,
+    review: ReviewReport
+  ) {
     setHasStarted(true);
     setWorkspaceData((current) => ({
       ...current,
-      interviewSessions: upsertInterviewSession(current.interviewSessions, session),
+      interviewSessions: upsertInterviewSession(
+        current.interviewSessions,
+        session
+      ),
       reviewReports: upsertReviewReport(current.reviewReports, review),
       jobFiles: attachInterviewSessionToJob(current.jobFiles, session),
       updatedAt: new Date().toISOString()
@@ -179,106 +233,160 @@ export default function App() {
   }
 
   return (
-    <main className={view === 'workspace' ? 'app-shell app-shell--home' : 'app-shell'}>
+    <main className="app-shell app-shell--home app-shell--redesign">
       <header className="topbar">
-        <div>
+        <div className="brand-lockup">
+          <span className="brand-symbol">
+            <Radar size={22} />
+          </span>
           <strong>AI 面试成长 OS</strong>
-          {view !== 'workspace' && <span>导入面试材料，生成下次可用回答</span>}
         </div>
         <div className="topbar-actions">
-          {hasStarted && (
-            <nav aria-label="主导航">
+          <nav aria-label="主导航">
+            <button
+              className={
+                view === 'focus'
+                  ? 'nav-button nav-button--active'
+                  : 'nav-button'
+              }
+              type="button"
+              onClick={() => switchView('focus')}
+            >
+              <Plus size={17} />
+              开始新面试
+            </button>
+            {navItems.map((item) => (
               <button
-                className={view === 'focus' ? 'nav-button nav-button--active' : 'nav-button'}
+                className={
+                  view === item.id
+                    ? 'nav-button nav-button--active'
+                    : 'nav-button'
+                }
+                key={item.id}
                 type="button"
-                onClick={() => switchView('focus')}
+                onClick={() => switchView(item.id)}
               >
-                开始新面试
+                {item.id === 'workspace' ? (
+                  <LayoutDashboard size={17} />
+                ) : item.id === 'job' ? (
+                  <BriefcaseBusiness size={17} />
+                ) : item.id === 'assets' ? (
+                  <Library size={17} />
+                ) : (
+                  <Radar size={17} />
+                )}
+                {item.label}
               </button>
-              {navItems.map((item) => (
-                <button
-                  className={view === item.id || (view === 'job' && item.id === 'workspace') ? 'nav-button nav-button--active' : 'nav-button'}
-                  key={item.id}
-                  type="button"
-                  onClick={() => switchView(item.id)}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </nav>
-          )}
-          <details className="data-menu" open={isDataMenuOpen} onToggle={(event) => setIsDataMenuOpen(event.currentTarget.open)}>
-            <summary>数据管理</summary>
+            ))}
+          </nav>
+        </div>
+        <div className="sidebar-profile">
+          <span>我</span>
+          <div>
+            <strong>我的成长空间</strong>
+            <small>
+              {workspaceData.answerAssets.length} 条回答 ·{' '}
+              {workspaceData.interviewSessions.length} 场面试
+            </small>
+          </div>
+        </div>
+      </header>
+      <div className="app-content">
+        <div className="content-topbar">
+          <span>
+            我的空间 <span className="breadcrumb-divider">/</span>{' '}
+            {view === 'focus'
+              ? '开始新面试'
+              : navItems.find((item) => item.id === view)?.label}
+          </span>
+          <details
+            ref={dataMenuRef}
+            className="data-menu"
+            open={isDataMenuOpen}
+            onToggle={(event) => setIsDataMenuOpen(event.currentTarget.open)}
+          >
+            <summary>
+              数据管理 <ChevronDown size={14} />
+            </summary>
             <div className="data-menu-list" aria-label="本地数据管理">
-              <p>数据只保存在当前浏览器。清空会删除本机岗位、面试记录和我的回答库；恢复示例会重置为虚构示例数据。</p>
-              <button type="button" className="ghost-action" onClick={handleRestoreExample}>
+              <button
+                type="button"
+                className="ghost-action"
+                onClick={handleRestoreExample}
+              >
+                <ArchiveRestore size={16} />
                 恢复示例
               </button>
-              <button type="button" className="ghost-action danger-ghost-action" onClick={handleClearLocalData}>
+              <button
+                type="button"
+                className="ghost-action danger-ghost-action"
+                onClick={handleClearLocalData}
+              >
+                <Trash2 size={16} />
                 清空本地数据
               </button>
             </div>
           </details>
         </div>
-      </header>
-      {view === 'focus' && (
-        <FocusFlowPage
-          selectedJobId={workspaceData.selectedJobId}
-          jobFiles={workspaceData.jobFiles}
-          onUpdateJob={handleUpdateJob}
-          onSaveInterviewRecord={handleSaveInterviewRecord}
-          onSaveAsset={handleSaveAsset}
-          onFinish={(target) => {
-            setIsDataMenuOpen(false);
-            setHasStarted(true);
-            setView(target);
-          }}
-          onUseExample={handleStartWithExample}
-        />
-      )}
-      {hasStarted && view === 'workspace' && (
-        <WorkspaceHome
-          data={workspaceData}
-          onSelectJob={handleSelectJob}
-          onOpenJob={() => switchView('job')}
-          onOpenAssets={() => switchView('assets')}
-          onOpenGrowth={() => switchView('growth')}
-          onStartNew={() => switchView('focus')}
-        />
-      )}
-      {hasStarted && view === 'job' && (
-        <JobFileDetail
-          selectedJobId={workspaceData.selectedJobId}
-          onSelectJob={handleSelectJob}
-          jobFiles={workspaceData.jobFiles}
-          interviewSessions={workspaceData.interviewSessions}
-          reviewReports={workspaceData.reviewReports}
-          answerAssets={workspaceData.answerAssets}
-          onCreateJob={handleCreateJob}
-          onUpdateJob={handleUpdateJob}
-          onDeleteJob={handleDeleteJob}
-          onSaveInterviewRecord={handleSaveInterviewRecord}
-          onDeleteInterviewRecord={handleDeleteInterviewRecord}
-          onSaveAsset={handleSaveAsset}
-          onOpenAssets={() => switchView('assets')}
-          onStartFocus={() => switchView('focus')}
-        />
-      )}
-      {hasStarted && view === 'assets' && (
-        <AssetsAndTraining
-          answerAssets={workspaceData.answerAssets}
-          interviewSessions={workspaceData.interviewSessions}
-          jobFiles={workspaceData.jobFiles}
-          onUpdateAsset={handleSaveAsset}
-        />
-      )}
-      {hasStarted && view === 'growth' && (
-        <GrowthDashboard
-          answerAssets={workspaceData.answerAssets}
-          jobFiles={workspaceData.jobFiles}
-          reviewReports={workspaceData.reviewReports}
-        />
-      )}
+        {view === 'focus' && (
+          <FocusFlowPage
+            selectedJobId={workspaceData.selectedJobId}
+            jobFiles={workspaceData.jobFiles}
+            onUpdateJob={handleUpdateJob}
+            onSaveInterviewRecord={handleSaveInterviewRecord}
+            onSaveAsset={handleSaveAsset}
+            onFinish={(target) => {
+              setIsDataMenuOpen(false);
+              setHasStarted(true);
+              setView(target);
+            }}
+            onUseExample={handleStartWithExample}
+          />
+        )}
+        {view === 'workspace' && (
+          <WorkspaceHome
+            data={workspaceData}
+            onSelectJob={handleSelectJob}
+            onOpenJob={() => switchView('job')}
+            onOpenAssets={() => switchView('assets')}
+            onOpenGrowth={() => switchView('growth')}
+            onStartNew={() => switchView('focus')}
+          />
+        )}
+        {view === 'job' && (
+          <JobFileDetail
+            selectedJobId={workspaceData.selectedJobId}
+            onSelectJob={handleSelectJob}
+            jobFiles={workspaceData.jobFiles}
+            interviewSessions={workspaceData.interviewSessions}
+            reviewReports={workspaceData.reviewReports}
+            answerAssets={workspaceData.answerAssets}
+            onCreateJob={handleCreateJob}
+            onUpdateJob={handleUpdateJob}
+            onDeleteJob={handleDeleteJob}
+            onSaveInterviewRecord={handleSaveInterviewRecord}
+            onDeleteInterviewRecord={handleDeleteInterviewRecord}
+            onSaveAsset={handleSaveAsset}
+            onOpenAssets={() => switchView('assets')}
+            onStartFocus={() => switchView('focus')}
+          />
+        )}
+        {view === 'assets' && (
+          <AssetsAndTraining
+            answerAssets={workspaceData.answerAssets}
+            interviewSessions={workspaceData.interviewSessions}
+            jobFiles={workspaceData.jobFiles}
+            onUpdateAsset={handleSaveAsset}
+          />
+        )}
+        {view === 'growth' && (
+          <GrowthDashboard
+            answerAssets={workspaceData.answerAssets}
+            jobFiles={workspaceData.jobFiles}
+            reviewReports={workspaceData.reviewReports}
+          />
+        )}
+      </div>
     </main>
   );
 }

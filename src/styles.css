@@ -359,20 +359,6 @@ a {
   background: #f7fbff;
 }
 
-.focus-privacy-note {
-  border: 1px solid #dbe8d5;
-  border-radius: 8px;
-  padding: 10px 12px;
-  color: #40516a;
-  background: #f6fbf3;
-  font-size: 13px;
-  line-height: 1.7;
-}
-
-.focus-privacy-note strong {
-  color: #23633c;
-}
-
 .focus-recognition-summary {
   display: grid;
   grid-template-columns: minmax(220px, 2fr) repeat(4, minmax(96px, 1fr));
@@ -918,6 +904,23 @@ h3 {
   padding: 22px;
 }
 
+.empty-next-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.empty-next-steps span {
+  border: 1px solid #dbe3ee;
+  border-radius: 999px;
+  padding: 6px 10px;
+  color: #40516a;
+  background: #ffffff;
+  font-size: 13px;
+  font-weight: 800;
+}
+
 .sidebar-panel {
   align-self: start;
   border: 1px solid #dce3ef;
@@ -1427,6 +1430,48 @@ h3 {
   padding: 9px 10px;
   color: #172033;
   background: #ffffff;
+}
+
+.quick-filter-row {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.quick-filter-chip {
+  display: grid;
+  gap: 3px;
+  min-height: 58px;
+  border: 1px solid #d7dfeb;
+  border-radius: 8px;
+  padding: 9px 10px;
+  text-align: left;
+  color: #40516a;
+  background: #ffffff;
+}
+
+.quick-filter-chip span,
+.quick-filter-chip small {
+  overflow-wrap: anywhere;
+}
+
+.quick-filter-chip span {
+  color: #172033;
+  font-weight: 800;
+}
+
+.quick-filter-chip small {
+  color: #65758f;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.quick-filter-chip--active {
+  border-color: #2f6fed;
+  color: #174ea6;
+  background: #edf4ff;
+  box-shadow: inset 0 0 0 1px #2f6fed;
 }
 
 .assets-grid--library {
@@ -2906,10 +2951,34 @@ body {
   display: block;
 }
 
-.asset-index-item span {
+.asset-index-question {
   margin-top: 6px;
   color: #40516a;
   line-height: 1.5;
+}
+
+.asset-index-answer {
+  margin-top: 8px;
+  color: #27354a;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.asset-index-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.asset-index-meta span {
+  width: fit-content;
+  border-radius: 999px;
+  padding: 4px 8px;
+  color: #40516a;
+  background: #eef2f7;
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .asset-index-item small {
@@ -3087,6 +3156,10 @@ body {
 
   .filter-search {
     grid-column: auto;
+  }
+
+  .quick-filter-row {
+    grid-template-columns: 1fr;
   }
 
   .filter-actions {
