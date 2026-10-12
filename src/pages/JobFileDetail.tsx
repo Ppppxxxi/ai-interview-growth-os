@@ -1,10 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Plus } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { analyzeJd } from '../agents/jdAnalyst';
 import { matchExperiences } from '../agents/experienceMatcher';
 import { parseInterviewMaterial } from '../agents/materialImportParser';
 import { generateMockInterview } from '../agents/mockInterview';
-import { coldStartDemo, experiences, jobFiles as sampleJobFiles, trainingTasks } from '../domain/sampleData';
+import {
+  coldStartDemo,
+  experiences,
+  jobFiles as sampleJobFiles,
+  trainingTasks
+} from '../domain/sampleData';
 import type {
   AnswerAsset,
   InterviewMaterialDraft,
@@ -13,7 +19,12 @@ import type {
   JobFile,
   ReviewReport
 } from '../domain/types';
-import { completeAnalysis, createWorkspaceState, saveGeneratedAsset, startAnalysis } from '../workflow/demoFlow';
+import {
+  completeAnalysis,
+  createWorkspaceState,
+  saveGeneratedAsset,
+  startAnalysis
+} from '../workflow/demoFlow';
 import { buildAnswerExplanation } from '../workflow/answerExplanation';
 import {
   createEditableQuestions,
@@ -41,7 +52,10 @@ type JobFileDetailProps = {
   onCreateJob: (draft: NewJobDraft) => void;
   onUpdateJob: (job: JobFile) => void;
   onDeleteJob: (jobId: string) => void;
-  onSaveInterviewRecord: (session: InterviewSession, review: ReviewReport) => void;
+  onSaveInterviewRecord: (
+    session: InterviewSession,
+    review: ReviewReport
+  ) => void;
   onDeleteInterviewRecord: (sessionId: string) => void;
   onSaveAsset: (asset: AnswerAsset) => void;
   onOpenAssets?: () => void;
@@ -71,7 +85,10 @@ const demoJobDraft: NewJobDraft = {
   stage: '准备中'
 };
 
-const materialTypeOptions: Array<{ value: InterviewMaterialInputType; label: string }> = [
+const materialTypeOptions: Array<{
+  value: InterviewMaterialInputType;
+  label: string;
+}> = [
   { value: 'auto', label: '自动识别' },
   { value: 'mock_interview_dialogue', label: 'AI 模拟面试对话' },
   { value: 'real_interview_memory', label: '真实面试回忆' },
@@ -108,16 +125,26 @@ export function JobFileDetail({
   onOpenAssets,
   onStartFocus
 }: JobFileDetailProps) {
-  const selectedJob = jobFiles.find((jobFile) => jobFile.id === selectedJobId) ?? jobFiles[0];
+  const selectedJob =
+    jobFiles.find((jobFile) => jobFile.id === selectedJobId) ?? jobFiles[0];
   const [newJobForm, setNewJobForm] = useState(emptyJobForm);
-  const [jobEditForm, setJobEditForm] = useState<JobEditDraft>(() => createJobEditDraft(selectedJob));
+  const [detailTab, setDetailTab] = useState<'records' | 'answers' | 'prep'>(
+    'records'
+  );
+  const [jobEditForm, setJobEditForm] = useState<JobEditDraft>(() =>
+    createJobEditDraft(selectedJob)
+  );
   const jobSessions = useMemo(() => {
-    const sessionsById = new Map(interviewSessions.map((session) => [session.id, session]));
+    const sessionsById = new Map(
+      interviewSessions.map((session) => [session.id, session])
+    );
     const linkedSessions = selectedJob.interviewSessionIds
       .map((sessionId) => sessionsById.get(sessionId))
       .filter((session): session is InterviewSession => Boolean(session));
     const orphanSessions = interviewSessions.filter(
-      (session) => session.jobFileId === selectedJob.id && !selectedJob.interviewSessionIds.includes(session.id)
+      (session) =>
+        session.jobFileId === selectedJob.id &&
+        !selectedJob.interviewSessionIds.includes(session.id)
     );
 
     return [...linkedSessions, ...orphanSessions];
@@ -127,37 +154,67 @@ export function JobFileDetail({
     [jobSessions, selectedJob]
   );
   const primaryReview = useMemo(
-    () => reviewReports.find((report) => report.sessionId === primarySession.id) ?? createDraftReview(selectedJob, primarySession),
+    () =>
+      reviewReports.find((report) => report.sessionId === primarySession.id) ??
+      createDraftReview(selectedJob, primarySession),
     [primarySession, selectedJob]
   );
   const primaryAsset = useMemo(
     () =>
-      answerAssets.find((asset) => asset.sourceInterviewId === primarySession.id) ??
+      answerAssets.find(
+        (asset) => asset.sourceInterviewId === primarySession.id
+      ) ??
       answerAssets.find((asset) => asset.sourceJobId === selectedJob.id) ??
       createDraftAsset(selectedJob, primarySession.id, primaryReview.id),
     [answerAssets, primaryReview.id, primarySession.id, selectedJob]
   );
-  const initialConversationText = primarySession.rawConversation || (primarySession.id.endsWith('-draft') ? '' : coldStartDemo.importedConversation);
-  const profile = selectedJob.profile ?? analyzeJd(selectedJob.jdText, selectedJob.direction);
+  const initialConversationText =
+    primarySession.rawConversation ||
+    (primarySession.id.endsWith('-draft')
+      ? ''
+      : coldStartDemo.importedConversation);
+  const profile =
+    selectedJob.profile ?? analyzeJd(selectedJob.jdText, selectedJob.direction);
   const matches = matchExperiences(profile, experiences);
-  const mockSession = generateMockInterview(selectedJob.id, profile, experiences);
+  const mockSession = generateMockInterview(
+    selectedJob.id,
+    profile,
+    experiences
+  );
   const initialState = useMemo(
-    () => createWorkspaceState(selectedJob, primarySession, primaryReview, primaryAsset),
+    () =>
+      createWorkspaceState(
+        selectedJob,
+        primarySession,
+        primaryReview,
+        primaryAsset
+      ),
     [primaryAsset, primaryReview, primarySession, selectedJob]
   );
   const [workspaceState, setWorkspaceState] = useState(initialState);
   const [jdText, setJdText] = useState(selectedJob.jdText);
-  const [conversationText, setConversationText] = useState(initialConversationText);
+  const [conversationText, setConversationText] = useState(
+    initialConversationText
+  );
   const [generatedSession, setGeneratedSession] = useState(primarySession);
   const [generatedReview, setGeneratedReview] = useState(primaryReview);
   const [generatedAsset, setGeneratedAsset] = useState(primaryAsset);
-  const [editableAnswer, setEditableAnswer] = useState(primaryAsset.improvedAnswer);
-  const [editableQuestions, setEditableQuestions] = useState(() => createEditableQuestions(initialConversationText, primarySession.questions));
+  const [editableAnswer, setEditableAnswer] = useState(
+    primaryAsset.improvedAnswer
+  );
+  const [editableQuestions, setEditableQuestions] = useState(() =>
+    createEditableQuestions(initialConversationText, primarySession.questions)
+  );
   const [selectedRecordId, setSelectedRecordId] = useState(primarySession.id);
-  const [materialType, setMaterialType] = useState<InterviewMaterialInputType>('auto');
+  const [materialType, setMaterialType] =
+    useState<InterviewMaterialInputType>('auto');
   const [materialText, setMaterialText] = useState('');
-  const [materialDraft, setMaterialDraft] = useState<InterviewMaterialDraft | undefined>();
-  const [selectedMaterialItemIds, setSelectedMaterialItemIds] = useState<Set<string>>(() => new Set());
+  const [materialDraft, setMaterialDraft] = useState<
+    InterviewMaterialDraft | undefined
+  >();
+  const [selectedMaterialItemIds, setSelectedMaterialItemIds] = useState<
+    Set<string>
+  >(() => new Set());
   const answerTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
@@ -169,37 +226,61 @@ export function JobFileDetail({
     setGeneratedReview(primaryReview);
     setGeneratedAsset(primaryAsset);
     setEditableAnswer(primaryAsset.improvedAnswer);
-    setEditableQuestions(createEditableQuestions(initialConversationText, primarySession.questions));
+    setEditableQuestions(
+      createEditableQuestions(initialConversationText, primarySession.questions)
+    );
     setSelectedRecordId(primarySession.id);
     setMaterialText('');
     setMaterialDraft(undefined);
     setSelectedMaterialItemIds(new Set());
-  }, [initialConversationText, initialState, primaryAsset, primaryReview, primarySession, selectedJob]);
+  }, [
+    initialConversationText,
+    initialState,
+    primaryAsset,
+    primaryReview,
+    primarySession,
+    selectedJob
+  ]);
 
   const linkedAssets = answerAssets.filter(
-    (asset) => asset.sourceJobId === selectedJob.id || asset.applicableRoles.includes(selectedJob.direction)
+    (asset) =>
+      asset.sourceJobId === selectedJob.id ||
+      asset.applicableRoles.includes(selectedJob.direction)
   );
-  const linkedTrainingTasks = trainingTasks.filter((task) => task.jobFileId === selectedJob.id);
+  const linkedTrainingTasks = trainingTasks.filter(
+    (task) => task.jobFileId === selectedJob.id
+  );
   const answerExplanation = buildAnswerExplanation({
     asset: generatedAsset,
     review: generatedReview,
     session: generatedSession
   });
-  const relatedRecordAssets = answerAssets.filter((asset) => asset.sourceInterviewId === generatedSession.id);
+  const relatedRecordAssets = answerAssets.filter(
+    (asset) => asset.sourceInterviewId === generatedSession.id
+  );
   const detailAssets =
-    relatedRecordAssets.length > 0 || generatedAsset.sourceInterviewId !== generatedSession.id
+    relatedRecordAssets.length > 0 ||
+    generatedAsset.sourceInterviewId !== generatedSession.id
       ? relatedRecordAssets
       : [generatedAsset];
-  const canDeleteSelectedRecord = jobSessions.some((session) => session.id === selectedRecordId);
+  const canDeleteSelectedRecord = jobSessions.some(
+    (session) => session.id === selectedRecordId
+  );
   const hasConversationText = conversationText.trim().length > 0;
   const hasMaterialText = materialText.trim().length > 0;
   const materialSelectedCount = materialDraft
-    ? materialDraft.interviewItems.filter((item) => selectedMaterialItemIds.has(item.id)).length
+    ? materialDraft.interviewItems.filter((item) =>
+        selectedMaterialItemIds.has(item.id)
+      ).length
     : 0;
   const hasGeneratedResult = !generatedSession.id.endsWith('-draft');
-  const canGenerate = jdText.trim().length > 0 && hasConversationText && workspaceState.status !== 'generating';
+  const canGenerate =
+    jdText.trim().length > 0 &&
+    hasConversationText &&
+    workspaceState.status !== 'generating';
   const isExampleJob = sampleJobFiles.some((job) => job.id === selectedJob.id);
-  const hasWorkspaceContext = hasGeneratedResult || jobSessions.length > 0 || linkedAssets.length > 0;
+  const hasWorkspaceContext =
+    hasGeneratedResult || jobSessions.length > 0 || linkedAssets.length > 0;
 
   function handleGenerate() {
     if (!canGenerate) return;
@@ -209,7 +290,9 @@ export function JobFileDetail({
       job: { ...selectedJob, jdText },
       conversationText,
       fallbackConversationText: coldStartDemo.importedConversation,
-      questionsOverride: hasUsableQuestion(editableQuestions) ? editableQuestions : undefined,
+      questionsOverride: hasUsableQuestion(editableQuestions)
+        ? editableQuestions
+        : undefined,
       runId
     });
     const generating = startAnalysis(workspaceState);
@@ -244,7 +327,9 @@ export function JobFileDetail({
     const session = jobSessions.find((item) => item.id === sessionId);
     if (!session) return;
 
-    const review = reviewReports.find((item) => item.sessionId === session.id) ?? createDraftReview(selectedJob, session);
+    const review =
+      reviewReports.find((item) => item.sessionId === session.id) ??
+      createDraftReview(selectedJob, session);
     const asset =
       answerAssets.find((item) => item.sourceInterviewId === session.id) ??
       createDraftAsset(selectedJob, session.id, review.id);
@@ -256,7 +341,9 @@ export function JobFileDetail({
     setGeneratedAsset(asset);
     setEditableAnswer(asset.improvedAnswer);
     setConversationText(rawConversation);
-    setEditableQuestions(createEditableQuestions(rawConversation, session.questions));
+    setEditableQuestions(
+      createEditableQuestions(rawConversation, session.questions)
+    );
     setWorkspaceState(
       completeAnalysis({
         ...createWorkspaceState(selectedJob, session, review, asset),
@@ -268,7 +355,9 @@ export function JobFileDetail({
   }
 
   function handleDeleteSelectedRecord() {
-    const nextSession = jobSessions.find((session) => session.id !== selectedRecordId);
+    const nextSession = jobSessions.find(
+      (session) => session.id !== selectedRecordId
+    );
     onDeleteInterviewRecord(selectedRecordId);
 
     if (nextSession) {
@@ -278,7 +367,11 @@ export function JobFileDetail({
 
     const draftSession = createDraftSession(selectedJob);
     const draftReview = createDraftReview(selectedJob, draftSession);
-    const draftAsset = createDraftAsset(selectedJob, draftSession.id, draftReview.id);
+    const draftAsset = createDraftAsset(
+      selectedJob,
+      draftSession.id,
+      draftReview.id
+    );
 
     setSelectedRecordId(draftSession.id);
     setGeneratedSession(draftSession);
@@ -287,7 +380,9 @@ export function JobFileDetail({
     setEditableAnswer(draftAsset.improvedAnswer);
     setConversationText('');
     setEditableQuestions(createEditableQuestions('', draftSession.questions));
-    setWorkspaceState(createWorkspaceState(selectedJob, draftSession, draftReview, draftAsset));
+    setWorkspaceState(
+      createWorkspaceState(selectedJob, draftSession, draftReview, draftAsset)
+    );
   }
 
   function handleContinueEditing() {
@@ -304,7 +399,12 @@ export function JobFileDetail({
   function handleFillExample() {
     setJdText(selectedJob.jdText || demoJobDraft.jdText);
     setConversationText(coldStartDemo.importedConversation);
-    setEditableQuestions(createEditableQuestions(coldStartDemo.importedConversation, primarySession.questions));
+    setEditableQuestions(
+      createEditableQuestions(
+        coldStartDemo.importedConversation,
+        primarySession.questions
+      )
+    );
   }
 
   function handleFillMaterialExample() {
@@ -343,7 +443,13 @@ export function JobFileDetail({
 
   function handleMaterialDraftItemChange(
     itemId: string,
-    field: 'title' | 'question' | 'originalAnswer' | 'issue' | 'improvementSuggestion' | 'improvedAnswer',
+    field:
+      | 'title'
+      | 'question'
+      | 'originalAnswer'
+      | 'issue'
+      | 'improvementSuggestion'
+      | 'improvedAnswer',
     value: string
   ) {
     setMaterialDraft((current) =>
@@ -373,7 +479,9 @@ export function JobFileDetail({
       rawText: materialText,
       runId: Date.now().toString(36)
     });
-    const nextAsset = payload.assets[0] ?? createDraftAsset(selectedJob, payload.session.id, payload.review.id);
+    const nextAsset =
+      payload.assets[0] ??
+      createDraftAsset(selectedJob, payload.session.id, payload.review.id);
 
     onSaveInterviewRecord(payload.session, payload.review);
     payload.assets.forEach((asset) => onSaveAsset(asset));
@@ -391,7 +499,9 @@ export function JobFileDetail({
         review: payload.review,
         generatedAsset: nextAsset
       });
-      return payload.assets.length > 0 ? saveGeneratedAsset(completed) : completed;
+      return payload.assets.length > 0
+        ? saveGeneratedAsset(completed)
+        : completed;
     });
   }
 
@@ -400,7 +510,9 @@ export function JobFileDetail({
   }
 
   function handlePreviewParse() {
-    setEditableQuestions(createEditableQuestions(conversationText, primarySession.questions));
+    setEditableQuestions(
+      createEditableQuestions(conversationText, primarySession.questions)
+    );
   }
 
   function handleExportCurrentReview() {
@@ -412,7 +524,12 @@ export function JobFileDetail({
     });
 
     downloadMarkdown(
-      createMarkdownFileName([selectedJob.company, selectedJob.roleTitle, generatedSession.createdAt, '面试复盘']),
+      createMarkdownFileName([
+        selectedJob.company,
+        selectedJob.roleTitle,
+        generatedSession.createdAt,
+        '面试复盘'
+      ]),
       markdown
     );
   }
@@ -420,10 +537,13 @@ export function JobFileDetail({
   function handleExportJobPrepPack() {
     const sessionIds = new Set(jobSessions.map((session) => session.id));
     const jobReviews = reviewReports.filter(
-      (review) => review.jobFileId === selectedJob.id || sessionIds.has(review.sessionId)
+      (review) =>
+        review.jobFileId === selectedJob.id || sessionIds.has(review.sessionId)
     );
     const savedJobAssets = answerAssets.filter(
-      (asset) => asset.sourceJobId === selectedJob.id || asset.applicableRoles.includes(selectedJob.direction)
+      (asset) =>
+        asset.sourceJobId === selectedJob.id ||
+        asset.applicableRoles.includes(selectedJob.direction)
     );
     const jobAssets = upsertById([generatedAsset, ...savedJobAssets]);
 
@@ -434,15 +554,30 @@ export function JobFileDetail({
       assets: jobAssets
     });
 
-    downloadMarkdown(createMarkdownFileName([selectedJob.company, selectedJob.roleTitle, '考前准备包']), markdown);
+    downloadMarkdown(
+      createMarkdownFileName([
+        selectedJob.company,
+        selectedJob.roleTitle,
+        '考前准备包'
+      ]),
+      markdown
+    );
   }
 
-  function handleQuestionFieldChange(questionId: string, field: 'question' | 'answer' | 'feedback', value: string) {
-    setEditableQuestions((current) => updateQuestionField(current, questionId, field, value));
+  function handleQuestionFieldChange(
+    questionId: string,
+    field: 'question' | 'answer' | 'feedback',
+    value: string
+  ) {
+    setEditableQuestions((current) =>
+      updateQuestionField(current, questionId, field, value)
+    );
   }
 
   function handleQuestionFollowUpsChange(questionId: string, value: string) {
-    setEditableQuestions((current) => updateQuestionFollowUps(current, questionId, value));
+    setEditableQuestions((current) =>
+      updateQuestionFollowUps(current, questionId, value)
+    );
   }
 
   function handleJobEditChange(field: keyof JobEditDraft, value: string) {
@@ -462,13 +597,18 @@ export function JobFileDetail({
       stage: jobEditForm.stage.trim() || selectedJob.stage,
       jdText,
       profile: analyzeJd(jdText, direction),
-      status: selectedJob.status === '待导入面试对话' ? '已保存 JD，待导入面试对话' : selectedJob.status
+      status:
+        selectedJob.status === '待导入面试对话'
+          ? '已保存 JD，待导入面试对话'
+          : selectedJob.status
     });
   }
 
   function handleDeleteCurrentJob() {
     if (jobFiles.length <= 1) return;
-    const confirmed = window.confirm(`删除「${selectedJob.company} ${selectedJob.roleTitle}」及其面试记录、复盘和回答资产？`);
+    const confirmed = window.confirm(
+      `删除「${selectedJob.company} ${selectedJob.roleTitle}」及其面试记录、复盘和回答资产？`
+    );
     if (confirmed) {
       onDeleteJob(selectedJob.id);
     }
@@ -493,56 +633,95 @@ export function JobFileDetail({
     <div className="product-workspace" id="workspace">
       <aside className="workspace-sidebar">
         <div className="sidebar-heading">
-          <p className="eyebrow">目标岗位</p>
-          <h2>准备中的岗位</h2>
+          <h2>目标岗位</h2>
         </div>
         <div className="file-list">
           {jobFiles.map((jobFile) => (
             <button
-              className={jobFile.id === selectedJob.id ? 'file-tab file-tab--active' : 'file-tab'}
+              className={
+                jobFile.id === selectedJob.id
+                  ? 'file-tab file-tab--active'
+                  : 'file-tab'
+              }
               key={jobFile.id}
               type="button"
               onClick={() => onSelectJob(jobFile.id)}
             >
               <strong>{jobFile.company}</strong>
               <span>{jobFile.roleTitle}</span>
-              <small>{sampleJobFiles.some((job) => job.id === jobFile.id) ? `示例 · ${jobFile.status}` : jobFile.status}</small>
+              <small>
+                {sampleJobFiles.some((job) => job.id === jobFile.id)
+                  ? `示例 · ${jobFile.status}`
+                  : jobFile.status}
+              </small>
             </button>
           ))}
         </div>
         <details className="new-job-card">
-          <summary>新建目标岗位</summary>
+          <summary>
+            <Plus size={16} />
+            新建岗位
+          </summary>
           <form onSubmit={handleNewJobSubmit}>
-            <p className="new-job-helper">先填写公司和岗位即可创建，JD 可以在开始新面试时再补充。</p>
             <label>
               <span>公司</span>
-              <input value={newJobForm.company} onChange={(event) => handleNewJobChange('company', event.target.value)} />
+              <input
+                value={newJobForm.company}
+                placeholder="公司名称"
+                onChange={(event) =>
+                  handleNewJobChange('company', event.target.value)
+                }
+              />
             </label>
             <label>
               <span>岗位</span>
-              <input value={newJobForm.roleTitle} onChange={(event) => handleNewJobChange('roleTitle', event.target.value)} />
+              <input
+                value={newJobForm.roleTitle}
+                placeholder="岗位名称"
+                onChange={(event) =>
+                  handleNewJobChange('roleTitle', event.target.value)
+                }
+              />
             </label>
             <label>
               <span>方向</span>
-              <input value={newJobForm.direction} onChange={(event) => handleNewJobChange('direction', event.target.value)} />
+              <input
+                value={newJobForm.direction}
+                onChange={(event) =>
+                  handleNewJobChange('direction', event.target.value)
+                }
+              />
             </label>
             <label>
               <span>阶段</span>
-              <input value={newJobForm.stage} onChange={(event) => handleNewJobChange('stage', event.target.value)} />
+              <input
+                value={newJobForm.stage}
+                onChange={(event) =>
+                  handleNewJobChange('stage', event.target.value)
+                }
+              />
             </label>
             <label>
               <span>JD，可选</span>
               <textarea
                 value={newJobForm.jdText}
                 placeholder="可以先留空，后续在新面试流程里粘贴岗位描述"
-                onChange={(event) => handleNewJobChange('jdText', event.target.value)}
+                onChange={(event) =>
+                  handleNewJobChange('jdText', event.target.value)
+                }
               />
             </label>
             <div className="new-job-actions">
-              <button type="button" className="ghost-action" onClick={handleFillNewJobExample}>
+              <button
+                type="button"
+                className="ghost-action"
+                onClick={handleFillNewJobExample}
+              >
                 填入示例岗位
               </button>
-              <button type="submit">保存岗位档案</button>
+              <button type="submit" className="primary-action">
+                创建岗位
+              </button>
             </div>
           </form>
         </details>
@@ -551,21 +730,45 @@ export function JobFileDetail({
       <main className="workspace-center">
         <section className="workspace-header">
           <div>
-            <p className="eyebrow">{selectedJob.company} · {selectedJob.roleTitle}</p>
+            <p className="eyebrow">{selectedJob.direction}</p>
             {isExampleJob && <span className="example-badge">示例数据</span>}
-            <h1>管理这个岗位的面试准备</h1>
-            <p>查看这个岗位下的历史面试记录、已保存回答、复盘结论和下一步练习。需要导入新材料时，从聚焦流程开始。</p>
+            <h1>{selectedJob.company}</h1>
+            <p>{selectedJob.roleTitle}</p>
           </div>
           <div className="workspace-header-actions">
             <div className="workspace-header-status" aria-label="当前状态">
               <span>{jobSessions.length} 场记录</span>
               <span>{linkedAssets.length} 条回答</span>
             </div>
-            <button className="primary-action" type="button" onClick={onStartFocus}>
-              开始新一场面试
+            <button
+              className="primary-action"
+              type="button"
+              onClick={onStartFocus}
+            >
+              <Plus size={16} />
+              开始新面试
             </button>
           </div>
         </section>
+        <div className="detail-tabs" role="tablist" aria-label="岗位详情">
+          {(
+            [
+              { id: 'records', label: '面试记录' },
+              { id: 'answers', label: '下次可用回答' },
+              { id: 'prep', label: '岗位准备' }
+            ] as const
+          ).map((tab) => (
+            <button
+              type="button"
+              role="tab"
+              key={tab.id}
+              aria-selected={detailTab === tab.id}
+              onClick={() => setDetailTab(tab.id)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
 
         <details className="job-edit-panel">
           <summary>编辑岗位信息</summary>
@@ -576,26 +779,55 @@ export function JobFileDetail({
           <div className="job-edit-grid">
             <label>
               <span>公司</span>
-              <input value={jobEditForm.company} onChange={(event) => handleJobEditChange('company', event.target.value)} />
+              <input
+                value={jobEditForm.company}
+                onChange={(event) =>
+                  handleJobEditChange('company', event.target.value)
+                }
+              />
             </label>
             <label>
               <span>岗位</span>
-              <input value={jobEditForm.roleTitle} onChange={(event) => handleJobEditChange('roleTitle', event.target.value)} />
+              <input
+                value={jobEditForm.roleTitle}
+                onChange={(event) =>
+                  handleJobEditChange('roleTitle', event.target.value)
+                }
+              />
             </label>
             <label>
               <span>方向</span>
-              <input value={jobEditForm.direction} onChange={(event) => handleJobEditChange('direction', event.target.value)} />
+              <input
+                value={jobEditForm.direction}
+                onChange={(event) =>
+                  handleJobEditChange('direction', event.target.value)
+                }
+              />
             </label>
             <label>
               <span>阶段</span>
-              <input value={jobEditForm.stage} onChange={(event) => handleJobEditChange('stage', event.target.value)} />
+              <input
+                value={jobEditForm.stage}
+                onChange={(event) =>
+                  handleJobEditChange('stage', event.target.value)
+                }
+              />
             </label>
           </div>
           <div className="job-edit-actions">
-            <button className="secondary-action" type="button" onClick={handleSaveCurrentJob}>
+            <button
+              className="secondary-action"
+              type="button"
+              onClick={handleSaveCurrentJob}
+            >
               保存岗位信息
             </button>
-            <button className="danger-action" type="button" onClick={handleDeleteCurrentJob} disabled={jobFiles.length <= 1}>
+            <button
+              className="danger-action"
+              type="button"
+              onClick={handleDeleteCurrentJob}
+              disabled={jobFiles.length <= 1}
+            >
               删除当前岗位
             </button>
             {jobFiles.length <= 1 && <span>至少保留一个岗位档案。</span>}
@@ -603,147 +835,216 @@ export function JobFileDetail({
         </details>
 
         {hasGeneratedResult ? (
-          <section className="interview-detail-panel">
-          <div className="section-heading interview-detail-heading">
-            <div>
-              <p className="eyebrow">面试记录详情</p>
-              <h2>{generatedSession.interviewType}</h2>
-            </div>
-            <div className="interview-detail-actions">
-              <span>{generatedSession.createdAt}</span>
-              <button className="secondary-action" type="button" onClick={handleExportCurrentReview}>
-                导出本场复盘
-              </button>
-              <button className="ghost-action" type="button" onClick={handleExportJobPrepPack}>
-                导出岗位准备包
-              </button>
-              {canDeleteSelectedRecord && (
-                <button className="danger-action" type="button" onClick={handleDeleteSelectedRecord}>
-                  删除这场记录
+          <section
+            className="interview-detail-panel"
+            hidden={detailTab !== 'records'}
+          >
+            <div className="section-heading interview-detail-heading">
+              <div>
+                <label className="record-select">
+                  <span>面试记录</span>
+                  <select
+                    aria-label="选择面试记录"
+                    value={selectedRecordId}
+                    onChange={(event) =>
+                      handleSelectInterviewRecord(event.target.value)
+                    }
+                  >
+                    {jobSessions.map((session) => (
+                      <option value={session.id} key={session.id}>
+                        {session.createdAt.slice(0, 10)} ·{' '}
+                        {session.interviewType}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <div className="interview-detail-actions">
+                <span>{generatedSession.createdAt}</span>
+                <button
+                  className="secondary-action"
+                  type="button"
+                  onClick={handleExportCurrentReview}
+                >
+                  导出本场复盘
                 </button>
+                <button
+                  className="ghost-action"
+                  type="button"
+                  onClick={handleExportJobPrepPack}
+                >
+                  导出岗位准备包
+                </button>
+                {canDeleteSelectedRecord && (
+                  <button
+                    className="danger-action"
+                    type="button"
+                    onClick={handleDeleteSelectedRecord}
+                  >
+                    删除这场记录
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="interview-detail-grid">
+              <div className="interview-question-detail">
+                {generatedSession.questions.map((question, index) => (
+                  <details
+                    className="interview-question-row"
+                    key={question.id}
+                    open={index === 0}
+                  >
+                    <summary>
+                      <span className="item-number">
+                        {String(index + 1).padStart(2, '0')}
+                      </span>
+                      <strong>{question.question}</strong>
+                    </summary>
+                    <p>{question.answer}</p>
+                    {question.followUps.length > 0 && (
+                      <span>追问：{question.followUps.join(' / ')}</span>
+                    )}
+                    {question.feedback && <em>点评：{question.feedback}</em>}
+                  </details>
+                ))}
+              </div>
+              <aside className="review-detail-card">
+                <strong>本场复盘</strong>
+                <p>{generatedReview.summary}</p>
+                <div>
+                  <span>主要短板</span>
+                  <ul>
+                    {generatedReview.weaknesses.map((weakness) => (
+                      <li key={weakness}>{weakness}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <span>下一步</span>
+                  <ul>
+                    {generatedReview.nextActions.map((action) => (
+                      <li key={action}>{action}</li>
+                    ))}
+                  </ul>
+                </div>
+              </aside>
+            </div>
+            <details className="record-asset-row">
+              <summary>关联回答 · {detailAssets.length}</summary>
+              {detailAssets.length > 0 ? (
+                detailAssets.map((asset) => (
+                  <article key={asset.id}>
+                    <span>{asset.questionType}</span>
+                    <p>{asset.improvedAnswer}</p>
+                  </article>
+                ))
+              ) : (
+                <p>暂无关联回答</p>
               )}
-            </div>
-          </div>
-          <div className="interview-detail-grid">
-            <div className="interview-question-detail">
-              {generatedSession.questions.map((question, index) => (
-                <article key={question.id}>
-                  <strong>问题 {index + 1}</strong>
-                  <h3>{question.question}</h3>
-                  <p>{question.answer}</p>
-                  {question.followUps.length > 0 && <span>追问：{question.followUps.join(' / ')}</span>}
-                  {question.feedback && <em>点评：{question.feedback}</em>}
-                </article>
-              ))}
-            </div>
-            <aside className="review-detail-card">
-              <strong>本场复盘</strong>
-              <p>{generatedReview.summary}</p>
-              <div>
-                <span>主要短板</span>
-                <ul>
-                  {generatedReview.weaknesses.map((weakness) => (
-                    <li key={weakness}>{weakness}</li>
-                  ))}
-                </ul>
-              </div>
-              <div>
-                <span>下一步</span>
-                <ul>
-                  {generatedReview.nextActions.map((action) => (
-                    <li key={action}>{action}</li>
-                  ))}
-                </ul>
-              </div>
-            </aside>
-          </div>
-          <div className="record-asset-row">
-            <strong>关联回答资产</strong>
-            {detailAssets.length > 0 ? (
-              detailAssets.map((asset) => (
-                <article key={asset.id}>
-                  <span>{asset.questionType}</span>
-                  <p>{asset.improvedAnswer}</p>
-                </article>
-              ))
-            ) : (
-              <p>这场记录还没有保存回答资产。</p>
-            )}
-          </div>
+            </details>
           </section>
         ) : null}
 
-        {hasGeneratedResult && <section className="compare-panel">
-          <div className="compare-card compare-card--original">
-            <p className="eyebrow">原回答</p>
-            <h2>{generatedSession.questions[0]?.question}</h2>
-            <p>{generatedSession.questions[0]?.answer}</p>
-            <div className="issue-box">
-              <strong>具体问题</strong>
-              <p>{generatedAsset.issue}</p>
+        {!hasGeneratedResult && detailTab !== 'prep' && (
+          <section className="empty-panel">
+            <h2>还没有面试记录</h2>
+            <button
+              type="button"
+              className="primary-action"
+              onClick={onStartFocus}
+            >
+              <Plus size={16} />
+              开始新面试
+            </button>
+          </section>
+        )}
+        {hasGeneratedResult && (
+          <section className="compare-panel" hidden={detailTab !== 'answers'}>
+            <div className="compare-card compare-card--original">
+              <p className="eyebrow">原回答</p>
+              <h2>{generatedSession.questions[0]?.question}</h2>
+              <p>{generatedSession.questions[0]?.answer}</p>
+              <div className="issue-box">
+                <strong>具体问题</strong>
+                <p>{generatedAsset.issue}</p>
+              </div>
+              <p>{generatedReview.summary}</p>
             </div>
-            <p>{generatedReview.summary}</p>
-          </div>
 
-          <div className="compare-card compare-card--improved">
-            <p className="eyebrow">优化回答</p>
-            <h2>改成这样更完整</h2>
-            <textarea ref={answerTextareaRef} value={editableAnswer} onChange={(event) => setEditableAnswer(event.target.value)} />
-            <div className="compare-actions compare-actions--confirm">
-              <button type="button" onClick={handleConfirmSaveAsset}>
-                {workspaceState.status === 'assetSaved' ? '已确认保存' : '确认并保存'}
-              </button>
-              <button className="secondary-action" type="button" onClick={handleContinueEditing}>
-                继续编辑
-              </button>
-              <button className="ghost-action" type="button" onClick={handleSkipSave}>
-                暂不保存
-              </button>
-              <span>{generatedAsset.reuseScope}</span>
+            <div className="compare-card compare-card--improved">
+              <p className="eyebrow">优化回答</p>
+              <h2>下次可用回答</h2>
+              <textarea
+                ref={answerTextareaRef}
+                value={editableAnswer}
+                onChange={(event) => setEditableAnswer(event.target.value)}
+              />
+              <div className="compare-actions compare-actions--confirm">
+                <button type="button" onClick={handleConfirmSaveAsset}>
+                  {workspaceState.status === 'assetSaved'
+                    ? '已确认保存'
+                    : '确认并保存'}
+                </button>
+                <button
+                  className="secondary-action"
+                  type="button"
+                  onClick={handleContinueEditing}
+                >
+                  继续编辑
+                </button>
+                <button
+                  className="ghost-action"
+                  type="button"
+                  onClick={handleSkipSave}
+                >
+                  暂不保存
+                </button>
+                <span>{generatedAsset.reuseScope}</span>
+              </div>
             </div>
-          </div>
-        </section>}
+          </section>
+        )}
 
-        {hasGeneratedResult && <section className="explanation-panel">
-          <div className="section-heading">
-            <p className="eyebrow">修改依据</p>
-            <h2>为什么建议这样改</h2>
-          </div>
-          <div className="explanation-grid">
-            <article>
-              <strong>问题出在哪</strong>
-              <p>{answerExplanation.issue}</p>
-            </article>
-            <article>
-              <strong>依据来自哪里</strong>
-              <p>{answerExplanation.evidence}</p>
-            </article>
-            <article>
-              <strong>建议这样改</strong>
-              <p>{answerExplanation.suggestion}</p>
-            </article>
-            <article>
-              <strong>保存前确认</strong>
-              <p>{answerExplanation.risk}</p>
-            </article>
-          </div>
-        </section>}
+        {hasGeneratedResult && detailTab === 'answers' && (
+          <details className="explanation-panel">
+            <summary>改写依据</summary>
+            <div className="explanation-grid">
+              <article>
+                <strong>问题出在哪</strong>
+                <p>{answerExplanation.issue}</p>
+              </article>
+              <article>
+                <strong>依据来自哪里</strong>
+                <p>{answerExplanation.evidence}</p>
+              </article>
+              <article>
+                <strong>建议这样改</strong>
+                <p>{answerExplanation.suggestion}</p>
+              </article>
+              <article>
+                <strong>保存前确认</strong>
+                <p>{answerExplanation.risk}</p>
+              </article>
+            </div>
+          </details>
+        )}
 
-        {hasGeneratedResult && <section className="support-grid">
+        <section className="support-grid" hidden={detailTab !== 'prep'}>
           <section className="panel">
             <div className="section-heading">
               <p className="eyebrow">岗位准备</p>
-              <h2>JD 画像与经历匹配</h2>
+              <h2>岗位要求</h2>
             </div>
             <InfoList title="岗位要求" items={profile.responsibilities} />
             <div className="matched-list">
-              {matches.slice(0, 2).map((match) => (
-                <article key={match.experience.id}>
-                  <strong>{match.experience.title}</strong>
-                  <span>可讲述素材</span>
-                  <p>{match.suggestedAngle}</p>
-                </article>
-              ))}
+              {isExampleJob &&
+                matches.slice(0, 2).map((match) => (
+                  <article key={match.experience.id}>
+                    <strong>{match.experience.title}</strong>
+                    <span>可讲述素材</span>
+                    <p>{match.suggestedAngle}</p>
+                  </article>
+                ))}
             </div>
           </section>
 
@@ -761,80 +1062,91 @@ export function JobFileDetail({
               ))}
             </div>
           </section>
-        </section>}
+        </section>
       </main>
 
-      <aside className="workspace-right">
+      <details className="workspace-right" hidden={detailTab !== 'prep'}>
+        <summary>更多准备信息</summary>
         {!hasWorkspaceContext ? (
           <section className="side-panel side-panel--next">
             <p className="eyebrow">下一步</p>
-            <h2>先粘贴一段面试材料</h2>
-            <p>可以是 AI 模拟面试对话、真实面试回忆、复盘笔记，或者这些内容混在一起。生成草稿后，这里会显示本场记录和下次可用回答。</p>
+            <h2>暂无面试记录</h2>
           </section>
         ) : (
           <>
-        <section className="side-panel">
-          <p className="eyebrow">该岗位面试记录</p>
-          <h2>{jobSessions.length} 场记录</h2>
-          <div className="interview-record-list">
-            {jobSessions.length > 0 ? (
-              jobSessions.slice(0, 5).map((session) => (
-                <button
-                  className={session.id === selectedRecordId ? 'interview-record-item interview-record-item--active' : 'interview-record-item'}
-                  key={session.id}
-                  type="button"
-                  onClick={() => handleSelectInterviewRecord(session.id)}
-                >
-                  <strong>{session.interviewType}</strong>
-                  <p>{session.questions[0]?.question ?? '暂无问题'}</p>
-                  <span>{session.createdAt}</span>
-                </button>
-              ))
-            ) : (
-              <article>
-                <strong>还没有面试记录</strong>
-                <p>生成复盘后，这里会保存本岗位的面试记录。</p>
-                <span>本地保存</span>
-              </article>
-            )}
-          </div>
-        </section>
+            <section className="side-panel">
+              <p className="eyebrow">该岗位面试记录</p>
+              <h2>{jobSessions.length} 场记录</h2>
+              <div className="interview-record-list">
+                {jobSessions.length > 0 ? (
+                  jobSessions.slice(0, 5).map((session) => (
+                    <button
+                      className={
+                        session.id === selectedRecordId
+                          ? 'interview-record-item interview-record-item--active'
+                          : 'interview-record-item'
+                      }
+                      key={session.id}
+                      type="button"
+                      onClick={() => handleSelectInterviewRecord(session.id)}
+                    >
+                      <strong>{session.interviewType}</strong>
+                      <p>{session.questions[0]?.question ?? '暂无问题'}</p>
+                      <span>{session.createdAt}</span>
+                    </button>
+                  ))
+                ) : (
+                  <article>
+                    <strong>还没有面试记录</strong>
+                  </article>
+                )}
+              </div>
+            </section>
 
-        <section className="side-panel side-panel--asset">
-          <p className="eyebrow">本岗位回答</p>
-          <h2>{workspaceState.status === 'assetSaved' || linkedAssets.length > 0 ? '可继续复用' : '可保存回答'}</h2>
-          <strong>{generatedAsset.questionType}</strong>
-          <p>{generatedAsset.applicableQuestions[0]}</p>
-          <button type="button" onClick={onOpenAssets}>打开我的回答库</button>
-        </section>
+            <section className="side-panel side-panel--asset">
+              <p className="eyebrow">本岗位回答</p>
+              <h2>
+                {workspaceState.status === 'assetSaved' ||
+                linkedAssets.length > 0
+                  ? '可继续复用'
+                  : '可保存回答'}
+              </h2>
+              <strong>{generatedAsset.questionType}</strong>
+              <p>{generatedAsset.applicableQuestions[0]}</p>
+              <button type="button" onClick={onOpenAssets}>
+                打开我的回答库
+              </button>
+            </section>
 
-        <section className="side-panel">
-          <p className="eyebrow">考前优先训练</p>
-          <div className="side-list">
-            {linkedTrainingTasks.map((task) => (
-              <article key={task.id}>
-                <strong>{task.goal}</strong>
-                <p>{task.practiceQuestion}</p>
-              </article>
-            ))}
-          </div>
-        </section>
+            <section className="side-panel">
+              <p className="eyebrow">考前优先训练</p>
+              <div className="side-list">
+                {linkedTrainingTasks.map((task) => (
+                  <article key={task.id}>
+                    <strong>{task.goal}</strong>
+                    <p>{task.practiceQuestion}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
 
-        <section className="side-panel">
-          <p className="eyebrow">下次可能被问</p>
-          <div className="side-list">
-            {profile.likelyQuestions.slice(0, 3).map((question, index) => (
-              <article key={question}>
-                <strong>问题 {index + 1}</strong>
-                <p>{question}</p>
-                <span>{linkedAssets[0]?.questionType ?? '生成后可补充回答'}</span>
-              </article>
-            ))}
-          </div>
-        </section>
+            <section className="side-panel">
+              <p className="eyebrow">下次可能被问</p>
+              <div className="side-list">
+                {profile.likelyQuestions.slice(0, 3).map((question, index) => (
+                  <article key={question}>
+                    <strong>问题 {index + 1}</strong>
+                    <p>{question}</p>
+                    <span>
+                      {linkedAssets[0]?.questionType ?? '生成后可补充回答'}
+                    </span>
+                  </article>
+                ))}
+              </div>
+            </section>
           </>
         )}
-      </aside>
+      </details>
     </div>
   );
 }
@@ -859,7 +1171,10 @@ function createDraftSession(job: JobFile): InterviewSession {
   };
 }
 
-function createDraftReview(job: JobFile, session: InterviewSession): ReviewReport {
+function createDraftReview(
+  job: JobFile,
+  session: InterviewSession
+): ReviewReport {
   return {
     id: `review-${job.id}-draft`,
     jobFileId: job.id,
@@ -872,7 +1187,11 @@ function createDraftReview(job: JobFile, session: InterviewSession): ReviewRepor
   };
 }
 
-function createDraftAsset(job: JobFile, sessionId: string, reviewId: string): AnswerAsset {
+function createDraftAsset(
+  job: JobFile,
+  sessionId: string,
+  reviewId: string
+): AnswerAsset {
   return {
     id: `asset-${job.id}-draft`,
     questionType: '待生成',
