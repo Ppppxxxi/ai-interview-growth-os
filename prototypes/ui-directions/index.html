@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI 面试成长 OS · UI 方向</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script defer src="./app.js"></script>
+  </head>
+  <body data-theme="a">
+    <div class="comparison-bar" aria-label="风格切换">
+      <div class="comparison-brand"><span class="comparison-mark"></span><span>界面方向</span></div>
+      <div class="theme-switch" role="group" aria-label="选择界面风格">
+        <button type="button" data-theme-choice="a" aria-pressed="true"><span>A</span> 冷静专业</button>
+        <button type="button" data-theme-choice="b" aria-pressed="false"><span>B</span> 内容编辑</button>
+        <button type="button" data-theme-choice="c" aria-pressed="false"><span>C</span> AI 工作流</button>
+      </div>
+      <span class="comparison-note">同一内容 · 三种方向</span>
+    </div>
+    <div id="app"></div>
+  </body>
+</html>

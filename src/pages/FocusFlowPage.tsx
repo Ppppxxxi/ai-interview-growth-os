@@ -309,10 +309,6 @@ export function FocusFlowPage({
             解析材料
           </button>
         </div>
-        <div className="focus-privacy-note" aria-label="隐私与本地保存说明">
-          <strong>本地处理：</strong>
-          当前版本仅保存在本机浏览器，不接真实 LLM，不上传服务器。保存前请确认材料已去除真实公司、姓名和联系方式。
-        </div>
         <textarea
           className="focus-material-input"
           value={materialText}
