@@ -25,10 +25,14 @@ describe('App', () => {
     expect(html).toContain('开始新面试');
     expect(html).toContain('面试材料');
     expect(html).toContain('主导航');
+    expect(html).toContain('恢复示例');
+    expect(html).not.toContain('填入示例');
+    expect(html).not.toContain('查看完整示例');
+    expect(html).not.toContain('AI 产品经理');
     expect(html).not.toContain('workspace-home-current');
   });
 
-  it('opens the production workspace directly in preview mode without stored data', () => {
+  it('starts preview links in the same empty flow as cleared local data', () => {
     vi.stubGlobal('window', {
       location: { search: '?preview=workspace' },
       localStorage: {
@@ -40,8 +44,9 @@ describe('App', () => {
 
     const html = renderToString(createElement(App));
 
-    expect(html).toContain('正在准备');
-    expect(html).toContain('星河智能');
+    expect(html).toContain('面试材料');
+    expect(html).not.toContain('workspace-home-current');
+    expect(html).not.toContain('星河智能');
     expect(html).toContain('我的回答库');
   });
 });

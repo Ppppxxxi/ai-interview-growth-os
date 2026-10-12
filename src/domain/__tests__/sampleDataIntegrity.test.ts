@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { answerAssets, interviewSessions, jobFiles, reviewReports } from '../sampleData';
+import * as sampleData from '../sampleData';
 
 describe('sampleData answer asset integrity', () => {
+  it('does not include the removed role copy in built-in examples', () => {
+    expect(JSON.stringify(sampleData)).not.toContain('AI 产品经理');
+  });
+
   it('keeps every answer asset connected to a real job, interview session, and review', () => {
     for (const asset of answerAssets) {
       const sourceJob = jobFiles.find((job) => job.id === asset.sourceJobId);

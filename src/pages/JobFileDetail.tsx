@@ -72,15 +72,15 @@ type JobEditDraft = {
 const emptyJobForm: NewJobDraft = {
   company: '',
   roleTitle: '',
-  direction: 'AI 产品经理',
+  direction: '',
   jdText: '',
   stage: '准备中'
 };
 
 const demoJobDraft: NewJobDraft = {
   company: sampleJobFiles[0]?.company ?? '星河智能',
-  roleTitle: sampleJobFiles[0]?.roleTitle ?? 'AI 产品经理实习生',
-  direction: sampleJobFiles[0]?.direction ?? 'AI 产品经理',
+  roleTitle: sampleJobFiles[0]?.roleTitle ?? '产品经理实习生',
+  direction: sampleJobFiles[0]?.direction ?? '智能产品',
   jdText: sampleJobFiles[0]?.jdText ?? '',
   stage: '准备中'
 };
@@ -97,7 +97,7 @@ const materialTypeOptions: Array<{
 ];
 
 const materialExample = `公司：晴川智能
-岗位：AI 产品经理
+岗位：产品经理
 方向：AI + 企业知识库助手
 
 面试复盘：

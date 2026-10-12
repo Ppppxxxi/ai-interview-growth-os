@@ -54,8 +54,8 @@ export function createEmptyPersonalWorkspaceData(updatedAt = new Date().toISOStr
   const firstJob: JobFile = {
     id: `job-user-first-${Date.now().toString(36)}`,
     company: '我的目标公司',
-    roleTitle: 'AI 产品经理',
-    direction: 'AI 产品经理',
+    roleTitle: '',
+    direction: '',
     jdText: '',
     stage: '准备中',
     status: '待粘贴 JD 和面试对话',
@@ -70,7 +70,7 @@ export function hasRealWorkspaceData(data: PersonalWorkspaceData, sampleJobIds: 
   const hasUserJob = data.jobFiles.some((job) => {
     if (sampleIds.has(job.id)) return false;
     if (job.id.startsWith('job-user-first-')) {
-      return Boolean(job.jdText.trim()) || job.company !== '我的目标公司' || job.roleTitle !== 'AI 产品经理';
+      return Boolean(job.jdText.trim()) || job.company !== '我的目标公司' || !['', 'AI 产品经理'].includes(job.roleTitle);
     }
     return true;
   });

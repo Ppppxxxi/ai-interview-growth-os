@@ -28,7 +28,6 @@ type FocusFlowPageProps = {
   ) => void;
   onSaveAsset: (asset: AnswerAsset) => void;
   onFinish: (target: 'workspace' | 'assets') => void;
-  onUseExample: () => void;
 };
 
 type FocusJobDraft = {
@@ -38,25 +37,12 @@ type FocusJobDraft = {
   jdText: string;
 };
 
-const focusMaterialExample = `公司：晴川智能
-岗位：AI 产品经理
-方向：AI + 企业知识库助手
-
-JD 摘要：
-负责企业知识库助手的需求分析、用户反馈闭环、效果评估和跨团队协作。
-
-面试记录：
-面试官问我如何判断 AI 助手是否真的提升知识检索效率。我当时只回答可以看满意度和使用次数。
-面试官追问：这些指标如何证明员工真的更快解决问题？
-我的复盘：回答没有拆过程指标、结果指标和长期复用指标，也没有说明低置信回答如何兜底。`;
-
 export function FocusFlowPage({
   jobFiles,
   onFinish,
   onSaveAsset,
   onSaveInterviewRecord,
   onUpdateJob,
-  onUseExample,
   selectedJobId
 }: FocusFlowPageProps) {
   const selectedJob =
@@ -146,22 +132,6 @@ export function FocusFlowPage({
           ? '已开始准备'
           : selectedJob.status
     };
-  }
-
-  function handleFillExample() {
-    setJobDraft({
-      company: '晴川智能',
-      roleTitle: 'AI 产品经理',
-      direction: 'AI + 企业知识库助手',
-      jdText:
-        '负责企业知识库助手的需求分析、用户反馈闭环、效果评估和跨团队协作。'
-    });
-    setMaterialText(focusMaterialExample);
-    setMaterialDraft(undefined);
-    setSelectedItemIds(new Set());
-    setConfirmedItemStatuses(new Map());
-    setAnswersGenerated(false);
-    setSavedSummary(undefined);
   }
 
   function handleParseMaterial() {
@@ -316,26 +286,6 @@ export function FocusFlowPage({
                   : '开始新面试'}
           </h1>
         </div>
-        {!materialDraft && !savedSummary && (
-          <div className="focus-flow-hero-actions">
-            <button
-              className="ghost-action"
-              type="button"
-              onClick={handleFillExample}
-            >
-              填入示例
-            </button>
-            <button
-              className="icon-action"
-              title="查看完整示例"
-              aria-label="查看完整示例"
-              type="button"
-              onClick={onUseExample}
-            >
-              <FileText size={18} />
-            </button>
-          </div>
-        )}
       </header>
 
       <div className="focus-flow-steps" aria-label="当前流程">
@@ -403,7 +353,7 @@ export function FocusFlowPage({
                 <span>方向</span>
                 <input
                   value={jobDraft.direction}
-                  placeholder="如：AI 产品经理"
+                  placeholder="岗位名称"
                   onChange={(event) =>
                     updateJobDraft('direction', event.target.value)
                   }
@@ -811,7 +761,7 @@ function isEmptyStarterJob(job: JobFile) {
   return (
     job.id.startsWith('job-user-first-') &&
     job.company === '我的目标公司' &&
-    job.roleTitle === 'AI 产品经理' &&
+    (job.roleTitle === '' || job.roleTitle === 'AI 产品经理') &&
     !job.jdText.trim() &&
     job.interviewSessionIds.length === 0
   );

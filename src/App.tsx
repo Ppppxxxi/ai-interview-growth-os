@@ -72,9 +72,9 @@ function createInitialAppState() {
     new URLSearchParams(window.location.search).get('preview') === 'workspace';
   if (isPreviewMode) {
     return {
-      hasStarted: true,
-      view: 'workspace' as AppView,
-      workspace: createSampleWorkspaceData(),
+      hasStarted: false,
+      view: 'focus' as AppView,
+      workspace: createEmptyPersonalWorkspaceData(),
       isPreviewMode
     };
   }
@@ -129,13 +129,6 @@ export default function App() {
   function switchView(nextView: AppView) {
     setIsDataMenuOpen(false);
     setView(nextView);
-  }
-
-  function handleStartWithExample() {
-    setIsDataMenuOpen(false);
-    setWorkspaceData(createSampleWorkspaceData());
-    setHasStarted(true);
-    setView('workspace');
   }
 
   function handleRestoreExample() {
@@ -340,7 +333,6 @@ export default function App() {
               setHasStarted(true);
               setView(target);
             }}
-            onUseExample={handleStartWithExample}
           />
         )}
         {view === 'workspace' && (

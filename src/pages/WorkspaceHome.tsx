@@ -38,7 +38,6 @@ export function WorkspaceHome({ data, onSelectJob, onOpenJob, onOpenAssets, onOp
         <div className="workspace-home-current-main">
           <div className="workspace-home-current-copy">
             <h2>{job?.company ?? '我的目标岗位'}</h2>
-            <p>{job?.roleTitle ?? '开始新面试'}{job?.direction && <span> · {job.direction}</span>}</p>
             <button type="button" className="workspace-home-primary" onClick={job && latestSession ? onOpenJob : onStartNew}>
               {latestSession ? '查看岗位复盘' : '开始新面试'} <span aria-hidden="true">↗</span>
             </button>

@@ -15,10 +15,10 @@ export const experiences: Experience[] = [
   {
     id: 'exp-research-agent',
     title: 'AI Agent 求职助手调研与原型设计',
-    context: '准备 AI 产品经理求职时，发现模拟面试对话分散在不同 session，复盘和优化回答难以沉淀。',
+    context: '准备求职时，发现模拟面试对话分散在不同 session，复盘和优化回答难以沉淀。',
     task: '定义面试成长系统的核心闭环：外部对话导入、结构化复盘、回答资产沉淀和后续复用。',
     action: '梳理冷启动路径，设计岗位工作台、复盘解释、回答资产生成和同方向复用机制。',
-    result: '形成可展示的本地产品原型，用于说明 AI 产品经理对用户痛点、AI Agent 边界和 MVP 取舍的理解。',
+    result: '形成可展示的本地产品原型，用于说明对用户痛点、AI Agent 边界和产品范围取舍的理解。',
     abilityTags: ['roleUnderstanding', 'productAnalysis', 'aiProductThinking', 'structuredCommunication'],
     evidenceMetrics: ['完成 1 条端到端演示链路', '沉淀 1 条高价值回答资产', '定义 5 个 Agent 输入输出合约'],
     applicableQuestionTypes: ['AI 产品效果评估', 'MVP 范围设计', '面试复盘产品设计']
@@ -40,8 +40,8 @@ export const jobFiles: JobFile[] = [
   {
     id: 'job-ai-pm-a',
     company: '星河智能',
-    roleTitle: 'AI 产品经理实习生',
-    direction: 'AI 产品经理',
+    roleTitle: '产品经理实习生',
+    direction: '智能产品',
     jdText: '负责 AI Agent 产品需求分析、用户调研、指标设计、模型效果评估和跨团队协作；需要能将模型能力转化为用户可感知的产品价值，并设计可验证的效果指标。',
     stage: '一面后复盘',
     status: '已生成 1 条回答资产',
@@ -51,7 +51,7 @@ export const jobFiles: JobFile[] = [
     id: 'job-ai-pm-b',
     company: '云启科技',
     roleTitle: 'AI 助手产品经理',
-    direction: 'AI 产品经理',
+    direction: '智能产品',
     jdText: '负责企业 AI 助手的需求分析、效果评估、知识库体验优化和用户反馈闭环。',
     stage: '同方向准备',
     status: '可复用 1 条回答资产',
@@ -165,7 +165,7 @@ export const answerAssets: AnswerAsset[] = [
     issue: '指标体系不完整：满意度和使用次数只能证明用户用了产品，不能证明面试准备质量提升，也无法证明回答资产在后续面试中被复用。',
     improvedAnswer:
       '我会从过程指标、结果指标和长期复用指标三层评估。过程指标看用户是否完成 JD 导入、外部面试对话导入和复盘确认；结果指标看优化回答采纳率、回答资产保存率、同岗位后续模拟中的回答质量提升；长期复用指标看同一短板在后续面试中是否减少，以及回答资产是否被用于同岗位多轮或同方向类似问题。这样既能判断用户有没有使用产品，也能判断产品是否真的提升了面试准备质量。',
-    applicableRoles: ['AI 产品经理', '同方向 AI 产品岗位'],
+    applicableRoles: ['智能产品', '同方向产品岗位'],
     applicableQuestions: ['如何评估一个 AI 产品是否有效？', '如何设计 AI Agent 产品的成功指标？', '如何证明用户面试准备质量提升？'],
     weaknessTag: '指标体系不完整',
     sourceJobId: 'job-ai-pm-a',
@@ -174,7 +174,7 @@ export const answerAssets: AnswerAsset[] = [
     reuseScope: '适合同岗位后续轮次或同方向类似问题，使用前请补充真实业务场景。',
     usedInInterview: false,
     linkedExperienceId: 'exp-research-agent',
-    usageNote: '适合在星河智能后续轮次，或其他 AI 产品经理岗位被问到“产品效果评估 / 指标体系”时复用；使用前补一句具体业务场景。',
+    usageNote: '适合在星河智能后续轮次，或同方向岗位被问到“产品效果评估 / 指标体系”时复用；使用前补一句具体业务场景。',
     confidence: 'high'
   },
   {
@@ -185,7 +185,7 @@ export const answerAssets: AnswerAsset[] = [
     issue: '判断标准不够具体，缺少影响面、频次、收益和成本维度。',
     improvedAnswer:
       '我会先明确业务目标和核心用户，再从影响面、问题频次、收益强度、实现成本和风险约束五个维度判断优先级。对于高争议需求，我会先做低成本验证或灰度上线，用数据判断是否继续投入。',
-    applicableRoles: ['平台产品经理', 'AI 产品经理'],
+    applicableRoles: ['平台产品经理', '智能产品'],
     applicableQuestions: ['如何判断一个需求是否值得做？', '如果业务方都说自己优先级最高怎么办？'],
     weaknessTag: '指标体系不完整',
     sourceJobId: 'job-platform-pm-c',
