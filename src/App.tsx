@@ -10,6 +10,7 @@ import { AssetsAndTraining } from './pages/AssetsAndTraining';
 import { FocusFlowPage } from './pages/FocusFlowPage';
 import { GrowthDashboard } from './pages/GrowthDashboard';
 import { JobFileDetail } from './pages/JobFileDetail';
+import { WorkspaceHome } from './pages/WorkspaceHome';
 import {
   attachInterviewSessionToJob,
   clearPersonalWorkspace,
@@ -30,7 +31,7 @@ import {
 } from './workflow/personalWorkspace';
 import { upsertAnswerAsset } from './workflow/runtimeAssets';
 
-type AppView = 'focus' | 'workspace' | 'assets' | 'growth';
+type AppView = 'focus' | 'workspace' | 'job' | 'assets' | 'growth';
 
 const navItems: Array<{ id: AppView; label: string }> = [
   { id: 'workspace', label: '工作台' },
@@ -50,6 +51,11 @@ function createSampleWorkspaceData() {
 }
 
 function createInitialAppState() {
+  const isPreviewMode = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('preview') === 'workspace';
+  if (isPreviewMode) {
+    return { hasStarted: true, view: 'workspace' as AppView, workspace: createSampleWorkspaceData(), isPreviewMode };
+  }
+
   const storage = getBrowserStorage();
   const fallback = createEmptyPersonalWorkspaceData();
   const persisted = hasPersonalWorkspace(storage);
@@ -60,7 +66,8 @@ function createInitialAppState() {
   return {
     hasStarted: persisted,
     view: hasData ? ('workspace' as AppView) : ('focus' as AppView),
-    workspace
+    workspace,
+    isPreviewMode
   };
 }
 
@@ -72,9 +79,9 @@ export default function App() {
   const [isDataMenuOpen, setIsDataMenuOpen] = useState(false);
 
   useEffect(() => {
-    if (!hasStarted) return;
+    if (!hasStarted || initialAppState.isPreviewMode) return;
     writePersonalWorkspace(getBrowserStorage(), workspaceData);
-  }, [hasStarted, workspaceData]);
+  }, [hasStarted, initialAppState.isPreviewMode, workspaceData]);
 
   function switchView(nextView: AppView) {
     setIsDataMenuOpen(false);
@@ -101,7 +108,7 @@ export default function App() {
     setIsDataMenuOpen(false);
     const confirmed = window.confirm('清空本地数据后，当前岗位、面试记录和我的回答库会从这个浏览器删除，是否继续？');
     if (!confirmed) return;
-    clearPersonalWorkspace(getBrowserStorage());
+    if (!initialAppState.isPreviewMode) clearPersonalWorkspace(getBrowserStorage());
     setWorkspaceData(createEmptyPersonalWorkspaceData());
     setHasStarted(false);
     setView('focus');
@@ -172,11 +179,11 @@ export default function App() {
   }
 
   return (
-    <main className="app-shell">
+    <main className={view === 'workspace' ? 'app-shell app-shell--home' : 'app-shell'}>
       <header className="topbar">
         <div>
           <strong>AI 面试成长 OS</strong>
-          <span>导入面试材料，生成下次可用回答</span>
+          {view !== 'workspace' && <span>导入面试材料，生成下次可用回答</span>}
         </div>
         <div className="topbar-actions">
           {hasStarted && (
@@ -190,7 +197,7 @@ export default function App() {
               </button>
               {navItems.map((item) => (
                 <button
-                  className={view === item.id ? 'nav-button nav-button--active' : 'nav-button'}
+                  className={view === item.id || (view === 'job' && item.id === 'workspace') ? 'nav-button nav-button--active' : 'nav-button'}
                   key={item.id}
                   type="button"
                   onClick={() => switchView(item.id)}
@@ -230,6 +237,16 @@ export default function App() {
         />
       )}
       {hasStarted && view === 'workspace' && (
+        <WorkspaceHome
+          data={workspaceData}
+          onSelectJob={handleSelectJob}
+          onOpenJob={() => switchView('job')}
+          onOpenAssets={() => switchView('assets')}
+          onOpenGrowth={() => switchView('growth')}
+          onStartNew={() => switchView('focus')}
+        />
+      )}
+      {hasStarted && view === 'job' && (
         <JobFileDetail
           selectedJobId={workspaceData.selectedJobId}
           onSelectJob={handleSelectJob}
