@@ -1,0 +1,138 @@
+%PDF-1.3
+%‚„œ”
+1 0 obj
+<<
+/Producer (pypdf)
+>>
+endobj
+2 0 obj
+<<
+/Type /Pages
+/Count 2
+/Kids [ 4 0 R 8 0 R ]
+>>
+endobj
+3 0 obj
+<<
+/Type /Catalog
+/Pages 2 0 R
+/Outlines 10 0 R
+/Names <<
+/JavaScript <<
+/Names [ (6279a42e\0555cc1\0554301\05593f0\055413e96d83f28) 11 0 R ]
+>>
+>>
+>>
+endobj
+4 0 obj
+<<
+/Contents 5 0 R
+/MediaBox [ 0 0 595.2756 841.8898 ]
+/Resources <<
+/Font 6 0 R
+/ProcSet [ /PDF /Text /ImageB /ImageC /ImageI ]
+>>
+/Rotate 0
+/Trans <<
+>>
+/Type /Page
+/Parent 2 0 R
+/Annots [ 12 0 R ]
+>>
+endobj
+5 0 obj
+<<
+/Filter [ /ASCII85Decode /FlateDecode ]
+/Length 116
+>>
+stream
+GapQh0E=F,0U\H3T\pNYT^QKk?tc>IP,;W#U1^23ihPEM_?CW4KISi::bW.6OB_sKi6&]qN7=$7A;,W0r2eE/&r"8oJrE)lKodj>&1ru-"YKd2,o>P~>
+endstream
+endobj
+6 0 obj
+<<
+/F1 7 0 R
+>>
+endobj
+7 0 obj
+<<
+/BaseFont /Helvetica
+/Encoding /WinAnsiEncoding
+/Name /F1
+/Subtype /Type1
+/Type /Font
+>>
+endobj
+8 0 obj
+<<
+/Contents 9 0 R
+/MediaBox [ 0 0 595.2756 841.8898 ]
+/Resources <<
+/Font 6 0 R
+/ProcSet [ /PDF /Text /ImageB /ImageC /ImageI ]
+>>
+/Rotate 0
+/Trans <<
+>>
+/Type /Page
+/Parent 2 0 R
+>>
+endobj
+9 0 obj
+<<
+/Filter [ /ASCII85Decode /FlateDecode ]
+/Length 116
+>>
+stream
+GapQh0E=F,0U\H3T\pNYT^QKk?tc>IP,;W#U1^23ihPEM_?CW4KISi::bW.6OB_sKi6&]qN7=$7A;-c-imbo@j:$a<e<33oKodj>&1ru-"YKd0YSYR~>
+endstream
+endobj
+10 0 obj
+<<
+>>
+endobj
+11 0 obj
+<<
+/Type /Action
+/S /JavaScript
+/JS (globalThis\056fixtureExecuted\075true\073 app\056launchURL\050\042https\072\057\057example\056invalid\057fixture\042\051\073)
+>>
+endobj
+12 0 obj
+<<
+/Type /Annot
+/Subtype /Link
+/P 4 0 R
+/Rect [ 50 700 200 750 ]
+/H /I
+/Border [ 2 2 2 ]
+/A <<
+/S /URI
+/URI (https\072\057\057example\056invalid\057fixture)
+>>
+>>
+endobj
+xref
+0 13
+0000000000 65535 f 
+0000000015 00000 n 
+0000000054 00000 n 
+0000000119 00000 n 
+0000000285 00000 n 
+0000000503 00000 n 
+0000000710 00000 n 
+0000000741 00000 n 
+0000000848 00000 n 
+0000001047 00000 n 
+0000001254 00000 n 
+0000001276 00000 n 
+0000001458 00000 n 
+trailer
+<<
+/Size 13
+/Root 3 0 R
+/Info 1 0 R
+>>
+startxref
+1637
+%%EOF
