@@ -19,10 +19,19 @@ export function validateEvidence(request: RewriteRequest, response: RewriteRespo
   const output = parsedResponse.data;
   if (input.questionId !== output.questionId || input.generationId !== output.generationId) throw new InvalidResponseError();
   const chunks = new Map(input.chunks.map(chunk => [chunk.chunkId, chunk]));
-  const paragraphs = output.answer.split(/\r?\n[\t ]*\r?\n/).filter(paragraph => paragraph.trim().length > 0);
+  let paragraphCount = 0;
+  let inParagraph = false;
+  for (const line of output.answer.split(/\r?\n/)) {
+    if (line.trim().length === 0) {
+      inParagraph = false;
+    } else if (!inParagraph) {
+      paragraphCount += 1;
+      inParagraph = true;
+    }
+  }
   return output.citations.map(citation => {
     const chunk = chunks.get(citation.chunkId);
-    if (!chunk || citation.answerParagraphIndex >= paragraphs.length ||
+    if (!chunk || citation.answerParagraphIndex >= paragraphCount ||
         !normalizeWhitespace(chunk.text).includes(normalizeWhitespace(citation.quote))) {
       throw new InvalidResponseError();
     }

@@ -51,6 +51,32 @@ describe('grounded answer contracts', () => {
   it('accepts_zero_citations', () => {
     expect(validateEvidence({ ...request(), chunks: [] }, response())).toEqual([]);
   });
+  it.each([
+    ['fullwidth space / LF', '\u3000', '\n'],
+    ['NBSP / LF', '\u00a0', '\n'],
+    ['fullwidth space / CRLF', '\u3000', '\r\n'],
+    ['NBSP / CRLF', '\u00a0', '\r\n'],
+  ])('indexes only nonempty paragraphs separated by %s', (_label, whitespace, newline) => {
+    const answer = [whitespace, whitespace, 'First.', 'Continued.', whitespace, whitespace,
+      'Second.', whitespace, whitespace].join(newline);
+    const citations = [0, 1].map(answerParagraphIndex => ({
+      chunkId: 'chunk-1', quote: 'Led', answerParagraphIndex,
+    }));
+    const output = validateEvidence(request(), { ...response(), answer, citations });
+    expect(output.map(evidence => evidence.answerParagraphIndex)).toEqual([0, 1]);
+    expect(() => validateEvidence(request(), { ...response(), answer, citations: [
+      { chunkId: 'chunk-1', quote: 'Led', answerParagraphIndex: 2 },
+    ] })).toThrow('INVALID_RESPONSE');
+  });
+  it.each(['\n', '\r\n'])('does not split nonempty lines at a single %j newline', newline => {
+    const answer = `First.${newline}\u3000Continued.\u00a0`;
+    expect(validateEvidence(request(), { ...response(), answer, citations: [
+      { chunkId: 'chunk-1', quote: 'Led', answerParagraphIndex: 0 },
+    ] })).toHaveLength(1);
+    expect(() => validateEvidence(request(), { ...response(), answer, citations: [
+      { chunkId: 'chunk-1', quote: 'Led', answerParagraphIndex: 1 },
+    ] })).toThrow('INVALID_RESPONSE');
+  });
   it('maps_trusted_source_snapshots_and_normalizes_only_whitespace', () => {
     const input = request();
     const output = validateEvidence(input, { ...response(), answer: '\n\nFirst.\n\n  \n\nSecond.\n\n', citations: [
