@@ -18,8 +18,18 @@ export function chunkDocument(document: MaterialDocument, pages?: PageText[]): M
       const locator: MaterialLocator = 'pageNumber' in section
         ? { type: 'page', pageNumber: section.pageNumber, paragraphIndex }
         : { type: 'paragraph', paragraphIndex };
+      const sentenceEnds = Array.from(text.matchAll(/[。！？]+[”’"')\]]*\s*|[.!?]+[”’"')\]]*(?=\s|$)\s*/gu),
+        match => match.index! + match[0].length);
+      sentenceEnds.push(text.length);
       for (let start = 0; start < text.length;) {
-        let end = Math.min(start + MAX_CHUNK_LENGTH, text.length);
+        const hardEnd = Math.min(start + MAX_CHUNK_LENGTH, text.length);
+        let end = start;
+        // Pack complete sentences; hard-cut only when the next sentence cannot fit.
+        for (const sentenceEnd of sentenceEnds) {
+          if (sentenceEnd > hardEnd) break;
+          if (sentenceEnd > start) end = sentenceEnd;
+        }
+        if (end === start) end = hardEnd;
         // Keep a UTF-16 surrogate pair together while respecting the character cap.
         if (end < text.length && /[\uD800-\uDBFF]/.test(text[end - 1]) && /[\uDC00-\uDFFF]/.test(text[end])) end--;
         chunks.push({
