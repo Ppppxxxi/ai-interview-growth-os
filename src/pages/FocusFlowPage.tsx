@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
@@ -19,8 +19,14 @@ import type {
 import { buildMaterialImportSavePayload } from '../workflow/materialImportDraft';
 import type { MaterialChunk } from '../domain/materialTypes';
 import { FocusAnswersPanel } from '../components/FocusAnswersPanel';
+import { emptyFocusWork, reconcileFocusWork, type FocusFlowDraft, type FocusQuestionWorks } from '../domain/focusFlowDraft';
+import type { MaterialRepository } from '../materials/repository';
+import { getMaterialDraftQueue } from '../materials/draftQueue';
 
 type FocusFlowPageProps = {
+  onDraftPersisted?: () => void;
+  repository?: MaterialRepository;
+  materialsLoading?: boolean;
   materialChunks?: MaterialChunk[];
   selectedJobId: string;
   jobFiles: JobFile[];
@@ -41,6 +47,9 @@ type FocusJobDraft = {
 };
 
 export function FocusFlowPage({
+  onDraftPersisted,
+  repository,
+  materialsLoading = false,
   materialChunks = [],
   jobFiles,
   onFinish,
@@ -65,15 +74,64 @@ export function FocusFlowPage({
     { sessionId: string; assetCount: number } | undefined
   >();
   const [activeItemId, setActiveItemId] = useState('');
+  const [work, setWork] = useState<FocusQuestionWorks>({});
+  const [draftReady, setDraftReady] = useState(!repository);
+  const [restored, setRestored] = useState(false);
+  const [draftError, setDraftError] = useState('');
+  const [retryDraft, setRetryDraft] = useState(0);
+  const [retryWrite, setRetryWrite] = useState(0);
+  const hydratedJob = useRef('');
+  const alive = useRef(true);
+  const notifyDraftPersisted = useRef(onDraftPersisted); notifyDraftPersisted.current = onDraftPersisted;
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
 
   useEffect(() => {
+    hydratedJob.current = '';
     setJobDraft(createFocusJobDraft(selectedJob));
     setMaterialText('');
     setMaterialDraft(undefined);
     setIsAnswerStage(false);
     setSavedItemIds(new Set());
     setSavedSummary(undefined);
+    setWork({}); setRestored(false);
   }, [selectedJob.id]);
+
+  useEffect(() => {
+    if (!repository || materialsLoading) return;
+    let cancelled = false;
+    setDraftReady(false);
+    void getMaterialDraftQueue(repository).run(() => repository.listFlowDrafts()).then(drafts => {
+      if (cancelled) return;
+      const draft = drafts.find(entry => entry.jobId === selectedJob.id);
+      if (draft) {
+        const nextWork = Object.fromEntries(Object.entries(draft.work).map(([id, value]) => [id, reconcileFocusWork(value, materialChunks)]));
+        setJobDraft(draft.jobDraft); setMaterialText(draft.rawText); setWork(nextWork);
+        setMaterialDraft(draft.materialDraft ? { ...draft.materialDraft, interviewItems: draft.materialDraft.interviewItems.map(item => nextWork[item.id] !== draft.work[item.id] && Array.isArray(item.evidence) ? { ...item, evidence: item.evidence.map(entry => ({ ...entry, status: 'needs-review' as const })) } : item) } : undefined);
+        setActiveItemId(draft.activeItemId); setIsAnswerStage(draft.stage === 'answers');
+        setRunId(crypto.randomUUID()); setSavedItemIds(new Set()); setSavedSummary(undefined); setRestored(true);
+      }
+      hydratedJob.current = selectedJob.id;
+      setDraftReady(true); setDraftError('');
+    }).catch(() => { if (!cancelled) setDraftError('草稿加载失败，请重试'); });
+    return () => { cancelled = true; };
+  }, [repository, selectedJob.id, materialsLoading, retryDraft]);
+
+  useEffect(() => {
+    if (!repository || !draftReady || hydratedJob.current !== selectedJob.id) return;
+    const pendingItems = materialDraft?.interviewItems.filter(item => !savedItemIds.has(item.id));
+    const id = `focus-flow:${selectedJob.id}`;
+    const queue = getMaterialDraftQueue(repository);
+    const complete = !!savedSummary && !pendingItems?.length;
+    const jobEdited = Object.entries(jobDraft).some(([field, value]) => value !== createFocusJobDraft(selectedJob)[field as keyof FocusJobDraft]);
+    const draft: FocusFlowDraft = { id, kind: 'focus-flow', schemaVersion: 1, jobId: selectedJob.id, jobDraft,
+      rawText: materialText, materialDraft: materialDraft ? { ...materialDraft, interviewItems: pendingItems ?? [] } : undefined,
+      stage: isAnswerStage ? 'answers' : materialDraft ? 'questions' : 'input', activeItemId,
+      work: Object.fromEntries(Object.entries(work).filter(([id]) => pendingItems?.some(item => item.id === id))), updatedAt: new Date().toISOString() };
+    const remove = complete || (!materialText && !materialDraft && !jobEdited);
+    void queue.run(() => remove ? repository.deleteDraft(id) : repository.saveFlowDraft(draft)).then(() => {
+      if (alive.current) { setDraftError(''); if (!remove) notifyDraftPersisted.current?.(); }
+    }).catch(() => { if (alive.current) setDraftError('草稿保存失败，请重试'); });
+  }, [repository, draftReady, selectedJob.id, jobDraft, materialText, materialDraft, isAnswerStage, activeItemId, work, savedItemIds, savedSummary, retryWrite]);
 
   const hasMaterial = materialText.trim().length > 0;
   const flowStep = savedSummary
@@ -140,6 +198,7 @@ export function FocusFlowPage({
       jdText: current.jdText.trim() || draft.jobContext.jdText || ''
     }));
     setMaterialDraft(draft);
+    setWork({}); setRestored(false); setActiveItemId(draft.interviewItems[0]?.id ?? '');
     setRunId(crypto.randomUUID());
     setSavedItemIds(new Set());
     setIsAnswerStage(false);
@@ -157,6 +216,7 @@ export function FocusFlowPage({
       | 'improvedAnswer',
     value: string
   ) {
+    setWork(current => { const value = current[itemId] ?? emptyFocusWork(); return { ...current, [itemId]: { revision: value.revision + 1, selectedChunks: value.selectedChunks } }; });
     setMaterialDraft((current) =>
       current
         ? {
@@ -203,6 +263,7 @@ export function FocusFlowPage({
   }
 
   function handleStartNext() {
+    setWork({}); setRestored(false);
     setSavedItemIds(new Set());
     setMaterialText('');
     setMaterialDraft(undefined);
@@ -212,6 +273,10 @@ export function FocusFlowPage({
 
   return (
     <section className="focus-flow-page">
+      {repository && !draftReady && <p role="status">草稿加载中</p>}
+      {restored && <p className="material-draft-label">未保存草稿</p>}
+      {draftError && <p role="alert">{draftError}<button type="button" onClick={() => draftReady ? setRetryWrite(current => current + 1) : setRetryDraft(current => current + 1)}>重试草稿</button></p>}
+      <fieldset className="focus-flow-content" disabled={!!repository && !draftReady}>
       <header className="focus-flow-hero">
         <div>
           <p className="eyebrow">面试成长</p>
@@ -409,6 +474,7 @@ export function FocusFlowPage({
               </details>
             )}
           {isAnswerStage && <FocusAnswersPanel key={stageItems.map(item => item.id).join(':')} items={stageItems} job={currentJob()} chunks={materialChunks} initialQuestionId={activeItem?.id}
+            work={work} onWorkChange={(id, value) => setWork(current => ({ ...current, [id]: value }))} onActiveChange={setActiveItemId}
             onChange={updated => setMaterialDraft(current => current ? { ...current, interviewItems: current.interviewItems.map(item => item.id === updated.id ? updated : item) } : current)} onSave={handleSave} />}
           {!isAnswerStage && <>
           <div className="question-switcher" aria-label="切换问题">
@@ -548,6 +614,7 @@ export function FocusFlowPage({
           </div>
         </section>
       )}
+      </fieldset>
     </section>
   );
 }

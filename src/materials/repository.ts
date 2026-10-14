@@ -1,10 +1,12 @@
 import { wrap, type DBSchema, type IDBPDatabase, type IDBPTransaction } from 'idb';
 import type { MaterialChunk, MaterialDocument, MaterialDraft, PendingDeletion } from '../domain/materialTypes';
+import { FocusFlowDraftSchema, type FocusFlowDraft } from '../domain/focusFlowDraft';
+type StoredDraft = MaterialDraft | FocusFlowDraft;
 
 export type MaterialSnapshot = {
   documents: MaterialDocument[];
   chunks: MaterialChunk[];
-  drafts: MaterialDraft[];
+  drafts: StoredDraft[];
 };
 
 export interface MaterialRepository {
@@ -14,6 +16,8 @@ export interface MaterialRepository {
   saveDocument(document: MaterialDocument, chunks: MaterialChunk[], expectedVersion: number | null): Promise<void>;
   saveDraft(draft: MaterialDraft): Promise<void>;
   listDrafts(): Promise<MaterialDraft[]>;
+  saveFlowDraft(draft: FocusFlowDraft): Promise<void>;
+  listFlowDrafts(): Promise<FocusFlowDraft[]>;
   deleteDraft(id: string): Promise<void>;
   putDeletion(task: PendingDeletion): Promise<void>;
   listDeletions(): Promise<PendingDeletion[]>;
@@ -27,7 +31,7 @@ export interface MaterialRepository {
 interface MaterialDatabase extends DBSchema {
   documents: { key: string; value: MaterialDocument };
   chunks: { key: string; value: MaterialChunk; indexes: { documentId: string } };
-  drafts: { key: string; value: MaterialDraft };
+  drafts: { key: string; value: StoredDraft };
   pendingDeletions: { key: string; value: PendingDeletion };
 }
 
@@ -42,6 +46,7 @@ function repositoryError(code: string): Error & { code: string } {
 }
 
 function validateSnapshot(snapshot: MaterialSnapshot): void {
+  for (const draft of snapshot.drafts) if (draft.kind === 'focus-flow' && !FocusFlowDraftSchema.safeParse(draft).success) throw repositoryError('INVALID_SNAPSHOT');
   const documents = new Map(snapshot.documents.map(document => [document.id, document]));
   if (documents.size !== snapshot.documents.length ||
       new Set(snapshot.chunks.map(chunk => chunk.id)).size !== snapshot.chunks.length ||
@@ -141,7 +146,17 @@ export function createMaterialRepository(factory?: IDBFactory): MaterialReposito
       });
     },
     saveDraft: async draft => { await transact(['drafts'], 'readwrite', async tx => { await tx.objectStore('drafts').put(draft); }); },
-    listDrafts: () => transact(['drafts'], 'readonly', tx => tx.objectStore('drafts').getAll()),
+    listDrafts: async () => (await transact(['drafts'], 'readonly', tx => tx.objectStore('drafts').getAll())).filter((draft): draft is MaterialDraft => draft.kind !== 'focus-flow'),
+    async saveFlowDraft(draft) {
+      const parsed = FocusFlowDraftSchema.safeParse(draft);
+      if (!parsed.success) throw repositoryError('INVALID_FLOW_DRAFT');
+      await transact(['drafts'], 'readwrite', async tx => { await tx.objectStore('drafts').put(parsed.data); });
+    },
+    listFlowDrafts: async () => (await transact(['drafts'], 'readonly', tx => tx.objectStore('drafts').getAll())).filter(draft => draft.kind === 'focus-flow').map(draft => {
+      const parsed = FocusFlowDraftSchema.safeParse(draft);
+      if (!parsed.success) throw repositoryError('INVALID_FLOW_DRAFT');
+      return parsed.data;
+    }),
     deleteDraft: async id => { await transact(['drafts'], 'readwrite', async tx => { await tx.objectStore('drafts').delete(id); }); },
     putDeletion: async task => { await transact(['pendingDeletions'], 'readwrite', async tx => { await tx.objectStore('pendingDeletions').put(task); }); },
     listDeletions: () => transact(['pendingDeletions'], 'readonly', tx => tx.objectStore('pendingDeletions').getAll()),

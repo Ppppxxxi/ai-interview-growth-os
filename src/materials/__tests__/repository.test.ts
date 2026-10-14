@@ -3,6 +3,7 @@ import { IDBFactory, IDBObjectStore, forceCloseDatabase } from 'fake-indexeddb';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { MaterialChunk, MaterialDocument, MaterialDraft, PendingDeletion } from '../../domain/materialTypes';
 import { createMaterialRepository } from '../repository';
+import type { FocusFlowDraft } from '../../domain/focusFlowDraft';
 
 const document = (id = 'doc'): MaterialDocument => ({
   id, kind: 'experience', title: 'Synthetic material', tags: ['test'], text: 'First text',
@@ -23,6 +24,20 @@ const deletion: PendingDeletion = {
 afterEach(() => vi.restoreAllMocks());
 
 describe('material repository', () => {
+  it('persists_typed_flow_drafts_without_exposing_them_as_document_imports', async () => {
+    const factory = new IDBFactory(); const repo = createMaterialRepository(factory);
+    const flow: FocusFlowDraft = { id: 'focus-flow:j1', kind: 'focus-flow', schemaVersion: 1, jobId: 'j1', jobDraft: { company: '虚构公司', roleTitle: '', direction: '', jdText: '' }, rawText: '虚构原文', stage: 'input', activeItemId: '', work: {}, updatedAt: '2026-10-15' };
+    await repo.saveFlowDraft(flow); await repo.saveDraft(draft);
+    expect(await createMaterialRepository(factory).listFlowDrafts()).toEqual([flow]);
+    expect(await repo.listDrafts()).toEqual([draft]);
+    const snapshot = await repo.exportSnapshot(); expect(snapshot.drafts).toHaveLength(2);
+    await repo.clearAll(); await repo.replaceSnapshot(snapshot);
+    expect(await repo.listFlowDrafts()).toEqual([flow]); expect(await repo.listDrafts()).toEqual([draft]);
+    await expect(repo.saveFlowDraft({ ...flow, schemaVersion: 99 } as unknown as FocusFlowDraft)).rejects.toThrow('INVALID_FLOW_DRAFT');
+    await expect(repo.saveFlowDraft({ ...flow, work: { unrelated: { revision: 0, selectedChunks: [] } } })).rejects.toThrow('INVALID_FLOW_DRAFT');
+    await expect(repo.replaceSnapshot({ ...snapshot, drafts: [{ ...flow, stage: 'accepted' } as unknown as FocusFlowDraft] })).rejects.toThrow('INVALID_SNAPSHOT');
+    expect(await repo.listFlowDrafts()).toEqual([flow]);
+  });
   it('persists_after_reopen', async () => {
     const factory = new IDBFactory();
     const first = createMaterialRepository(factory);

@@ -52,10 +52,6 @@ function buildQuestion(item: InterviewMaterialDraftItem, index: number): Intervi
   };
 }
 
-function buildReuseScope(job: JobFile) {
-  return `适用于${job.direction}同岗位多轮或同方向类似问题，跨岗位使用前需要重新贴合业务场景。`;
-}
-
 function buildAsset({
   item,
   job,
@@ -69,7 +65,7 @@ function buildAsset({
   sessionId: string;
   confirmationStatus?: AnswerAssetConfirmationStatus;
 }): AnswerAsset {
-  const reuseScope = buildReuseScope(job);
+  const reuseScope = item.modelRationale?.applicabilityBoundary ?? '适用范围待确认。';
 
   return {
     id: `asset-${sessionId}-${safeId(item.id || item.title)}`,
@@ -82,6 +78,7 @@ function buildAsset({
     generation: item.generation,
     missingFacts: item.missingFacts,
     answerVersions: item.answerVersions,
+    modelRationale: item.modelRationale,
     applicableRoles: [job.direction, `${job.direction}同方向岗位`],
     applicableQuestions: [item.question || item.title, ...(item.followUps ?? [])].filter(Boolean),
     weaknessTag: item.issue || item.title,
@@ -99,9 +96,10 @@ function buildAsset({
     confidence: item.confidence,
     confirmationStatus,
     answerRationale: {
+      requestedRewriteFocus: item.improvementSuggestion ?? '',
       sourceQuestion: item.question || item.title,
       originalIssue: item.issue || item.improvementSuggestion || '需要补充具体问题点。',
-      rewriteFocus: item.improvementSuggestion || '补充结构、判断依据和可验证指标。',
+      rewriteFocus: item.modelRationale?.rewriteFocus ?? item.improvementSuggestion ?? '',
       applicabilityBoundary: reuseScope
     }
   };

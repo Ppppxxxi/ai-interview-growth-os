@@ -106,6 +106,11 @@ export default function App() {
   const [view, setView] = useState<AppView>(initialAppState.view);
   const [hasStarted, setHasStarted] = useState(initialAppState.hasStarted);
   const [workspaceData, setWorkspaceData] = useState(initialAppState.workspace);
+  const workspaceSnapshot = useRef(workspaceData); workspaceSnapshot.current = workspaceData;
+  const handleFlowDraftPersisted = useCallback(() => {
+    if (!initialAppState.isPreviewMode) writePersonalWorkspace(getBrowserStorage(), workspaceSnapshot.current);
+    setHasStarted(true);
+  }, [initialAppState.isPreviewMode]);
   const [isDataMenuOpen, setIsDataMenuOpen] = useState(false);
   const dataMenuRef = useRef<HTMLDetailsElement>(null);
   const materialsGuard = useRef<(() => boolean) | null>(null);
@@ -339,6 +344,9 @@ export default function App() {
         </div>
         {view === 'focus' && (
           <FocusFlowPage
+            onDraftPersisted={handleFlowDraftPersisted}
+            repository={materialRepository}
+            materialsLoading={materials.loading}
             materialChunks={materials.chunks}
             selectedJobId={workspaceData.selectedJobId}
             jobFiles={workspaceData.jobFiles}

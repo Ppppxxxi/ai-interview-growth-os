@@ -68,6 +68,7 @@ export type InterviewQuestion = {
 };
 
 export type InterviewMaterialDraftItem = {
+  modelRationale?: { rewriteFocus: string; applicabilityBoundary: string };
   answerVersions?: AnswerAssetVersion[];
   id: string;
   title: string;
@@ -126,6 +127,7 @@ export type ReviewReport = {
 };
 
 export type AnswerAsset = {
+  modelRationale?: { rewriteFocus: string; applicabilityBoundary: string };
   evidence?: AnswerEvidence[];
   generation?: AnswerGeneration;
   missingFacts?: string[];
@@ -155,6 +157,7 @@ export type AnswerAsset = {
 export type AnswerAssetConfirmationStatus = 'accepted' | 'edited-accepted' | 'generated-draft';
 
 export type AnswerRationale = {
+  requestedRewriteFocus?: string;
   sourceQuestion: string;
   originalIssue: string;
   rewriteFocus: string;
