@@ -1,4 +1,5 @@
 import { PassThrough, Readable } from 'node:stream';
+import { EventEmitter } from 'node:events';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { afterEach, expect, it, vi } from 'vitest';
 import { createAIHandlers } from '../httpHandlers';
@@ -13,9 +14,12 @@ function req(body = JSON.stringify(request), headers: IncomingMessage['headers']
 function response() {
   const headers: Record<string, unknown> = {};
   let body = '';
-  const res = { statusCode: 200, setHeader: (key: string, value: unknown) => { headers[key] = value; },
-    end: (value: string) => { body = value; } } as unknown as ServerResponse;
-  return { res, headers, body: () => JSON.parse(body), raw: () => body };
+  const events = new EventEmitter();
+  const mock = Object.assign(events, { statusCode: 200, destroyed: false, writableFinished: false,
+    setHeader: (key: string, value: unknown) => { headers[key] = value; },
+    end: (value: string) => { body = value; mock.writableFinished = true; } });
+  const res = mock as unknown as ServerResponse;
+  return { res, events, headers, body: () => JSON.parse(body), raw: () => body };
 }
 function setup(aiConfig = config()) {
   const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(upstream());
@@ -150,4 +154,61 @@ it('does not log request, response, key, provider body or exception', async () =
   await handlers.handleRewrite(req(), out.res);
   expect(out.body()).toEqual({ error: { code: 'UPSTREAM_ERROR' } });
   spies.forEach(spy => expect(spy).not.toHaveBeenCalled());
+});
+
+it.each([
+  ['fetch', 'aborted'], ['fetch', 'response-close'],
+  ['body', 'aborted'], ['body', 'response-close'],
+] as const)('client disconnect during upstream %s via %s aborts once, never writes, and cleans listeners', async (stage, event) => {
+  const { fetch, handlers } = setup(); const out = response(); const input = req();
+  let release: () => void = () => {};
+  let started: () => void = () => {};
+  const ready = new Promise<void>(resolve => { started = resolve; });
+  fetch.mockImplementation(async () => {
+    if (stage === 'fetch') return new Promise<Response>(resolve => {
+      release = () => resolve(upstream()); started();
+    });
+    return { ok: true, json: () => new Promise(resolve => {
+      release = () => resolve({ choices: [{ finish_reason: 'stop', message: {
+        content: JSON.stringify({ answer: 'Answer', rewriteFocus: '', applicabilityBoundary: '', missingFacts: [], citations: [] }),
+      } }] }); started();
+    }) } as Response;
+  });
+  const pending = handlers.handleRewrite(input, out.res);
+  await ready;
+  if (event === 'aborted') input.emit('aborted');
+  else out.events.emit('close');
+  const signal = fetch.mock.calls[0][1]?.signal as AbortSignal;
+  const abortedAtDisconnect = signal.aborted;
+  // Release even a transport that ignores abort, so the red run cannot leave a pending timer.
+  release(); await pending;
+  expect(abortedAtDisconnect).toBe(true);
+  expect(fetch).toHaveBeenCalledTimes(1);
+  expect(out.raw()).toBe(''); expect(out.headers).toEqual({});
+  expect(input.listenerCount('aborted')).toBe(0);
+  expect(out.events.listenerCount('close')).toBe(0);
+});
+
+it('normal request close does not cancel generation and completed response close is harmless', async () => {
+  const { fetch, handlers } = setup(); const input = req(); const out = response();
+  let release: () => void = () => {}; let started: () => void = () => {};
+  const ready = new Promise<void>(resolve => { started = resolve; });
+  fetch.mockImplementation(() => new Promise<Response>(resolve => { release = () => resolve(upstream()); started(); }));
+  const pending = handlers.handleRewrite(input, out.res); await ready;
+  input.emit('close');
+  const signal = fetch.mock.calls[0][1]?.signal as AbortSignal;
+  expect(signal.aborted).toBe(false);
+  release(); await pending;
+  expect(out.res.statusCode).toBe(200); expect(out.body().questionId).toBe(request.questionId);
+  out.events.emit('close'); expect(signal.aborted).toBe(false);
+  expect(input.listenerCount('aborted')).toBe(0); expect(out.events.listenerCount('close')).toBe(0);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
+
+it('already disconnected response never calls fetch or writes', async () => {
+  const { fetch, handlers } = setup(); const out = response();
+  out.res.destroyed = true;
+  await handlers.handleRewrite(req(), out.res);
+  expect(fetch).not.toHaveBeenCalled(); expect(out.raw()).toBe(''); expect(out.headers).toEqual({});
+  expect(out.events.listenerCount('close')).toBe(0);
 });

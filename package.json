@@ -4,12 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc --noEmit -p tsconfig.json && npm run build:server && vite build",
+    "dev": "vite --config vite.config.ts",
+    "build": "tsc --noEmit -p tsconfig.json && npm run build:server && vite build --config vite.config.ts",
     "build:server": "tsc --noEmit -p tsconfig.server.json",
-    "preview": "vite preview",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "preview": "vite preview --config vite.config.ts",
+    "test": "vitest run --config vite.config.ts",
+    "test:watch": "vitest --config vite.config.ts"
   },
   "dependencies": {
     "idb": "^8.0.4",

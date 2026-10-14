@@ -34,8 +34,8 @@ it('dev adapter forwards known routes and falls through unrelated routes while c
     const events = new EventEmitter();
     const result = new Promise<string>(resolve => events.once('end', resolve));
     const headers: Record<string, unknown> = {};
-    const res = { setHeader: (key: string, value: unknown) => { headers[key] = value; },
-      end: (body: string) => events.emit('end', body) } as unknown as ServerResponse;
+    const res = Object.assign(events, { setHeader: (key: string, value: unknown) => { headers[key] = value; },
+      end: (body: string) => events.emit('end', body) }) as unknown as ServerResponse;
     middlewares[0](req, res, vi.fn());
     expect(JSON.parse(await result)).toEqual(expected); expect(headers['Cache-Control']).toBe('no-store');
   }
@@ -60,7 +60,7 @@ it('dev adapter uses actual bound port and the shared rewrite handler with fake 
     }) as IncomingMessage;
     const events = new EventEmitter();
     const result = new Promise<string>(resolve => events.once('end', resolve));
-    const res = { statusCode: 0, setHeader: () => {}, end: (body: string) => events.emit('end', body) } as unknown as ServerResponse;
+    const res = Object.assign(events, { statusCode: 0, setHeader: () => {}, end: (body: string) => events.emit('end', body) }) as unknown as ServerResponse;
     middleware(req, res, vi.fn()); const output = JSON.parse(await result);
     expect(res.statusCode).toBe(status);
     if (status === 200) expect(output).toMatchObject({ questionId: request.questionId, generationId: request.generationId, model: 'fake' });

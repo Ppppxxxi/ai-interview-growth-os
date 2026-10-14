@@ -58,19 +58,31 @@ function readRawJSON(req: IncomingMessage, signal: AbortSignal): Promise<unknown
 export function createAIHandlers(deps: RewriteDeps) {
   return {
     async handleRewrite(req: IncomingMessage, res: ServerResponse): Promise<void> {
+      const connection = new AbortController();
+      let disconnected = Boolean(req.aborted || res.destroyed || res.writableEnded);
+      const cancel = () => { disconnected = true; connection.abort(); };
+      const responseClose = () => { if (!res.writableFinished) cancel(); };
+      // A normal req.close can follow the completed upload; only real interruption cancels.
+      req.on('aborted', cancel);
+      res.on('close', responseClose);
       try {
+        if (disconnected) return;
         if (!isAIAvailable(deps.config)) throw new AIError('AI_UNAVAILABLE');
         checkHTTP(req, deps);
         const result = await withDeadline(async signal => {
           const parsed = RewriteRequestSchema.safeParse(await readRawJSON(req, signal));
           if (!parsed.success) throw new AIError('INVALID_REQUEST');
           return rewriteAnswer(parsed.data, { ...deps, signal });
-        });
-        send(res, 200, result);
+        }, connection.signal);
+        if (!disconnected && !res.destroyed && !res.writableEnded) send(res, 200, result);
       } catch (error) {
+        if (disconnected || res.destroyed || res.writableEnded) return;
         const code = error instanceof AIError ? error.code : 'UPSTREAM_ERROR';
         res.setHeader('Connection', 'close');
         send(res, errorStatus[code], { error: { code } });
+      } finally {
+        req.off('aborted', cancel);
+        res.off('close', responseClose);
       }
     },
     handleAIStatus(req: IncomingMessage, res: ServerResponse): void {
