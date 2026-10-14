@@ -89,7 +89,6 @@ function makeItem(input: {
     issue: input.issue,
     evidence: input.evidence,
     improvementSuggestion: input.improvementSuggestion,
-    improvedAnswer: input.improvedAnswer,
     answerAssetCandidate: input.answerAssetCandidate ?? true,
     assetCandidateReason: input.assetCandidateReason ?? '这类问题在同岗位多轮和同方向岗位中复用频率较高。',
     confidence: input.confidence
@@ -200,8 +199,6 @@ function buildConversationItems(text: string): InterviewMaterialDraftItem[] {
     improvementSuggestion: question.feedback
       ? '根据点评补充业务目标、判断依据、指标或案例，并先确认内容符合自己的真实经历。'
       : '先补充面试官点评或自己的复盘判断，再生成可复用回答。',
-    improvedAnswer:
-      '我会先给出结论，再说明业务目标、用户场景、方案判断和验证指标。如果涉及 AI 产品，还会补充模型边界、人工确认点和失败兜底，确保回答既有产品思考，也能被面试官追问时继续展开。',
     answerAssetCandidate: Boolean(question.answer),
     assetCandidateReason: '来自一段完整问答，可以沉淀为同岗位多轮或同方向类似问题的回答素材。',
     confidence: question.feedback ? 'high' : 'medium'

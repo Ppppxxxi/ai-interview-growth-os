@@ -52,10 +52,6 @@ function buildQuestion(item: InterviewMaterialDraftItem, index: number): Intervi
   };
 }
 
-function buildFallbackAnswer(item: InterviewMaterialDraftItem, job: JobFile) {
-  return `我会先结合${job.company} ${job.roleTitle}的业务场景说明问题背景，再给出判断框架、关键取舍和验证指标。这个回答需要在保存后结合我的真实经历继续补充案例。`;
-}
-
 function buildReuseScope(job: JobFile) {
   return `适用于${job.direction}同岗位多轮或同方向类似问题，跨岗位使用前需要重新贴合业务场景。`;
 }
@@ -81,7 +77,11 @@ function buildAsset({
     originalQuestion: item.question || item.title,
     originalAnswer: item.originalAnswer || '未提供原回答，请使用前补充真实经历。',
     issue: item.issue || item.improvementSuggestion || '需要补充具体问题点。',
-    improvedAnswer: item.improvedAnswer || buildFallbackAnswer(item, job),
+    improvedAnswer: item.improvedAnswer!,
+    evidence: Array.isArray(item.evidence) ? item.evidence : undefined,
+    generation: item.generation,
+    missingFacts: item.missingFacts,
+    answerVersions: item.answerVersions,
     applicableRoles: [job.direction, `${job.direction}同方向岗位`],
     applicableQuestions: [item.question || item.title, ...(item.followUps ?? [])].filter(Boolean),
     weaknessTag: item.issue || item.title,
@@ -119,7 +119,7 @@ export function buildMaterialImportSavePayload({
   const sessionId = `session-${job.id}-material-${safeId(runId)}`;
   const reviewId = `review-${sessionId}`;
   const items = draft.interviewItems.length > 0 ? draft.interviewItems : [];
-  const selectedAssetItems = items.filter((item) => selectedIds.has(item.id) && item.answerAssetCandidate);
+  const selectedAssetItems = items.filter((item) => selectedIds.has(item.id) && item.answerAssetCandidate && item.improvedAnswer?.trim() && (!confirmationStatuses || ['accepted', 'edited-accepted'].includes(confirmationStatuses.get(item.id) ?? '')));
 
   const session: InterviewSession = {
     id: sessionId,

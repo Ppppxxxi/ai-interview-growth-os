@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Save } from 'lucide-react';
+import { AnswerEvidence } from './AnswerEvidence';
 import type {
   AnswerAsset,
   AnswerAssetUsageStatus,
@@ -144,6 +145,7 @@ export function AnswerAssetCard({
       </div>
       {activeTab === 'answer' && (
         <>
+          <AnswerEvidence evidence={asset.evidence} missingFacts={asset.missingFacts} />
           <section className="asset-section asset-section--answer asset-section--primary">
             <div className="asset-answer-heading">
               <strong>当前推荐回答</strong>

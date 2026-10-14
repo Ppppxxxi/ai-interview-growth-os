@@ -29,6 +29,7 @@ import { JobFileDetail } from './pages/JobFileDetail';
 import { WorkspaceHome } from './pages/WorkspaceHome';
 import { MyMaterials } from './pages/MyMaterials';
 import { createMaterialRepository } from './materials/repository';
+import { useMaterials } from './materials/useMaterials';
 import {
   attachInterviewSessionToJob,
   clearPersonalWorkspace,
@@ -112,6 +113,7 @@ export default function App() {
   const [materialRepository] = useState(() => createMaterialRepository(initialAppState.isPreviewMode ? {
     open: (name: string, version?: number) => globalThis.indexedDB.open(`${name}-preview`, version)
   } as IDBFactory : undefined));
+  const materials = useMaterials(materialRepository);
 
   useEffect(() => {
     if (!isDataMenuOpen) return;
@@ -337,6 +339,7 @@ export default function App() {
         </div>
         {view === 'focus' && (
           <FocusFlowPage
+            materialChunks={materials.chunks}
             selectedJobId={workspaceData.selectedJobId}
             jobFiles={workspaceData.jobFiles}
             onUpdateJob={handleUpdateJob}
@@ -392,7 +395,7 @@ export default function App() {
             reviewReports={workspaceData.reviewReports}
           />
         )}
-        {view === 'materials' && <MyMaterials repository={materialRepository} onNavigationGuardChange={registerMaterialsGuard} />}
+        {view === 'materials' && <MyMaterials repository={materialRepository} onMaterialsChanged={() => { void materials.refresh(); }} onNavigationGuardChange={registerMaterialsGuard} />}
       </div>
     </main>
   );

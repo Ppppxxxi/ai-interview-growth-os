@@ -68,6 +68,7 @@ export type InterviewQuestion = {
 };
 
 export type InterviewMaterialDraftItem = {
+  answerVersions?: AnswerAssetVersion[];
   id: string;
   title: string;
   question?: string;
