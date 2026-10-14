@@ -1,0 +1,7 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "api/answers/rewrite.ts": { "maxDuration": 60 },
+    "api/ai/status.ts": { "maxDuration": 60 }
+  }
+}
