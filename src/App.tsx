@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ArchiveRestore,
   BriefcaseBusiness,
   ChevronDown,
+  FileText,
   LayoutDashboard,
   Library,
   Plus,
@@ -26,6 +27,8 @@ import { FocusFlowPage } from './pages/FocusFlowPage';
 import { GrowthDashboard } from './pages/GrowthDashboard';
 import { JobFileDetail } from './pages/JobFileDetail';
 import { WorkspaceHome } from './pages/WorkspaceHome';
+import { MyMaterials } from './pages/MyMaterials';
+import { createMaterialRepository } from './materials/repository';
 import {
   attachInterviewSessionToJob,
   clearPersonalWorkspace,
@@ -46,12 +49,13 @@ import {
 } from './workflow/personalWorkspace';
 import { upsertAnswerAsset } from './workflow/runtimeAssets';
 
-type AppView = 'focus' | 'workspace' | 'job' | 'assets' | 'growth';
+type AppView = 'focus' | 'workspace' | 'job' | 'assets' | 'growth' | 'materials';
 
 const navItems: Array<{ id: AppView; label: string }> = [
   { id: 'workspace', label: '工作台' },
   { id: 'job', label: '目标岗位' },
   { id: 'assets', label: '我的回答库' },
+  { id: 'materials', label: '我的资料' },
   { id: 'growth', label: '面试复盘' }
 ];
 
@@ -103,6 +107,11 @@ export default function App() {
   const [workspaceData, setWorkspaceData] = useState(initialAppState.workspace);
   const [isDataMenuOpen, setIsDataMenuOpen] = useState(false);
   const dataMenuRef = useRef<HTMLDetailsElement>(null);
+  const materialsGuard = useRef<(() => boolean) | null>(null);
+  const registerMaterialsGuard = useCallback((guard: (() => boolean) | null) => { materialsGuard.current = guard; }, []);
+  const [materialRepository] = useState(() => createMaterialRepository(initialAppState.isPreviewMode ? {
+    open: (name: string, version?: number) => globalThis.indexedDB.open(`${name}-preview`, version)
+  } as IDBFactory : undefined));
 
   useEffect(() => {
     if (!isDataMenuOpen) return;
@@ -128,11 +137,13 @@ export default function App() {
 
   function switchView(nextView: AppView) {
     setIsDataMenuOpen(false);
+    if (nextView !== view && materialsGuard.current && !materialsGuard.current()) return;
     setView(nextView);
   }
 
   function handleRestoreExample() {
     setIsDataMenuOpen(false);
+    if (materialsGuard.current && !materialsGuard.current()) return;
     const confirmed = window.confirm(
       '恢复示例数据会覆盖当前浏览器里的本地数据，是否继续？'
     );
@@ -144,6 +155,7 @@ export default function App() {
 
   function handleClearLocalData() {
     setIsDataMenuOpen(false);
+    if (materialsGuard.current && !materialsGuard.current()) return;
     const confirmed = window.confirm(
       '清空本地数据后，当前岗位、面试记录和我的回答库会从这个浏览器删除，是否继续？'
     );
@@ -265,6 +277,8 @@ export default function App() {
                   <BriefcaseBusiness size={17} />
                 ) : item.id === 'assets' ? (
                   <Library size={17} />
+                ) : item.id === 'materials' ? (
+                  <FileText size={17} />
                 ) : (
                   <Radar size={17} />
                 )}
@@ -378,6 +392,7 @@ export default function App() {
             reviewReports={workspaceData.reviewReports}
           />
         )}
+        {view === 'materials' && <MyMaterials repository={materialRepository} onNavigationGuardChange={registerMaterialsGuard} />}
       </div>
     </main>
   );
