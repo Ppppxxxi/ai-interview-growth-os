@@ -16,6 +16,7 @@ function readState(states: Record<string, AnswerGenerationState>, questionId: st
 export function useAnswerGeneration() {
   const [states, setStates] = useState<Record<string, AnswerGenerationState>>({});
   const mounted = useRef(true);
+  // Only explicit cancellation/unmount invalidates accepted, queued completions.
   const sequence = useRef(0);
   const active = useRef<Flight | null>(null);
   const lastQuestionId = useRef<string | null>(null);
@@ -47,7 +48,7 @@ export function useAnswerGeneration() {
   const generate = useCallback(async (request: RewriteRequest): Promise<RewriteResponse | undefined> => {
     // Ref locking is immediate, including two clicks before React's next render.
     if (!mounted.current || active.current) return undefined;
-    const flight: Flight = { questionId: request.questionId, sequence: ++sequence.current, controller: new AbortController() };
+    const flight: Flight = { questionId: request.questionId, sequence: sequence.current, controller: new AbortController() };
     active.current = flight;
     lastQuestionId.current = flight.questionId;
     const isCurrent = () => mounted.current && sequence.current === flight.sequence && active.current === flight;

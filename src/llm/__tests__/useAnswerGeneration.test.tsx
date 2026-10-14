@@ -71,6 +71,10 @@ describe('generation lifecycle', () => {
     act(() => { void h.result.current.generate(request()); });
     await h.finish(0);
     expect(h.result.current.getState('q1').status).toBe('pending');
+    await act(async () => {
+      expect(await h.result.current.generate({ ...request(), questionId: 'q3' })).toBeUndefined();
+    });
+    expect(h.calls).toHaveLength(2);
     await h.finish(1);
     expect(h.result.current.getState('q1').result?.generationId).toBe(h.calls[1].input.generationId);
   });
@@ -111,5 +115,37 @@ describe('generation lifecycle', () => {
       h.result.current.cancel();
     });
     expect(h.result.current.getState('q1')).toEqual({ status: 'idle' });
+  });
+  it('completed_q1_survives_batched_start_of_q2', async () => {
+    const h = harness();
+    let first!: ReturnType<typeof h.result.current.generate>;
+    act(() => { first = h.result.current.generate(request()); });
+    const completed = response(h.calls[0].input);
+    await act(async () => {
+      h.calls[0].deferred.resolve(new Response(JSON.stringify(completed)));
+      expect(await first).toEqual(completed);
+      void h.result.current.generate({ ...request(), questionId: 'q2' });
+      expect(h.calls).toHaveLength(2);
+    });
+    expect(h.result.current.getState('q2').status).toBe('pending');
+    await h.finish(1);
+    expect(h.result.current.getState('q2')).toEqual({ status: 'success', result: response(h.calls[1].input) });
+    expect(h.result.current.getState('q1')).toEqual({ status: 'success', result: completed });
+  });
+  it('failed_batched_retry_retains_just_completed_result', async () => {
+    const h = harness();
+    let first!: ReturnType<typeof h.result.current.generate>;
+    act(() => { first = h.result.current.generate(request()); });
+    const completed = response(h.calls[0].input);
+    await act(async () => {
+      h.calls[0].deferred.resolve(new Response(JSON.stringify(completed)));
+      expect(await first).toEqual(completed);
+      void h.result.current.generate(request());
+      expect(h.calls).toHaveLength(2);
+    });
+    expect(h.result.current.getState('q1').status).toBe('pending');
+    await h.finish(1, 429);
+    expect(h.result.current.getState('q1')).toMatchObject({ status: 'error', result: completed, error: { code: 'RATE_LIMITED' } });
+    expect(h.calls[1].input.generationId).not.toBe(h.calls[0].input.generationId);
   });
 });
