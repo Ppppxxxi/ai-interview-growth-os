@@ -12,6 +12,7 @@ import { AnswerEvidence } from './AnswerEvidence';
 import { emptyFocusWork, isFocusAnswerReady, reconcileFocusWork, type FocusQuestionWork, type FocusQuestionWorks } from '../domain/focusFlowDraft';
 
 type Props = { items: InterviewMaterialDraftItem[]; job: JobFile; chunks: MaterialChunk[];
+  materialsReady?: boolean;
   initialQuestionId?: string;
   work: FocusQuestionWorks;
   onWorkChange: (id: string, work: FocusQuestionWork) => void;
@@ -19,7 +20,7 @@ type Props = { items: InterviewMaterialDraftItem[]; job: JobFile; chunks: Materi
   onChange: (item: InterviewMaterialDraftItem) => void;
   onSave: (statuses: Map<string, AnswerAssetConfirmationStatus>) => void };
 type Run = { request: RewriteRequest; revision: number; applied?: string };
-export function FocusAnswersPanel({ items, job, chunks, initialQuestionId, work, onWorkChange, onActiveChange, onChange, onSave }: Props) {
+export function FocusAnswersPanel({ items, job, chunks, materialsReady = true, initialQuestionId, work, onWorkChange, onActiveChange, onChange, onSave }: Props) {
   const generation = useAnswerGeneration();
   const [activeId, setActiveId] = useState(initialQuestionId ?? items[0]?.id);
   const item = items.find(entry => entry.id === activeId) ?? items[0];
@@ -42,7 +43,7 @@ export function FocusAnswersPanel({ items, job, chunks, initialQuestionId, work,
   const state = generation.getState(item.id);
   const revision = revisions.current[item.id] ?? 0;
   const run = runs.current[item.id];
-  const answerReady = isFocusAnswerReady(item, currentWork);
+  const answerReady = materialsReady && isFocusAnswerReady(item, currentWork);
   const accepted = confirmed[item.id]?.revision === revision;
   useEffect(() => {
     const controller = new AbortController();
@@ -52,6 +53,7 @@ export function FocusAnswersPanel({ items, job, chunks, initialQuestionId, work,
   const chunkSnapshot = JSON.stringify(chunks);
   const previousChunks = useRef(chunkSnapshot);
   useEffect(() => {
+    if (!materialsReady) { generation.cancel(); setConfirmation(undefined); setConfirmed({}); return; }
     if (previousChunks.current === chunkSnapshot) return;
     previousChunks.current = chunkSnapshot;
     generation.cancel(); setConfirmation(undefined); setConfirmed({});
@@ -64,10 +66,10 @@ export function FocusAnswersPanel({ items, job, chunks, initialQuestionId, work,
         if (Array.isArray(entry.evidence)) onChange({ ...entry, evidence: entry.evidence.map(e => ({ ...e, status: 'needs-review' })) });
       }
     }
-  }, [chunkSnapshot, chunks, generation.cancel, items, onChange]);
+  }, [chunkSnapshot, chunks, materialsReady, generation.cancel, items, onChange]);
   useEffect(() => {
     const result = state.result;
-    if (state.status !== 'success' || !result || !run || run.revision !== (revisions.current[item.id] ?? 0) || run.applied === result.generationId) return;
+    if (!materialsReady || state.status !== 'success' || !result || !run || run.revision !== (revisions.current[item.id] ?? 0) || run.applied === result.generationId) return;
     // The hook owns the final ID; all other fields come from the exact send snapshot.
     const evidence = validateEvidence({ ...run.request, generationId: result.generationId }, result);
     run.applied = result.generationId;
@@ -75,7 +77,7 @@ export function FocusAnswersPanel({ items, job, chunks, initialQuestionId, work,
     setConfirmed(current => { const next = { ...current }; delete next[item.id]; return next; });
     onChange({ ...item, modelRationale: { rewriteFocus: result.rewriteFocus, applicabilityBoundary: result.applicabilityBoundary }, answerAssetCandidate: true, improvedAnswer: result.answer, evidence, missingFacts: result.missingFacts,
       generation: { provider: 'deepseek', model: result.model, generatedAt: result.generatedAt, generationId: result.generationId, origin: 'model' } });
-  }, [state, run, revision, item, onChange]);
+  }, [state, run, revision, item, onChange, materialsReady]);
 
   function invalidate() {
     generation.cancel(); setConfirmation(undefined); setError('');
@@ -93,11 +95,13 @@ export function FocusAnswersPanel({ items, job, chunks, initialQuestionId, work,
   let preview: RewriteRequest | undefined;
   try { preview = prepareRewriteRequest(item, job, selectedChunks, 'preview'); } catch { /* Show the public preparation error on generate, without truncating. */ }
   function start(request: RewriteRequest) {
+    if (!materialsReady) return;
     runs.current[item.id] = { request, revision };
     setConfirmation(undefined); setFirstSend(true); setError('');
     void generation.generate(request);
   }
   function generate() {
+    if (!materialsReady) return;
     try {
       const request = prepareRewriteRequest(item, job, selectedChunks, crypto.randomUUID());
       if (!firstSend) setConfirmation(request); else start(request);
@@ -108,6 +112,7 @@ export function FocusAnswersPanel({ items, job, chunks, initialQuestionId, work,
     setConfirmed(current => ({ ...current, [item.id]: { revision, status } }));
   }
   function save() {
+    if (!materialsReady) return;
     const statuses = new Map<string, AnswerAssetConfirmationStatus>();
     for (const entry of items) {
       const confirmation = confirmed[entry.id];
@@ -132,7 +137,7 @@ export function FocusAnswersPanel({ items, job, chunks, initialQuestionId, work,
       {([['本次问题', preview.question], ['原回答', preview.originalAnswer], ['具体问题', preview.issue], ['改写重点', preview.rewriteFocus], ['公司', preview.jobContext?.company ?? ''], ['岗位', preview.jobContext?.role ?? ''], ['岗位要求', preview.jobContext?.jdSummary ?? '']] as const).map(([label, text]) => <div key={label}><strong>{label}</strong><p>{text || '未填写'}</p></div>)}
       {preview.chunks.map(chunk => <div key={chunk.chunkId}><strong>{chunk.title} · {chunk.kind === 'knowledge' ? '知识笔记' : '项目经历'}</strong><small>{chunk.locator.type === 'page' ? `第 ${chunk.locator.pageNumber} 页` : `第 ${chunk.locator.paragraphIndex + 1} 段`}{chunk.tags.length > 0 && ` · ${chunk.tags.join('、')}`}</small><p>{chunk.text}</p></div>)}
     </div> : <p>内容超出限制或问题为空，请调整后重试。</p>}</details>
-    <div className="focus-generation-actions"><button type="button" className="primary-action" disabled={state.status === 'pending' || configured === false} onClick={generate}><Sparkles size={16} />{state.status === 'pending' ? '生成中' : '生成当前回答'}</button>
+    <div className="focus-generation-actions"><button type="button" className="primary-action" disabled={!materialsReady || state.status === 'pending' || configured === false} onClick={generate}><Sparkles size={16} />{state.status === 'pending' ? '生成中' : '生成当前回答'}</button>
       {state.status === 'pending' && <button type="button" className="ghost-action" title="取消生成" onClick={() => generation.cancel()}><X size={16} />取消</button>}
       {configured === false && <span>生成暂不可用，可手写回答</span>}
     </div>
@@ -141,9 +146,9 @@ export function FocusAnswersPanel({ items, job, chunks, initialQuestionId, work,
     <label className="focus-answer-field"><span>下次可用回答</span><textarea aria-label="下次可用回答" value={item.improvedAnswer ?? ''} onChange={event => edit('improvedAnswer', event.target.value)} /></label>
     {item.modelRationale && <details className="focus-answer-rationale"><summary>生成依据与适用边界</summary><strong>模型改写重点</strong><p>{item.modelRationale.rewriteFocus}</p><strong>模型适用边界</strong><p>{item.modelRationale.applicabilityBoundary}</p></details>}
     <AnswerEvidence evidence={Array.isArray(item.evidence) ? item.evidence : []} missingFacts={item.missingFacts} />
-    {item.improvedAnswer?.trim() && (answerReady || accepted) && <div className="focus-answer-confirmation" aria-label="回答确认">
+    {materialsReady && item.improvedAnswer?.trim() && (answerReady || accepted) && <div className="focus-answer-confirmation" aria-label="回答确认">
       <span>{accepted ? '已确认采用' : '待确认'}</span><button type="button" className="secondary-action" onClick={() => confirm('accepted')}><Check size={15} />采用</button><button type="button" className="secondary-action" onClick={() => confirm('edited-accepted')}><Pencil size={15} />修改后采用</button><button type="button" className="ghost-action" onClick={() => setConfirmed(current => { const next = { ...current }; delete next[item.id]; return next; })}>暂不保存</button>
     </div>}
-    <button type="button" className="primary-action" disabled={!Object.keys(confirmed).length || state.status === 'pending'} onClick={save}><CheckCheck size={16} />保存到我的回答库</button>
+    <button type="button" className="primary-action" disabled={!materialsReady || !Object.keys(confirmed).length || state.status === 'pending'} onClick={save}><CheckCheck size={16} />保存到我的回答库</button>
   </div>;
 }

@@ -107,7 +107,7 @@ export default function App() {
   const [hasStarted, setHasStarted] = useState(initialAppState.hasStarted);
   const [workspaceData, setWorkspaceData] = useState(initialAppState.workspace);
   const workspaceSnapshot = useRef(workspaceData); workspaceSnapshot.current = workspaceData;
-  const handleFlowDraftPersisted = useCallback(() => {
+  const handleFlowDraftSaveStarted = useCallback(() => {
     if (!initialAppState.isPreviewMode) writePersonalWorkspace(getBrowserStorage(), workspaceSnapshot.current);
     setHasStarted(true);
   }, [initialAppState.isPreviewMode]);
@@ -344,9 +344,11 @@ export default function App() {
         </div>
         {view === 'focus' && (
           <FocusFlowPage
-            onDraftPersisted={handleFlowDraftPersisted}
+            onDraftSaveStarted={handleFlowDraftSaveStarted}
             repository={materialRepository}
             materialsLoading={materials.loading}
+            materialsError={materials.error}
+            onRetryMaterials={materials.refresh}
             materialChunks={materials.chunks}
             selectedJobId={workspaceData.selectedJobId}
             jobFiles={workspaceData.jobFiles}

@@ -9,6 +9,7 @@ import { MaterialReferencePicker } from '../components/materials/MaterialReferen
 import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
 import { createMaterialRepository } from '../materials/repository';
+import * as materialRepositories from '../materials/repository';
 import { getMaterialDraftQueue } from '../materials/draftQueue';
 import type { FocusFlowDraft } from '../domain/focusFlowDraft';
 import { parseInterviewMaterial as parseDraft } from '../agents/materialImportParser';
@@ -308,14 +309,17 @@ it('step_unmount_cancels_pending_rewrite_and_retains_only_the_completed_provenan
 });
 it('app_reopen_before_any_answer_save_keeps_the_starter_job_identity_and_input_draft', async () => {
   vi.stubGlobal('indexedDB', new IDBFactory()); localStorage.clear();
+  const repository = createMaterialRepository();
+  vi.spyOn(materialRepositories, 'createMaterialRepository').mockReturnValue(repository);
   let ui = render(<App />);
   await waitFor(() => expect((document.querySelector('.focus-flow-content') as HTMLFieldSetElement).disabled).toBe(false));
   fireEvent.change(screen.getByLabelText('面试材料'), { target: { value: '还未保存任何回答的虚构输入' } });
   await waitFor(() => expect(localStorage.length).toBeGreaterThan(0));
-  const repository = createMaterialRepository();
   await waitFor(async () => expect((await repository.listFlowDrafts())[0]?.rawText).toBe('还未保存任何回答的虚构输入'));
+  await act(async () => { await getMaterialDraftQueue(repository).whenIdle(); });
   const jobId = (await repository.listFlowDrafts())[0].jobId;
   ui.unmount(); ui = render(<App />); await screen.findByText('未保存草稿');
+  await act(async () => { await getMaterialDraftQueue(repository).whenIdle(); });
   expect((screen.getByLabelText('面试材料') as HTMLTextAreaElement).value).toBe('还未保存任何回答的虚构输入');
   expect((await repository.listFlowDrafts())[0].jobId).toBe(jobId); expect(calls).toHaveLength(0);
   ui.unmount(); localStorage.clear();
