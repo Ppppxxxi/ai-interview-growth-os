@@ -6,6 +6,7 @@ import { MaterialEditor } from '../components/materials/MaterialEditor';
 import { importDocument, type PageText } from '../materials/importDocument';
 import type { MaterialRepository } from '../materials/repository';
 import { useMaterials } from '../materials/useMaterials';
+import { getMaterialDraftQueue } from '../materials/draftQueue';
 
 type Props = {
   repository: MaterialRepository;
@@ -26,18 +27,17 @@ export function MyMaterials({ repository, onMaterialsChanged, onDeleteMaterial, 
   const [drafts, setDrafts] = useState<MaterialDraft[]>([]);
   const [draftError, setDraftError] = useState('');
   const alive = useRef(true);
-  const writes = useRef<Promise<void>>(Promise.resolve());
+  const draftQueue = getMaterialDraftQueue(repository);
   const draftRequest = useRef(0);
   const current = useRef({ editing, busy }); current.current = { editing, busy };
   const loadDrafts = useCallback(async () => {
     const request = ++draftRequest.current;
     try {
-      await writes.current;
-      const items = await repository.listDrafts();
+      const items = await draftQueue.run(() => repository.listDrafts());
       if (alive.current && request === draftRequest.current) { setDrafts(items.filter(item => !item.questionId)); setDraftError(''); }
     }
     catch { if (alive.current && request === draftRequest.current) setDraftError('草稿加载失败'); }
-  }, [repository]);
+  }, [repository, draftQueue]);
   useEffect(() => { alive.current = true; void loadDrafts(); return () => { alive.current = false; }; }, [loadDrafts]);
   const canLeave = useCallback(() => !current.current.busy && (!current.current.editing?.dirty || window.confirm('有未保存修改，是否离开？')), []);
   useEffect(() => {
@@ -49,7 +49,7 @@ export function MyMaterials({ repository, onMaterialsChanged, onDeleteMaterial, 
     return () => { onNavigationGuardChange?.(null); window.removeEventListener('beforeunload', unload); };
   }, [canLeave, onNavigationGuardChange]);
   function enqueueDraft(draft: MaterialDraft) {
-    writes.current = writes.current.then(() => repository.saveDraft(draft)).then(() => {
+    void draftQueue.run(() => repository.saveDraft(draft)).then(() => {
       if (alive.current) setDraftError('');
     }).catch(() => { if (alive.current) setDraftError('草稿保存失败，请重试'); });
   }
@@ -70,7 +70,14 @@ export function MyMaterials({ repository, onMaterialsChanged, onDeleteMaterial, 
     if (!canLeave()) return;
     setBusy(true);
     try {
-      const original = draft.documentId ? await repository.getDocument(draft.documentId) : undefined;
+      const restored = await draftQueue.run(async () => {
+        const latest = (await repository.listDrafts()).find(item => item.id === draft.id);
+        if (!latest) throw new Error('missing draft');
+        const original = latest.documentId ? await repository.getDocument(latest.documentId) : undefined;
+        return { draft: latest, original };
+      });
+      draft = restored.draft;
+      const { original } = restored;
       if (draft.documentId && (!original || original.version !== draft.documentVersion)) throw new Error('conflict');
       setKind(draft.kind); setEditing({ draft, original, dirty: true, restored: true, textEdited: true }); setConfirmed(false); setError('');
     } catch { setError('草稿对应资料已变更，请重新打开资料'); }
@@ -104,11 +111,14 @@ export function MyMaterials({ repository, onMaterialsChanged, onDeleteMaterial, 
     };
     setBusy(true); setError('');
     try {
-      await writes.current;
-      const saved = await materials.saveDocument(document, original?.version ?? null, pages, !editing.textEdited);
+      const { saved, cleanupFailed } = await draftQueue.run(async () => {
+        const saved = await materials.saveDocument(document, original?.version ?? null, pages, !editing.textEdited);
+        try { await repository.deleteDraft(draft.id); return { saved, cleanupFailed: false }; }
+        catch { return { saved, cleanupFailed: true }; }
+      });
       setEditing(undefined); setSelected(saved.id);
-      try { await repository.deleteDraft(draft.id); await loadDrafts(); }
-      catch { setDraftError('资料已保存，草稿清理失败'); }
+      if (cleanupFailed) setDraftError('资料已保存，草稿清理失败');
+      else await loadDrafts();
       onMaterialsChanged?.();
     } catch { setError('保存失败，请重试'); }
     finally { setBusy(false); }

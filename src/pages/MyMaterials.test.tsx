@@ -31,6 +31,40 @@ async function seedPdf(repo: ReturnType<typeof repository>) {
   return document;
 }
 
+async function remountDuringDraftWrite() {
+  const repo = repository();
+  const base = { id: 'remount-fixture', kind: 'experience' as const, title: '虚构跨挂载草稿',
+    text: 'Base text', tags: [], sourceFormat: 'paste' as const, selectedChunks: [], updatedAt: '2026-01-01' };
+  await repo.saveDraft(base);
+  const realSave = repo.saveDraft;
+  let release!: () => void;
+  const barrier = new Promise<void>(resolve => { release = resolve; });
+  const writes = vi.spyOn(repo, 'saveDraft').mockImplementation(async draft => {
+    if (draft.text === 'Old delayed text') await barrier;
+    await realSave(draft);
+  });
+  const first = render(<MyMaterials repository={repo} />);
+  fireEvent.click(await screen.findByRole('button', { name: '未保存草稿 · 虚构跨挂载草稿' }));
+  await screen.findByLabelText('正文');
+  fireEvent.change(screen.getByLabelText('正文'), { target: { value: 'Old delayed text' } });
+  await waitFor(() => expect(writes).toHaveBeenCalledTimes(1));
+  fireEvent.change(screen.getByLabelText('正文'), { target: { value: 'Old queued text' } });
+  first.unmount();
+  const reads = vi.spyOn(repo, 'listDrafts');
+  try {
+    await act(async () => { render(<MyMaterials repository={repo} />); });
+    expect(reads).not.toHaveBeenCalled();
+  } finally {
+    await act(async () => { release(); });
+  }
+  fireEvent.click(await screen.findByRole('button', { name: '未保存草稿 · 虚构跨挂载草稿' }));
+  await screen.findByLabelText('正文');
+  expect((screen.getByLabelText('正文') as HTMLTextAreaElement).value).toBe('Old queued text');
+  expect((screen.getByLabelText('确认正文') as HTMLInputElement).checked).toBe(false);
+  fireEvent.change(screen.getByLabelText('正文'), { target: { value: 'New current text' } });
+  return { repo, writes };
+}
+
 describe('MyMaterials', () => {
   it('starts_empty_without_required_setup', async () => {
     const repo = repository(); render(<MyMaterials repository={repo} />);
@@ -61,7 +95,7 @@ describe('MyMaterials', () => {
     await waitFor(async () => expect((await repo.listDrafts()).length).toBe(1));
     view.unmount(); render(<MyMaterials repository={repo} />);
     fireEvent.click(await screen.findByRole('button', { name: /未保存草稿/ }));
-    expect(screen.getByText('未保存草稿', { selector: 'strong' })).toBeTruthy();
+    expect(await screen.findByText('未保存草稿', { selector: 'strong' })).toBeTruthy();
     expect((screen.getByLabelText('确认正文') as HTMLInputElement).checked).toBe(false);
   });
   it('does_not_execute_imported_html', async () => {
@@ -179,7 +213,7 @@ describe('MyMaterials', () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     fireEvent.click(screen.getByRole('button', { name: '删除资料' }));
     await screen.findByText('删除失败，请重试');
-    expect((await repo.listDocuments()).length).toBe(1);
+    await act(async () => { expect((await repo.listDocuments()).length).toBe(1); });
   });
   it('imports_real_markdown_with_format_and_requires_fresh_confirmation', async () => {
     const repo = repository(); render(<MyMaterials repository={repo} />); await add(); confirm();
@@ -203,6 +237,21 @@ describe('MyMaterials', () => {
     fireEvent.click(screen.getByRole('tab', { name: '我的经历' }));
     await act(async () => { await repo.listDrafts(); release(); });
     fireEvent.click(await screen.findByRole('button', { name: '未保存草稿 · 虚构项目' }));
+    await screen.findByLabelText('正文');
     expect((screen.getByLabelText('正文') as HTMLTextAreaElement).value).toContain('虚构 React');
+  });
+  it('orders_old_and_new_mount_draft_writes_without_dropping_edited_text', async () => {
+    const { repo, writes } = await remountDuringDraftWrite();
+    await waitFor(async () => expect((await repo.listDrafts())[0].text).toBe('New current text'));
+    expect(writes.mock.calls.map(([draft]) => draft.text)).toEqual(['Old delayed text', 'Old queued text', 'New current text']);
+  });
+  it('does_not_resurrect_drafts_after_save_across_mounts', async () => {
+    const { repo } = await remountDuringDraftWrite();
+    confirm(); fireEvent.click(screen.getByRole('button', { name: '保存资料' })); await saved();
+    expect((await repo.listDocuments())[0].text).toBe('New current text');
+    expect(await repo.listDrafts()).toEqual([]);
+    cleanup(); render(<MyMaterials repository={repo} />);
+    await screen.findByRole('button', { name: /虚构跨挂载草稿/ });
+    expect(screen.queryByRole('button', { name: /未保存草稿/ })).toBeNull();
   });
 });
