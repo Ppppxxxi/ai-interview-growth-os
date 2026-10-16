@@ -141,6 +141,53 @@ it('a_reference_free_draft_can_reopen_during_failure_and_partial_save_keeps_only
   expect(remaining.materialDraft!.interviewItems.map(item => item.id)).toEqual(before.materialDraft!.interviewItems.filter(item => item.id !== savedId).map(item => item.id));
   expect(remaining.work[savedId]).toBeUndefined(); expect(rewrites).toBe(0);
 });
+it.each(['input', 'questions', 'answers'] as const)('explicit_return_locks_%s_until_deferred_real_draft_restore_finishes_during_material_failure', async stage => {
+  const { repository, draft, item } = await seed();
+  const realRead = repository.listFlowDrafts;
+  const writes = vi.spyOn(repository, 'saveFlowDraft');
+  const deletes = vi.spyOn(repository, 'deleteDraft');
+  failChunksRead(); render(<App />);
+  await screen.findByText('资料加载失败'); await screen.findByText('未保存草稿');
+  fireEvent.click(screen.getByRole('button', { name: '不使用资料继续' }));
+  const input = screen.getByLabelText('面试材料');
+  expect(input.matches(':disabled')).toBe(false);
+  fireEvent.change(input, { target: { value: '面试官：如何设计虚构实验？\n候选人：比较实验组。' } });
+  if (stage !== 'input') fireEvent.click(screen.getByRole('button', { name: '解析材料' }));
+  if (stage === 'answers') {
+    fireEvent.click(screen.getByRole('button', { name: '生成下次可用回答' }));
+    const answer = screen.getByLabelText('下次可用回答');
+    expect(answer.matches(':disabled')).toBe(false);
+    fireEvent.change(answer, { target: { value: '返回前主动放弃的独立回答' } });
+  }
+  await act(async () => { await getMaterialDraftQueue(repository).whenIdle(); });
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  let started!: () => void;
+  const reading = new Promise<void>(resolve => { started = resolve; });
+  vi.spyOn(repository, 'listFlowDrafts').mockImplementationOnce(async () => { started(); await gate; return realRead(); });
+  try {
+    fireEvent.click(screen.getByRole('button', { name: '返回原草稿' }));
+    await act(async () => { await reading; });
+    const editor = screen.getByLabelText(stage === 'input' ? '面试材料' : stage === 'questions' ? '识别到的问题' : '下次可用回答');
+    expect(editor.matches(':disabled')).toBe(true);
+    expect(screen.getByRole('button', { name: '不使用资料继续' }).matches(':disabled')).toBe(true);
+    // Do not synthesize changes on native-disabled controls.
+    expect(await realRead()).toEqual([draft]);
+    expect(writes).not.toHaveBeenCalled(); expect(deletes).not.toHaveBeenCalled();
+    await act(async () => { release(); await getMaterialDraftQueue(repository).whenIdle(); });
+    const restored = screen.getByLabelText('下次可用回答') as HTMLTextAreaElement;
+    expect(restored.value).toBe(item.improvedAnswer);
+    expect(restored.matches(':disabled')).toBe(false);
+    expect(screen.getByRole('button', { name: '保存到我的回答库' }).matches(':disabled')).toBe(true);
+    expect(screen.queryByRole('button', { name: /^采用$/ })).toBeNull();
+    expect(readPersonalWorkspace(localStorage, createEmptyPersonalWorkspaceData()).answerAssets).toEqual([]);
+    fireEvent.change(restored, { target: { value: '恢复完成后明确手写的新回答' } });
+    expect(restored.value).toBe('恢复完成后明确手写的新回答');
+    await act(async () => { await getMaterialDraftQueue(repository).whenIdle(); });
+    expect(await realRead()).toEqual([draft]);
+    expect(writes).not.toHaveBeenCalled(); expect(deletes).not.toHaveBeenCalled(); expect(rewrites).toBe(0);
+  } finally { await act(async () => { release(); await getMaterialDraftQueue(repository).whenIdle(); }); }
+});
 it('typing_before_delayed_draft_read_finishes_keeps_the_old_referenced_draft_and_new_input_separate', async () => {
   const { repository, draft } = await seed(); const read = repository.listFlowDrafts;
   let release!: () => void; const gate = new Promise<void>(resolve => { release = resolve; });

@@ -85,6 +85,7 @@ export function FocusFlowPage({
   const [retryDraft, setRetryDraft] = useState(0);
   const [retryWrite, setRetryWrite] = useState(0);
   const [detached, setDetached] = useState(false);
+  const [returningDraft, setReturningDraft] = useState(false);
   const [protectedDraft, setProtectedDraft] = useState(false);
   const [protectedReferences, setProtectedReferences] = useState(false);
   const inputEdited = useRef(false);
@@ -98,6 +99,7 @@ export function FocusFlowPage({
     hydratedJob.current = '';
     inputEdited.current = false;
     setDetached(false); setProtectedDraft(false);
+    setReturningDraft(false);
     setProtectedReferences(false);
     setJobDraft(createFocusJobDraft(selectedJob));
     setMaterialText('');
@@ -131,7 +133,7 @@ export function FocusFlowPage({
       }
       if (draft && inputEdited.current) setDetached(true);
       hydratedJob.current = selectedJob.id;
-      setDraftReady(true); setDraftError('');
+      setDraftReady(true); setReturningDraft(false); setDraftError('');
     }).catch(() => { if (!cancelled) setDraftError('草稿加载失败，请重试'); });
     return () => { cancelled = true; };
   }, [repository, selectedJob.id, retryDraft]);
@@ -310,11 +312,11 @@ export function FocusFlowPage({
     <section className="focus-flow-page">
       {repository && !draftReady && !materialsError && <p role="status">{materialsLoading ? '资料加载中' : '草稿加载中'}</p>}
       {materialsError && <p role="alert"><span>{materialsError}</span><button type="button" onClick={onRetryMaterials}>重试资料</button></p>}
-      {materialsError && protectedReferences && !detached && <button className="secondary-action" type="button" onClick={() => { setDetached(true); handleStartNext(); }}><ArrowRight size={15} />不使用资料继续</button>}
-      {detached && protectedDraft && <p className="material-draft-label">原草稿已保留<button className="ghost-action" type="button" onClick={() => { inputEdited.current = false; setDraftReady(false); setDetached(false); setRetryDraft(value => value + 1); }}><ArrowLeft size={15} />返回原草稿</button></p>}
+      {materialsError && protectedReferences && !detached && <button className="secondary-action" type="button" disabled={returningDraft} onClick={() => { setDetached(true); handleStartNext(); }}><ArrowRight size={15} />不使用资料继续</button>}
+      {detached && protectedDraft && <p className="material-draft-label">原草稿已保留<button className="ghost-action" type="button" onClick={() => { inputEdited.current = false; setReturningDraft(true); setDraftReady(false); setDetached(false); setRetryDraft(value => value + 1); }}><ArrowLeft size={15} />返回原草稿</button></p>}
       {restored && <p className="material-draft-label">未保存草稿</p>}
       {draftError && <p role="alert">{draftError}<button type="button" onClick={() => draftReady ? setRetryWrite(current => current + 1) : setRetryDraft(current => current + 1)}>重试草稿</button></p>}
-      <fieldset className="focus-flow-content" disabled={!!repository && !draftReady && !materialsError}>
+      <fieldset className="focus-flow-content" disabled={!!repository && !draftReady && (!materialsError || returningDraft)}>
       <header className="focus-flow-hero">
         <div>
           <p className="eyebrow">面试成长</p>
