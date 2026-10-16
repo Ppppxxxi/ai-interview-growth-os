@@ -185,6 +185,7 @@ export function AnswerAssetCard({
                       <span>{version.createdAt.slice(0, 10)}</span>
                     </div>
                     <p>{version.answer}</p>
+                    <AnswerEvidence evidence={version.evidence} missingFacts={version.missingFacts} />
                     <button
                       type="button"
                       className="ghost-action"
@@ -376,9 +377,9 @@ function createAssetRationale(asset: AnswerAsset) {
     sourceQuestion:
       asset.answerRationale?.sourceQuestion ?? asset.originalQuestion,
     originalIssue: asset.answerRationale?.originalIssue ?? asset.issue,
-    rewriteFocus: asset.answerRationale?.rewriteFocus ?? asset.usageNote,
+    rewriteFocus: asset.answerRationale?.rewriteFocus ?? asset.modelRationale?.rewriteFocus ?? asset.usageNote,
     applicabilityBoundary:
-      asset.answerRationale?.applicabilityBoundary ?? asset.reuseScope
+      asset.answerRationale?.applicabilityBoundary ?? asset.modelRationale?.applicabilityBoundary ?? asset.reuseScope
   };
 }
 

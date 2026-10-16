@@ -17,9 +17,12 @@ const evidence = z.object({
 const generation = z.object({ provider: z.literal('deepseek'), model: text, generatedAt: text,
   generationId: identifier, origin: z.enum(['model', 'sample', 'manual']) }).strict();
 const modelRationale = z.object({ rewriteFocus: text, applicabilityBoundary: text }).strict();
+const answerRationale = z.object({ sourceQuestion: text, originalIssue: text, rewriteFocus: text,
+  applicabilityBoundary: text, requestedRewriteFocus: text.optional() }).strict();
 const version = z.object({ id: identifier, answer: text, note: text, createdAt: text,
   source: z.enum(['generated', 'manual-edit', 'usage-feedback']), evidence: z.array(evidence).optional(),
-  generation: generation.optional(), missingFacts: strings.optional() }).strict();
+  generation: generation.optional(), missingFacts: strings.optional(),
+  modelRationale: modelRationale.optional(), answerRationale: answerRationale.optional() }).strict();
 const draftItem = z.object({
   id: identifier, title: text, question: text.optional(), originalAnswer: text.optional(), followUps: strings.optional(),
   issue: text.optional(), evidence: z.union([text, z.array(evidence)]).optional(), generation: generation.optional(),

@@ -374,6 +374,10 @@ export default function App() {
         )}
         {view === 'job' && (
           <JobFileDetail
+            materialChunks={materials.chunks}
+            materialsLoading={materials.loading}
+            materialsError={materials.error}
+            onRetryMaterials={materials.refresh}
             selectedJobId={workspaceData.selectedJobId}
             onSelectJob={handleSelectJob}
             jobFiles={workspaceData.jobFiles}

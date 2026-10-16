@@ -127,6 +127,7 @@ export type ReviewReport = {
 };
 
 export type AnswerAsset = {
+  sourceQuestionId?: string;
   modelRationale?: { rewriteFocus: string; applicabilityBoundary: string };
   evidence?: AnswerEvidence[];
   generation?: AnswerGeneration;
@@ -165,6 +166,8 @@ export type AnswerRationale = {
 };
 
 export type AnswerAssetVersion = {
+  modelRationale?: AnswerAsset['modelRationale'];
+  answerRationale?: AnswerRationale;
   evidence?: AnswerEvidence[];
   generation?: AnswerGeneration;
   missingFacts?: string[];

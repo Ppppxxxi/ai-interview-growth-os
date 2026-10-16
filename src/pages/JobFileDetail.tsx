@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
+import { JobAnswersPanel } from '../components/JobAnswersPanel';
+import type { MaterialChunk } from '../domain/materialTypes';
 import type { FormEvent } from 'react';
 import { analyzeJd } from '../agents/jdAnalyst';
 import { matchExperiences } from '../agents/experienceMatcher';
@@ -22,17 +24,13 @@ import type {
 import {
   completeAnalysis,
   createWorkspaceState,
-  saveGeneratedAsset,
-  startAnalysis
+  saveGeneratedAsset
 } from '../workflow/demoFlow';
-import { buildAnswerExplanation } from '../workflow/answerExplanation';
 import {
   createEditableQuestions,
-  hasUsableQuestion,
   updateQuestionField,
   updateQuestionFollowUps
 } from '../workflow/conversationDraft';
-import { buildDemoPipelineResult } from '../workflow/demoPipeline';
 import { downloadMarkdown } from '../workflow/downloadMarkdown';
 import {
   buildInterviewReviewMarkdown,
@@ -43,6 +41,10 @@ import { buildMaterialImportSavePayload } from '../workflow/materialImportDraft'
 import type { NewJobDraft } from '../workflow/personalWorkspace';
 
 type JobFileDetailProps = {
+  materialChunks?: MaterialChunk[];
+  materialsLoading?: boolean;
+  materialsError?: string;
+  onRetryMaterials?: () => void;
   selectedJobId: string;
   onSelectJob: (jobId: string) => void;
   jobFiles: JobFile[];
@@ -110,6 +112,10 @@ AB 实验分流机制答得比较空。我只说可以看转化率，没有说�
 AI Agent 链路拆解也不完整。我讲了“导入材料、生成回答”，但没有讲清楚输入输出、用户确认点、低置信兜底和保存后的复用边界。`;
 
 export function JobFileDetail({
+  materialChunks = [],
+  materialsLoading = false,
+  materialsError = '',
+  onRetryMaterials,
   answerAssets,
   selectedJobId,
   jobFiles,
@@ -216,8 +222,11 @@ export function JobFileDetail({
     Set<string>
   >(() => new Set());
   const answerTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const loadedJobId = useRef(selectedJob.id);
 
   useEffect(() => {
+    if (loadedJobId.current === selectedJob.id) return;
+    loadedJobId.current = selectedJob.id;
     setJobEditForm(createJobEditDraft(selectedJob));
     setWorkspaceState(initialState);
     setJdText(selectedJob.jdText);
@@ -250,11 +259,6 @@ export function JobFileDetail({
   const linkedTrainingTasks = trainingTasks.filter(
     (task) => task.jobFileId === selectedJob.id
   );
-  const answerExplanation = buildAnswerExplanation({
-    asset: generatedAsset,
-    review: generatedReview,
-    session: generatedSession
-  });
   const relatedRecordAssets = answerAssets.filter(
     (asset) => asset.sourceInterviewId === generatedSession.id
   );
@@ -281,47 +285,6 @@ export function JobFileDetail({
   const isExampleJob = sampleJobFiles.some((job) => job.id === selectedJob.id);
   const hasWorkspaceContext =
     hasGeneratedResult || jobSessions.length > 0 || linkedAssets.length > 0;
-
-  function handleGenerate() {
-    if (!canGenerate) return;
-
-    const runId = `generated-${Date.now().toString(36)}`;
-    const generated = buildDemoPipelineResult({
-      job: { ...selectedJob, jdText },
-      conversationText,
-      fallbackConversationText: coldStartDemo.importedConversation,
-      questionsOverride: hasUsableQuestion(editableQuestions)
-        ? editableQuestions
-        : undefined,
-      runId
-    });
-    const generating = startAnalysis(workspaceState);
-    setWorkspaceState(generating);
-    window.setTimeout(() => {
-      setGeneratedSession(generated.session);
-      setGeneratedReview(generated.review);
-      setGeneratedAsset(generated.asset);
-      setEditableAnswer(generated.asset.improvedAnswer);
-      setSelectedRecordId(generated.session.id);
-      onSaveInterviewRecord(generated.session, generated.review);
-      setWorkspaceState((current) =>
-        completeAnalysis({
-          ...current,
-          session: generated.session,
-          review: generated.review,
-          generatedAsset: generated.asset
-        })
-      );
-    }, 600);
-  }
-
-  function handleConfirmSaveAsset() {
-    onSaveAsset({
-      ...generatedAsset,
-      improvedAnswer: editableAnswer
-    });
-    setWorkspaceState((current) => saveGeneratedAsset(current));
-  }
 
   function handleSelectInterviewRecord(sessionId: string) {
     const session = jobSessions.find((item) => item.id === sessionId);
@@ -712,13 +675,6 @@ export function JobFileDetail({
               />
             </label>
             <div className="new-job-actions">
-              <button
-                type="button"
-                className="ghost-action"
-                onClick={handleFillNewJobExample}
-              >
-                填入示例岗位
-              </button>
               <button type="submit" className="primary-action">
                 创建岗位
               </button>
@@ -958,75 +914,14 @@ export function JobFileDetail({
             </button>
           </section>
         )}
-        {hasGeneratedResult && (
-          <section className="compare-panel" hidden={detailTab !== 'answers'}>
-            <div className="compare-card compare-card--original">
-              <p className="eyebrow">原回答</p>
-              <h2>{generatedSession.questions[0]?.question}</h2>
-              <p>{generatedSession.questions[0]?.answer}</p>
-              <div className="issue-box">
-                <strong>具体问题</strong>
-                <p>{generatedAsset.issue}</p>
-              </div>
-              <p>{generatedReview.summary}</p>
-            </div>
-
-            <div className="compare-card compare-card--improved">
-              <p className="eyebrow">优化回答</p>
-              <h2>下次可用回答</h2>
-              <textarea
-                ref={answerTextareaRef}
-                value={editableAnswer}
-                onChange={(event) => setEditableAnswer(event.target.value)}
-              />
-              <div className="compare-actions compare-actions--confirm">
-                <button type="button" onClick={handleConfirmSaveAsset}>
-                  {workspaceState.status === 'assetSaved'
-                    ? '已确认保存'
-                    : '确认并保存'}
-                </button>
-                <button
-                  className="secondary-action"
-                  type="button"
-                  onClick={handleContinueEditing}
-                >
-                  继续编辑
-                </button>
-                <button
-                  className="ghost-action"
-                  type="button"
-                  onClick={handleSkipSave}
-                >
-                  暂不保存
-                </button>
-                <span>{generatedAsset.reuseScope}</span>
-              </div>
-            </div>
+        {hasGeneratedResult && detailTab === 'answers' && generatedSession.questions.length > 0 && (
+          <section>
+            {materialsLoading && <p role="status">资料加载中</p>}
+            {materialsError && <p role="alert">{materialsError}<button type="button" onClick={onRetryMaterials}>重试资料</button></p>}
+            <JobAnswersPanel key={`${selectedJob.id}:${generatedSession.id}`} job={selectedJob} session={generatedSession}
+              review={generatedReview} assets={answerAssets} chunks={materialChunks}
+              materialsReady={!materialsLoading && !materialsError} onSave={onSaveAsset} />
           </section>
-        )}
-
-        {hasGeneratedResult && detailTab === 'answers' && (
-          <details className="explanation-panel">
-            <summary>改写依据</summary>
-            <div className="explanation-grid">
-              <article>
-                <strong>问题出在哪</strong>
-                <p>{answerExplanation.issue}</p>
-              </article>
-              <article>
-                <strong>依据来自哪里</strong>
-                <p>{answerExplanation.evidence}</p>
-              </article>
-              <article>
-                <strong>建议这样改</strong>
-                <p>{answerExplanation.suggestion}</p>
-              </article>
-              <article>
-                <strong>保存前确认</strong>
-                <p>{answerExplanation.risk}</p>
-              </article>
-            </div>
-          </details>
         )}
 
         <section className="support-grid" hidden={detailTab !== 'prep'}>

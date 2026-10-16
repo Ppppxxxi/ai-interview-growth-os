@@ -7,6 +7,7 @@ import { AIClientError, getAIStatus } from '../llm/client';
 import { prepareRewriteRequest } from '../llm/prepareRewriteRequest';
 import { useAnswerGeneration } from '../llm/useAnswerGeneration';
 import { validateEvidence } from '../llm/validateEvidence';
+import { manualAnswerMetadata } from '../workflow/answerAssetVersions';
 import { MaterialReferencePicker } from './materials/MaterialReferencePicker';
 import { AnswerEvidence } from './AnswerEvidence';
 import { emptyFocusWork, isFocusAnswerReady, reconcileFocusWork, type FocusQuestionWork, type FocusQuestionWorks } from '../domain/focusFlowDraft';
@@ -93,7 +94,8 @@ export function FocusAnswersPanel({ items, job, chunks, materialsReady = true, i
   function edit(field: 'question' | 'originalAnswer' | 'issue' | 'improvementSuggestion' | 'improvedAnswer', value: string) {
     const nextRevision = invalidate();
     if (field === 'improvedAnswer') updateWork(item.id, { revision: nextRevision, selectedChunks: currentWork.selectedChunks, provenance: { kind: 'manual', revision: nextRevision, answer: value } });
-    onChange({ ...item, [field]: value, answerAssetCandidate: field === 'improvedAnswer' ? true : item.answerAssetCandidate, evidence: Array.isArray(item.evidence) ? item.evidence.map(e => ({ ...e, status: 'needs-review' })) : item.evidence });
+    onChange({ ...item, generation: field === 'improvedAnswer' ? manualAnswerMetadata({ generation: item.generation }).generation : item.generation,
+      [field]: value, answerAssetCandidate: field === 'improvedAnswer' ? true : item.answerAssetCandidate, evidence: Array.isArray(item.evidence) ? item.evidence.map(e => ({ ...e, status: e.status === 'source-deleted' ? 'source-deleted' : 'needs-review' })) : item.evidence });
   }
   let preview: RewriteRequest | undefined;
   try { preview = prepareRewriteRequest(item, job, selectedChunks, 'preview'); } catch { /* Show the public preparation error on generate, without truncating. */ }
