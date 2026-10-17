@@ -14,13 +14,21 @@ import { getMaterialDraftQueue } from '../draftQueue';
 const evidence: AnswerEvidence = { documentId: 'd', documentVersion: 1, chunkId: 'c', kind: 'experience', titleSnapshot: 'Synthetic title', quote: 'Synthetic quote', locatorSnapshot: { type: 'page', pageNumber: 2 }, answerParagraphIndex: 0, status: 'validated' };
 async function fixture() {
   const repo = createMaterialRepository(new IDBFactory());
-  await repo.saveDocument({ id: 'd', kind: 'experience', title: 'Synthetic title', tags: [], text: 'Synthetic quote', sourceFileName: 'fiction.txt', sourceFormat: 'txt', version: 1, createdAt: '2026-10-17', updatedAt: '2026-10-17' }, [{ id: 'c', documentId: 'd', documentVersion: 1, kind: 'experience', title: 'Synthetic title', text: 'Synthetic quote', tags: [], locator: { type: 'paragraph', paragraphIndex: 0 } }], null);
+  await repo.saveDocument({ id: 'd', kind: 'experience', title: 'Synthetic title', tags: [], text: 'Synthetic quote', sourceFileName: 'fiction.txt', sourceFormat: 'txt', version: 1, createdAt: '2026-10-17', updatedAt: '2026-10-17' }, [{ id: 'c', documentId: 'd', documentVersion: 1, kind: 'experience', title: 'Synthetic title', text: 'Synthetic quote', tags: [], locator: evidence.locatorSnapshot! }], null);
   let workspace = createEmptyPersonalWorkspaceData();
   workspace.answerAssets = [{ ...structuredClone(answerAssets[0]), evidence: [evidence], answerVersions: [{ id: 'v', answer: 'Keep answer', note: 'User note', createdAt: '2026-10-17', source: 'manual-edit', evidence: [evidence] }] }];
   const store = { read: () => workspace, write: vi.fn(async (next: typeof workspace) => { workspace = next; }) };
   return { repo, store };
 }
 describe('workspace maintenance', () => {
+  it('read_only_export_refuses_pending_recovery_without_changing_stores_or_finishing_journal', async () => {
+    const { repo, store } = await fixture(); store.write.mockRejectedValueOnce(new Error('quota'));
+    await expect(deleteMaterial('d', repo, store)).rejects.toThrow('quota');
+    const before = { workspace: structuredClone(store.read()), snapshot: await repo.exportSnapshot(), journal: await repo.listDeletions() };
+    await expect(readUserBackup(repo, store, { recoverPending: false })).rejects.toThrow('尚未恢复');
+    expect({ workspace: store.read(), snapshot: await repo.exportSnapshot(), journal: await repo.listDeletions() }).toEqual(before);
+    expect(store.write).toHaveBeenCalledTimes(1);
+  });
   it('persists_source_update_intent_before_document_write_and_recovers_after_workspace_failure', async () => {
     const { repo, store } = await fixture(); const doc = (await repo.getDocument('d'))!;
     store.write.mockRejectedValueOnce(new Error('quota'));
@@ -42,7 +50,7 @@ describe('workspace maintenance', () => {
   });
   it('purges_typed_flow_request_response_selections_and_history_without_editing_user_text', async () => {
     const { repo, store } = await fixture();
-    const input = request(); input.chunks = [{ ...input.chunks[0], documentId: 'd', documentVersion: 1, chunkId: 'c', title: 'Synthetic title', text: 'Synthetic quote' }];
+    const input = request(); input.chunks = [{ ...input.chunks[0], documentId: 'd', documentVersion: 1, chunkId: 'c', title: 'Synthetic title', text: 'Synthetic quote', locator: evidence.locatorSnapshot! }];
     const output = { ...response(input), citations: [{ chunkId: 'c', quote: 'Synthetic quote', answerParagraphIndex: 0 }] };
     const flow: FocusFlowDraft = { id: 'focus-flow:unconfirmed', jobId: 'unconfirmed', kind: 'focus-flow', schemaVersion: 1,
       jobDraft: { company: '', roleTitle: '', direction: '', jdText: '' }, rawText: 'User handwritten Synthetic quote', stage: 'answers', activeItemId: 'q1', updatedAt: '',
@@ -74,6 +82,10 @@ describe('workspace maintenance', () => {
   it('restore_failure_has_durable_original_and_recovers_rollback', async () => {
     const { repo, store } = await fixture(); const original = exportUserBackup(store.read(), await repo.exportSnapshot());
     const target = structuredClone(original); target.snapshot.documents[0].title = 'Replacement'; target.snapshot.chunks[0].title = 'Replacement';
+    for (const asset of target.workspace.answerAssets) {
+      for (const ref of asset.evidence ?? []) ref.titleSnapshot = 'Replacement';
+      for (const version of asset.answerVersions ?? []) for (const ref of version.evidence ?? []) ref.titleSnapshot = 'Replacement';
+    }
     store.write.mockRejectedValueOnce(new Error('quota')).mockRejectedValueOnce(new Error('quota'));
     await expect(restoreUserBackup(target, repo, store)).rejects.toThrow('quota');
     const journal = (await repo.listDeletions())[0]; expect(journal.kind).toBe('restore-backup'); expect(JSON.stringify(journal)).toContain('originalJson');

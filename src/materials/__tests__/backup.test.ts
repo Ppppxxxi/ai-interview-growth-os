@@ -18,7 +18,61 @@ function backup(): UserBackup {
     drafts: [{ id: 'focus-flow:unconfirmed-job', kind: 'focus-flow', schemaVersion: 1, jobId: 'unconfirmed-job', jobDraft: { company: '', roleTitle: '', direction: '', jdText: '' }, rawText: 'User raw text', stage: 'input', activeItemId: '', work: {}, updatedAt: '' },
       { id: 'editor', kind: 'knowledge', title: 'User draft', text: 'Not confirmed', tags: [], sourceFormat: 'paste', selectedChunks: [], updatedAt: '' }] } };
 }
+function currentBackup(): UserBackup {
+  const value = backup(); const asset = value.workspace.answerAssets[0];
+  asset.improvedAnswer = 'First paragraph.\r\nSecond line.\r\n \r\nSecond paragraph.';
+  asset.evidence = [{ ...ref, documentVersion: 2, chunkId: 'new', quote: 'Replacement', status: 'validated', locatorSnapshot: { type: 'paragraph', paragraphIndex: 0 } }];
+  asset.answerVersions = [{ ...asset.answerVersions![0], answer: 'One historical paragraph.', evidence: structuredClone(asset.evidence) }];
+  return value;
+}
 describe('strict user backup', () => {
+  it.each([
+    { titleSnapshot: 'Forged title' },
+    { locatorSnapshot: { type: 'page' as const, pageNumber: 999 } },
+    { locatorSnapshot: undefined },
+    { locatorSnapshot: { type: 'paragraph' as const, paragraphIndex: 999 } },
+  ])('rejects_forged_current_validated_source_metadata_%j', patch => {
+    const value = currentBackup(); Object.assign(value.workspace.answerAssets[0].evidence![0], patch);
+    expect(() => validateUserBackup(value)).toThrow();
+  });
+  it.each(['', '  \r\n\t'])('rejects_empty_or_whitespace_current_validated_quote_%j', quote => {
+    const value = currentBackup(); value.workspace.answerAssets[0].evidence![0].quote = quote;
+    expect(() => validateUserBackup(value)).toThrow();
+  });
+  it('matches_page_locator_fields_without_relying_on_object_key_order', () => {
+    const value = currentBackup(); const asset = value.workspace.answerAssets[0];
+    value.snapshot.chunks[0].locator = { type: 'page', pageNumber: 3, paragraphIndex: 0 };
+    const locator = { paragraphIndex: 0, pageNumber: 3, type: 'page' as const };
+    asset.evidence![0].locatorSnapshot = locator; asset.answerVersions![0].evidence![0].locatorSnapshot = locator;
+    expect(validateUserBackup(value)).toEqual(value);
+    asset.evidence![0].locatorSnapshot = { ...locator, paragraphIndex: 1 };
+    expect(() => validateUserBackup(value)).toThrow();
+  });
+  it('validates_answer_paragraph_against_its_own_asset_version_and_flow_item_body', () => {
+    const value = currentBackup(); value.workspace.answerAssets[0].evidence![0].answerParagraphIndex = 1;
+    expect(validateUserBackup(value)).toEqual(value);
+    const badCurrent = structuredClone(value); badCurrent.workspace.answerAssets[0].evidence![0].answerParagraphIndex = 2;
+    expect(() => validateUserBackup(badCurrent)).toThrow();
+    const emptyBody = structuredClone(value); emptyBody.workspace.answerAssets[0].improvedAnswer = ' \r\n\t'; emptyBody.workspace.answerAssets[0].evidence![0].answerParagraphIndex = 0;
+    expect(() => validateUserBackup(emptyBody)).toThrow();
+    const badVersion = structuredClone(value); badVersion.workspace.answerAssets[0].answerVersions![0].evidence![0].answerParagraphIndex = 1;
+    expect(() => validateUserBackup(badVersion)).toThrow();
+    const flow = value.snapshot.drafts[0]; if (flow.kind !== 'focus-flow') throw new Error('fixture');
+    flow.stage = 'answers'; flow.activeItemId = 'q'; flow.materialDraft = { sourceType: 'mixed_material', jobContext: {}, globalInsights: {}, missingInfoWarnings: [], interviewItems: [{
+      id: 'q', title: 'Synthetic', improvedAnswer: 'One flow paragraph.', answerAssetCandidate: true, confidence: 'high', evidence: structuredClone(value.workspace.answerAssets[0].evidence),
+    }] };
+    expect(() => validateUserBackup(value)).toThrow();
+    flow.materialDraft.interviewItems[0].evidence = [{ ...value.workspace.answerAssets[0].evidence![0], answerParagraphIndex: 0 }];
+    expect(validateUserBackup(value)).toEqual(value);
+    flow.materialDraft.interviewItems[0].answerVersions = [{ ...value.workspace.answerAssets[0].answerVersions![0], evidence: [{ ...value.workspace.answerAssets[0].evidence![0] }] }];
+    expect(() => validateUserBackup(value)).toThrow();
+  });
+  it('preserves_historical_and_needs_review_metadata_without_reattaching_to_current_chunks', () => {
+    const value = currentBackup(); const asset = value.workspace.answerAssets[0];
+    asset.evidence = [{ ...asset.evidence![0], status: 'needs-review', titleSnapshot: 'Earlier title', locatorSnapshot: { type: 'page', pageNumber: 999 }, answerParagraphIndex: 999 }];
+    asset.answerVersions![0].evidence = [{ ...ref, status: 'validated', titleSnapshot: 'Historical title', locatorSnapshot: { type: 'page', pageNumber: 3 } }];
+    expect(validateUserBackup(value)).toEqual(value);
+  });
   it('preserves_legacy_editor_document_metadata_without_allowing_arbitrary_fields', () => {
     const value = backup();
     value.snapshot.drafts[1] = { ...value.snapshot.drafts[1], createdAt: '2026-10-18', version: 1 } as never;

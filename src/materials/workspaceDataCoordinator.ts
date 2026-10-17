@@ -97,11 +97,13 @@ export async function restoreValidatedBackup(backup: UserBackup, repo: MaterialR
     }
   }, { maintenance: true });
 }
-export async function readUserBackup(repo: MaterialRepository, store: WorkspaceStore): Promise<UserBackup> {
+export async function readUserBackup(repo: MaterialRepository, store: WorkspaceStore, options: { recoverPending?: boolean } = {}): Promise<UserBackup> {
+  const recoverPending = options.recoverPending !== false;
   return maintenanceQueue(repo).run(async () => {
-    await resumeRaw(repo, store);
+    if (recoverPending) await resumeRaw(repo, store);
+    else if ((await repo.listDeletions()).length) throw new Error('本地数据尚未恢复，暂时无法导出');
     return validateUserBackup({ schemaVersion: 1, workspace: store.read(), snapshot: await repo.exportSnapshot() });
-  }, { maintenance: true });
+  }, recoverPending ? { maintenance: true } : undefined);
 }
 export async function markMaterialUpdated(id: string, repo: MaterialRepository, store: WorkspaceStore): Promise<void> {
   await maintenanceQueue(repo).run(async () => {

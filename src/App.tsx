@@ -117,6 +117,7 @@ export default function App() {
   const [dataError, setDataError] = useState(initialAppState.initialError ?? '');
   const [maintaining, setMaintaining] = useState(true);
   const [recoveryNeeded, setRecoveryNeeded] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const blocked = useRef(true);
   const mounted = useRef(true);
   const revision = useRef(0);
@@ -304,11 +305,17 @@ export default function App() {
   }
 
   async function exportBackup() {
-    await maintain(async () => {
-      const backup = await readUserBackup(materialRepository, workspaceStore);
-      const url = URL.createObjectURL(new Blob([JSON.stringify(backup)], { type: 'application/json' }));
+    if (blocked.current || exporting) return;
+    setExporting(true);
+    let url: string | undefined;
+    try {
+      const backup = await readUserBackup(materialRepository, workspaceStore, { recoverPending: false });
+      url = URL.createObjectURL(new Blob([JSON.stringify(backup)], { type: 'application/json' }));
       const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'interview-backup.json'; anchor.click(); URL.revokeObjectURL(url);
-    });
+      url = undefined;
+      setDataError(current => current.startsWith('导出备份失败') ? '' : current);
+    } catch { setDataError('导出备份失败，未保存的编辑仍保留，请重试'); }
+    finally { if (url) URL.revokeObjectURL(url); setExporting(false); }
   }
   async function importBackup(file: File) {
     try {
@@ -398,7 +405,7 @@ export default function App() {
               数据管理 <ChevronDown size={14} />
             </summary>
             <div className="data-menu-list" aria-label="本地数据管理">
-              <button type="button" className="ghost-action" disabled={maintaining} onClick={() => { void exportBackup(); }}><Download size={16} />导出备份</button>
+              <button type="button" className="ghost-action" disabled={maintaining || exporting} onClick={() => { void exportBackup(); }}><Download size={16} />导出备份</button>
               <label className="ghost-action"><Upload size={16} />恢复备份<input aria-label="恢复备份" type="file" accept=".json,application/json" disabled={maintaining} onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) void importBackup(file); }} /></label>
               <button
                 type="button"
