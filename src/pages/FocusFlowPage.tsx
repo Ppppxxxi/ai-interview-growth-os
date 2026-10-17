@@ -24,7 +24,7 @@ import type { MaterialRepository } from '../materials/repository';
 import { getMaterialDraftQueue } from '../materials/draftQueue';
 
 type FocusFlowPageProps = {
-  onDraftSaveStarted?: () => void;
+  onDraftSaveStarted?: () => void | Promise<void>;
   repository?: MaterialRepository;
   materialsLoading?: boolean;
   materialsError?: string;
@@ -32,12 +32,12 @@ type FocusFlowPageProps = {
   materialChunks?: MaterialChunk[];
   selectedJobId: string;
   jobFiles: JobFile[];
-  onUpdateJob: (job: JobFile) => void;
+  onUpdateJob: (job: JobFile) => void | Promise<void>;
   onSaveInterviewRecord: (
     session: InterviewSession,
     review: ReviewReport
-  ) => void;
-  onSaveAsset: (asset: AnswerAsset) => void;
+  ) => void | Promise<void>;
+  onSaveAsset: (asset: AnswerAsset) => void | Promise<void>;
   onFinish: (target: 'workspace' | 'assets') => void;
 };
 
@@ -93,9 +93,12 @@ export function FocusFlowPage({
   materialSnapshot.current = { loading: materialsLoading, error: materialsError, chunks: materialChunks };
   const hydratedJob = useRef('');
   const alive = useRef(true);
+  const previousJobId = useRef(selectedJob.id);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
 
   useEffect(() => {
+    if (previousJobId.current === selectedJob.id) return;
+    previousJobId.current = selectedJob.id;
     hydratedJob.current = '';
     inputEdited.current = false;
     setDetached(false); setProtectedDraft(false);
@@ -127,7 +130,7 @@ export function FocusFlowPage({
         const source = materialSnapshot.current;
         const nextWork = source.loading || source.error ? draft.work : Object.fromEntries(Object.entries(draft.work).map(([id, value]) => [id, reconcileFocusWork(value, source.chunks)]));
         setJobDraft(draft.jobDraft); setMaterialText(draft.rawText); setWork(nextWork);
-        setMaterialDraft(draft.materialDraft ? { ...draft.materialDraft, interviewItems: draft.materialDraft.interviewItems.map(item => nextWork[item.id] !== draft.work[item.id] && Array.isArray(item.evidence) ? { ...item, evidence: item.evidence.map(entry => ({ ...entry, status: 'needs-review' as const })) } : item) } : undefined);
+        setMaterialDraft(draft.materialDraft ? { ...draft.materialDraft, interviewItems: draft.materialDraft.interviewItems.map(item => nextWork[item.id] !== draft.work[item.id] && Array.isArray(item.evidence) ? { ...item, evidence: item.evidence.map(entry => ({ ...entry, status: entry.status === 'source-deleted' ? 'source-deleted' as const : 'needs-review' as const })) } : item) } : undefined);
         setActiveItemId(draft.activeItemId); setIsAnswerStage(draft.stage === 'answers');
         setRunId(crypto.randomUUID()); setSavedItemIds(new Set()); setSavedSummary(undefined); setRestored(true);
       }
@@ -144,7 +147,7 @@ export function FocusFlowPage({
     const changed = Object.keys(work).filter(id => nextWork[id] !== work[id]);
     if (!changed.length) return;
     setWork(nextWork);
-    setMaterialDraft(current => current ? { ...current, interviewItems: current.interviewItems.map(item => changed.includes(item.id) && Array.isArray(item.evidence) ? { ...item, evidence: item.evidence.map(entry => ({ ...entry, status: 'needs-review' as const })) } : item) } : current);
+    setMaterialDraft(current => current ? { ...current, interviewItems: current.interviewItems.map(item => changed.includes(item.id) && Array.isArray(item.evidence) ? { ...item, evidence: item.evidence.map(entry => ({ ...entry, status: entry.status === 'source-deleted' ? 'source-deleted' as const : 'needs-review' as const })) } : item) } : current);
   }, [draftReady, materialsLoading, materialsError, materialChunks, detached, work]);
 
   useEffect(() => {
@@ -162,9 +165,15 @@ export function FocusFlowPage({
       work: Object.fromEntries(Object.entries(work).filter(([id]) => pendingItems?.some(item => item.id === id))), updatedAt: new Date().toISOString() };
     const remove = complete || (!materialText && !materialDraft && !jobEdited);
     // Identity is established before the queued write, not by a late page callback.
-    try { if (!remove) onDraftSaveStarted?.(); }
+    let identity: void | Promise<void> = undefined;
+    try { if (!remove) identity = onDraftSaveStarted?.(); }
     catch { setDraftError('草稿保存失败，请重试'); return; }
-    void queue.run(() => remove ? repository.deleteDraft(id) : repository.saveFlowDraft(draft)).then(() => {
+    if (identity) void identity.catch(() => {});
+    // Reserve this write now, before an unmount or maintenance can enqueue a read.
+    void queue.run(async () => {
+      await identity;
+      return remove ? repository.deleteDraft(id) : repository.saveFlowDraft(draft);
+    }).then(() => {
       if (alive.current) setDraftError('');
     }).catch(() => { if (alive.current) setDraftError('草稿保存失败，请重试'); });
   }, [repository, draftReady, selectedJob.id, jobDraft, materialText, materialDraft, isAnswerStage, activeItemId, work, savedItemIds, savedSummary, retryWrite, materialsLoading, materialsError, onDraftSaveStarted, detached, protectedReferences, materialChunks]);
@@ -263,7 +272,7 @@ export function FocusFlowPage({
                 ? {
                     ...item,
                     [field]: value,
-                    evidence: Array.isArray(item.evidence) ? item.evidence.map(entry => ({ ...entry, status: 'needs-review' as const })) : item.evidence
+                    evidence: Array.isArray(item.evidence) ? item.evidence.map(entry => ({ ...entry, status: entry.status === 'source-deleted' ? 'source-deleted' as const : 'needs-review' as const })) : item.evidence
                   }
                 : item
             )
@@ -276,11 +285,12 @@ export function FocusFlowPage({
     setIsAnswerStage(true);
   }
 
-  function handleSave(statuses: Map<string, AnswerAssetConfirmationStatus>) {
+  async function handleSave(statuses: Map<string, AnswerAssetConfirmationStatus>) {
     if (!materialDraft || !isAnswerStage) return;
 
     const job = currentJob();
-    onUpdateJob(job);
+    try {
+    await onUpdateJob(job);
     const payload = buildMaterialImportSavePayload({
       draft: materialDraft,
       selectedItemIds: statuses.keys(),
@@ -290,13 +300,15 @@ export function FocusFlowPage({
       runId
     });
 
-    onSaveInterviewRecord(payload.session, payload.review);
-    payload.assets.forEach((asset) => onSaveAsset(asset));
+    await onSaveInterviewRecord(payload.session, payload.review);
+    for (const asset of payload.assets) await onSaveAsset(asset);
+    if (!alive.current) return;
     setSavedItemIds(current => new Set([...current, ...statuses.keys()]));
     setSavedSummary({
       sessionId: payload.session.id,
       assetCount: (savedSummary?.assetCount ?? 0) + payload.assets.length
     });
+    } catch { setDraftError('保存失败，请重试'); }
   }
 
   function handleStartNext() {

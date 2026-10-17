@@ -23,7 +23,7 @@ describe('App', () => {
     const html = renderToString(createElement(App));
 
     expect(html).toContain('开始新面试');
-    expect(html).toContain('面试材料');
+    expect(html).toContain('正在检查本地数据');
     expect(html).toContain('主导航');
     expect(html).toContain('恢复示例');
     expect(html).not.toContain('填入示例');
@@ -44,7 +44,7 @@ describe('App', () => {
 
     const html = renderToString(createElement(App));
 
-    expect(html).toContain('面试材料');
+    expect(html).toContain('正在检查本地数据');
     expect(html).not.toContain('workspace-home-current');
     expect(html).not.toContain('星河智能');
     expect(html).toContain('我的回答库');

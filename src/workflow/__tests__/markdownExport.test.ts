@@ -8,6 +8,14 @@ import {
 } from '../markdownExport';
 
 describe('markdown export', () => {
+  it('exports_current_and_each_history_quote_but_never_deleted_system_snapshots', () => {
+    const evidence = { documentId: 'synthetic', documentVersion: 1, chunkId: 'c', kind: 'experience' as const, titleSnapshot: 'Synthetic source', quote: 'Short excerpt only', answerParagraphIndex: 0, status: 'validated' as const };
+    const asset = { ...answerAssets[0], evidence: [evidence], answerVersions: [{ id: 'v1', answer: 'User history body', note: 'User note', createdAt: '', source: 'manual-edit' as const,
+      evidence: [{ ...evidence, titleSnapshot: 'Historical source', quote: 'Historical excerpt' }, { ...evidence, titleSnapshot: 'Must not leak', quote: 'Deleted quote', status: 'source-deleted' as const }] }] };
+    const markdown = buildAssetLibraryMarkdown({ assets: [asset], jobFiles, interviewSessions });
+    expect(markdown).toContain('Short excerpt only'); expect(markdown).toContain('Historical excerpt'); expect(markdown).toContain('User history body');
+    expect(markdown).not.toContain('Must not leak'); expect(markdown).not.toContain('Deleted quote');
+  });
   it('exports one interview review with source questions and answer assets', () => {
     const markdown = buildInterviewReviewMarkdown({
       job: jobFiles[0],

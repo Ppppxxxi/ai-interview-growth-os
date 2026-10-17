@@ -4,6 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import 'fake-indexeddb/auto';
 import { IDBFactory, IDBObjectStore } from 'fake-indexeddb';
 import App from '../App';
+import { mockBrowserLocks } from '../materials/__tests__/browserLocks';
 import * as repositories from '../materials/repository';
 import { getMaterialDraftQueue } from '../materials/draftQueue';
 import { createEmptyPersonalWorkspaceData, readPersonalWorkspace, writePersonalWorkspace } from '../workflow/personalWorkspace';
@@ -16,13 +17,21 @@ import type { RewriteRequest } from '../domain/llmContracts';
 
 let rewrites = 0;
 beforeEach(() => {
+  mockBrowserLocks();
   localStorage.clear(); rewrites = 0; vi.stubGlobal('indexedDB', new IDBFactory());
   vi.stubGlobal('fetch', vi.fn((url: string) => {
     if (url === '/api/ai/status') return Promise.resolve(new Response(JSON.stringify({ available: true })));
     rewrites++; throw new Error('Unexpected synthetic rewrite');
   }));
 });
-afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); localStorage.clear(); });
+afterEach(async () => {
+  cleanup();
+  if (vi.isMockFunction(repositories.createMaterialRepository)) {
+    const repos = new Set(vi.mocked(repositories.createMaterialRepository).mock.results.filter(result => result.type === 'return').map(result => result.value));
+    for (const repo of repos) await getMaterialDraftQueue(repo).whenIdle();
+  }
+  vi.restoreAllMocks(); vi.unstubAllGlobals(); localStorage.clear();
+});
 
 async function seed() {
   const workspace = createEmptyPersonalWorkspaceData(); writePersonalWorkspace(localStorage, workspace);
@@ -59,7 +68,7 @@ it('empty_library_read_failure_does_not_disable_real_app_input_or_manual_adoptio
   expect(input.matches(':disabled')).toBe(false);
   fireEvent.change(input, { target: { value: '面试官：如何评估虚构产品？\n候选人：观察指标。' } });
   const parse = screen.getByRole('button', { name: '解析材料' });
-  expect(parse.matches(':disabled')).toBe(false); fireEvent.click(parse);
+  await waitFor(() => expect(parse.matches(':disabled')).toBe(false)); fireEvent.click(parse);
   fireEvent.click(screen.getByRole('button', { name: '生成下次可用回答' }));
   const answer = screen.getByLabelText('下次可用回答');
   expect(answer.matches(':disabled')).toBe(false);
@@ -98,6 +107,7 @@ it('failed_library_allows_zero_reference_real_client_generation_but_requires_exp
   expect(screen.getByRole('button', { name: '保存到我的回答库' }).matches(':disabled')).toBe(true);
   fireEvent.click(screen.getByRole('button', { name: /^采用$/ })); fireEvent.click(screen.getByRole('button', { name: '保存到我的回答库' }));
   await act(async () => { await getMaterialDraftQueue(repository).whenIdle(); });
+  await waitFor(() => expect(readPersonalWorkspace(localStorage, createEmptyPersonalWorkspaceData()).answerAssets).toHaveLength(1));
   const assets = readPersonalWorkspace(localStorage, createEmptyPersonalWorkspaceData()).answerAssets;
   expect(assets).toHaveLength(1); expect(assets[0].generation?.origin).toBe('model');
   expect(assets[0].reuseScope).toBe('Confirmed only'); expect(assets[0].evidence).toEqual([]);
@@ -132,11 +142,15 @@ it('a_reference_free_draft_can_reopen_during_failure_and_partial_save_keeps_only
   fireEvent.click(screen.getByRole('button', { name: '解析材料' })); fireEvent.click(screen.getByRole('button', { name: '生成下次可用回答' }));
   fireEvent.change(screen.getByLabelText('下次可用回答'), { target: { value: '可恢复的无资料手写回答' } });
   await act(async () => { await getMaterialDraftQueue(repository).whenIdle(); });
+  expect(screen.queryByText('保存失败，当前修改尚未保存，请重试')).toBeNull();
+  expect(screen.queryByText('草稿保存失败，请重试')).toBeNull();
+  await waitFor(async () => expect(await repository.listFlowDrafts()).toHaveLength(1));
   const before = (await repository.listFlowDrafts())[0]; const savedId = before.activeItemId;
   ui.unmount(); render(<App />);
   await screen.findByText('未保存草稿'); expect(screen.getByRole('button', { name: '保存到我的回答库' }).matches(':disabled')).toBe(true);
   fireEvent.click(screen.getByRole('button', { name: /^采用$/ })); fireEvent.click(screen.getByRole('button', { name: '保存到我的回答库' }));
   await act(async () => { await getMaterialDraftQueue(repository).whenIdle(); });
+  await waitFor(async () => expect((await repository.listFlowDrafts())[0].materialDraft!.interviewItems.some(item => item.id === savedId)).toBe(false));
   const remaining = (await repository.listFlowDrafts())[0];
   expect(remaining.materialDraft!.interviewItems.map(item => item.id)).toEqual(before.materialDraft!.interviewItems.filter(item => item.id !== savedId).map(item => item.id));
   expect(remaining.work[savedId]).toBeUndefined(); expect(rewrites).toBe(0);

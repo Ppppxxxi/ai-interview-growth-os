@@ -19,7 +19,7 @@ type Props = { items: InterviewMaterialDraftItem[]; job: JobFile; chunks: Materi
   onWorkChange: (id: string, work: FocusQuestionWork) => void;
   onActiveChange: (id: string) => void;
   onChange: (item: InterviewMaterialDraftItem) => void;
-  onSave: (statuses: Map<string, AnswerAssetConfirmationStatus>) => void };
+  onSave: (statuses: Map<string, AnswerAssetConfirmationStatus>) => void | Promise<void> };
 type Run = { request: RewriteRequest; revision: number; applied?: string };
 export function FocusAnswersPanel({ items, job, chunks, materialsReady = true, initialQuestionId, work, onWorkChange, onActiveChange, onChange, onSave }: Props) {
   const generation = useAnswerGeneration();
@@ -38,6 +38,8 @@ export function FocusAnswersPanel({ items, job, chunks, materialsReady = true, i
   const [firstSend, setFirstSend] = useState(false);
   const [confirmation, setConfirmation] = useState<RewriteRequest>();
   const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
   const [configured, setConfigured] = useState<boolean>();
   const selectedIds = currentWork.selectedChunks.map(selected => selected.chunkId);
   const selectedChunks = currentWork.selectedChunks.map(selected => chunks.find(chunk => chunk.id === selected.chunkId && chunk.documentId === selected.documentId && chunk.documentVersion === selected.documentVersion)).filter((chunk): chunk is MaterialChunk => !!chunk);
@@ -67,7 +69,7 @@ export function FocusAnswersPanel({ items, job, chunks, materialsReady = true, i
       if (after !== before) {
         revisions.current[entry.id] = after.revision;
         updateWork(entry.id, after);
-        if (Array.isArray(entry.evidence)) onChange({ ...entry, evidence: entry.evidence.map(e => ({ ...e, status: 'needs-review' })) });
+        if (Array.isArray(entry.evidence)) onChange({ ...entry, evidence: entry.evidence.map(e => ({ ...e, status: e.status === 'source-deleted' ? 'source-deleted' : 'needs-review' })) });
       }
     }
   }, [chunkSnapshot, chunks, materialsReady, canProceed, generation.cancel, items, onChange]);
@@ -117,6 +119,7 @@ export function FocusAnswersPanel({ items, job, chunks, materialsReady = true, i
     setConfirmed(current => ({ ...current, [item.id]: { revision, status } }));
   }
   function save() {
+    if (savingRef.current) return;
     const statuses = new Map<string, AnswerAssetConfirmationStatus>();
     for (const entry of items) {
       const confirmation = confirmed[entry.id];
@@ -124,9 +127,18 @@ export function FocusAnswersPanel({ items, job, chunks, materialsReady = true, i
       const referencesAvailable = materialsReady || (!value.selectedChunks.length && !(Array.isArray(entry.evidence) && entry.evidence.length) && !(value.provenance?.kind === 'model' && value.provenance.request.chunks.length));
       if (referencesAvailable && confirmation && confirmation.revision === (revisions.current[entry.id] ?? 0) && isFocusAnswerReady(entry, value)) statuses.set(entry.id, confirmation.status);
     }
-    if (statuses.size) { generation.cancel(); onSave(statuses); }
+    if (statuses.size) {
+      generation.cancel();
+      savingRef.current = true; setSaving(true);
+      const finished = () => { savingRef.current = false; setSaving(false); };
+      try {
+        const pending = onSave(statuses);
+        if (pending) void pending.catch(() => setError('保存失败，请重试')).finally(finished);
+        else finished();
+      } catch { setError('保存失败，请重试'); finished(); }
+    }
   }
-  return <div className="focus-answers-panel">
+  return <div className="focus-answers-panel" inert={saving} aria-busy={saving}>
     <div className="question-switcher" aria-label="切换问题">{items.map((entry, index) => <button type="button" key={entry.id} aria-pressed={item.id === entry.id} onClick={() => {
       generation.cancel(); setActiveId(entry.id); onActiveChange(entry.id); setConfirmation(undefined); setError('');
     }}>{String(index + 1).padStart(2, '0')} {entry.title}{confirmed[entry.id] && <Check size={13} />}</button>)}</div>
@@ -137,7 +149,7 @@ export function FocusAnswersPanel({ items, job, chunks, materialsReady = true, i
     <fieldset className="focus-flow-content" aria-label="参考资料选择" disabled={!materialsReady}><MaterialReferencePicker chunks={chunks} query={item.question ?? ''} selectedChunkIds={selectedIds} onChange={ids => {
       const nextRevision = invalidate();
       updateWork(item.id, { revision: nextRevision, selectedChunks: ids.map(id => chunks.find(chunk => chunk.id === id)!).map(chunk => ({ chunkId: chunk.id, documentId: chunk.documentId, documentVersion: chunk.documentVersion })) });
-      onChange({ ...item, evidence: Array.isArray(item.evidence) ? item.evidence.map(e => ({ ...e, status: 'needs-review' })) : item.evidence });
+      onChange({ ...item, evidence: Array.isArray(item.evidence) ? item.evidence.map(e => ({ ...e, status: e.status === 'source-deleted' ? 'source-deleted' : 'needs-review' })) : item.evidence });
     }} /></fieldset>
     <details className="focus-send-preview"><summary>查看发送内容 · {selectedChunks.length} 个片段</summary>{preview ? <div className="focus-send-content">
       {([['本次问题', preview.question], ['原回答', preview.originalAnswer], ['具体问题', preview.issue], ['改写重点', preview.rewriteFocus], ['公司', preview.jobContext?.company ?? ''], ['岗位', preview.jobContext?.role ?? ''], ['岗位要求', preview.jobContext?.jdSummary ?? '']] as const).map(([label, text]) => <div key={label}><strong>{label}</strong><p>{text || '未填写'}</p></div>)}
@@ -155,6 +167,6 @@ export function FocusAnswersPanel({ items, job, chunks, materialsReady = true, i
     {canProceed && item.improvedAnswer?.trim() && (answerReady || accepted) && <div className="focus-answer-confirmation" aria-label="回答确认">
       <span>{accepted ? '已确认采用' : '待确认'}</span><button type="button" className="secondary-action" onClick={() => confirm('accepted')}><Check size={15} />采用</button><button type="button" className="secondary-action" onClick={() => confirm('edited-accepted')}><Pencil size={15} />修改后采用</button><button type="button" className="ghost-action" onClick={() => setConfirmed(current => { const next = { ...current }; delete next[item.id]; return next; })}>暂不保存</button>
     </div>}
-    <button type="button" className="primary-action" disabled={!canProceed || !Object.keys(confirmed).length || state.status === 'pending'} onClick={save}><CheckCheck size={16} />保存到我的回答库</button>
+    <button type="button" className="primary-action" disabled={saving || !canProceed || !Object.keys(confirmed).length || state.status === 'pending'} onClick={save}><CheckCheck size={16} />保存到我的回答库</button>
   </div>;
 }

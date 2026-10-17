@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ArchiveRestore,
+  Download,
+  Upload,
   BriefcaseBusiness,
   ChevronDown,
   FileText,
@@ -32,7 +34,6 @@ import { createMaterialRepository } from './materials/repository';
 import { useMaterials } from './materials/useMaterials';
 import {
   attachInterviewSessionToJob,
-  clearPersonalWorkspace,
   createEmptyPersonalWorkspaceData,
   createJobFileFromDraft,
   createPersonalWorkspaceData,
@@ -49,6 +50,10 @@ import {
   writePersonalWorkspace
 } from './workflow/personalWorkspace';
 import { upsertAnswerAsset } from './workflow/runtimeAssets';
+import { getMaterialDraftQueue } from './materials/draftQueue';
+import { configureWorkspaceFence, invalidateWorkspaceEpoch } from './materials/workspaceFence';
+import { clearAllUserData, deleteMaterial, persistMaterialUpdate, readUserBackup, resumePendingDeletions, type WorkspaceStore } from './materials/workspaceDataCoordinator';
+import { MAX_BACKUP_BYTES, restoreUserBackup, validateUserBackup } from './materials/backup';
 
 type AppView = 'focus' | 'workspace' | 'job' | 'assets' | 'growth' | 'materials';
 
@@ -84,12 +89,14 @@ function createInitialAppState() {
     };
   }
 
-  const storage = getBrowserStorage();
+  let initialError = '';
+  let storage: ReturnType<typeof getBrowserStorage>;
+  try { storage = getBrowserStorage(); } catch { initialError = '本地存储不可用'; }
   const fallback = createEmptyPersonalWorkspaceData();
-  const persisted = hasPersonalWorkspace(storage);
-  const workspace = persisted
-    ? readPersonalWorkspace(storage, fallback)
-    : fallback;
+  let persisted = false;
+  let workspace = fallback;
+  try { persisted = hasPersonalWorkspace(storage); workspace = readPersonalWorkspace(storage, fallback); }
+  catch { initialError = '本地数据读取失败，请重试'; }
   const sampleJobIds = initialJobFiles.map((job) => job.id);
   const hasData = hasRealWorkspaceData(workspace, sampleJobIds);
 
@@ -97,6 +104,7 @@ function createInitialAppState() {
     hasStarted: persisted,
     view: hasData ? ('workspace' as AppView) : ('focus' as AppView),
     workspace,
+    initialError,
     isPreviewMode
   };
 }
@@ -104,13 +112,16 @@ function createInitialAppState() {
 export default function App() {
   const [initialAppState] = useState(createInitialAppState);
   const [view, setView] = useState<AppView>(initialAppState.view);
-  const [hasStarted, setHasStarted] = useState(initialAppState.hasStarted);
   const [workspaceData, setWorkspaceData] = useState(initialAppState.workspace);
   const workspaceSnapshot = useRef(workspaceData); workspaceSnapshot.current = workspaceData;
-  const handleFlowDraftSaveStarted = useCallback(() => {
-    if (!initialAppState.isPreviewMode) writePersonalWorkspace(getBrowserStorage(), workspaceSnapshot.current);
-    setHasStarted(true);
-  }, [initialAppState.isPreviewMode]);
+  const [dataError, setDataError] = useState(initialAppState.initialError ?? '');
+  const [maintaining, setMaintaining] = useState(true);
+  const [recoveryNeeded, setRecoveryNeeded] = useState(false);
+  const blocked = useRef(true);
+  const mounted = useRef(true);
+  const revision = useRef(0);
+  const [contentRevision, setContentRevision] = useState(0);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; blocked.current = true; revision.current += 1; }; }, []);
   const [isDataMenuOpen, setIsDataMenuOpen] = useState(false);
   const dataMenuRef = useRef<HTMLDetailsElement>(null);
   const materialsGuard = useRef<(() => boolean) | null>(null);
@@ -119,6 +130,69 @@ export default function App() {
     open: (name: string, version?: number) => globalThis.indexedDB.open(`${name}-preview`, version)
   } as IDBFactory : undefined));
   const materials = useMaterials(materialRepository);
+  const [workspaceStore] = useState<WorkspaceStore>(() => ({
+    read() {
+      const storage = getBrowserStorage();
+      if (!storage) throw new Error('本地存储不可用');
+      const scoped = initialAppState.isPreviewMode ? {
+        getItem: (key: string) => storage.getItem(`${key}:preview`),
+        setItem: (key: string, value: string) => storage.setItem(`${key}:preview`, value),
+        removeItem: (key: string) => storage.removeItem(`${key}:preview`),
+      } : storage;
+      return readPersonalWorkspace(scoped, initialAppState.workspace);
+    },
+    async write(data) {
+      const storage = getBrowserStorage();
+      if (!storage) throw new Error('本地存储不可用');
+      writePersonalWorkspace(initialAppState.isPreviewMode ? {
+        getItem: (key: string) => storage.getItem(`${key}:preview`),
+        setItem: (key: string, value: string) => storage.setItem(`${key}:preview`, value),
+        removeItem: (key: string) => storage.removeItem(`${key}:preview`),
+      } : storage, data);
+    },
+  }));
+  const saveWorkspace = useCallback(async (update: (current: typeof workspaceData) => typeof workspaceData) => {
+    const expected = contentRevision;
+    try {
+      if (!mounted.current || blocked.current || expected !== revision.current) throw new Error('数据正在更新');
+      await getMaterialDraftQueue(materialRepository).run(async () => {
+        if (!mounted.current || blocked.current || expected !== revision.current) throw new Error('数据正在更新');
+        const next = update(workspaceSnapshot.current);
+        await workspaceStore.write(next);
+        workspaceSnapshot.current = next; setWorkspaceData(next); setDataError('');
+      });
+    } catch (error) { setDataError('保存失败，当前修改尚未保存，请重试'); throw error; }
+  }, [contentRevision, materialRepository, workspaceStore]);
+  const handleFlowDraftSaveStarted = useCallback(() => saveWorkspace(current => current), [saveWorkspace]);
+  const maintain = useCallback(async (operation: () => Promise<void>, nextView?: AppView) => {
+    blocked.current = true; revision.current += 1; setMaintaining(true); setContentRevision(revision.current);
+    // Unmount editors and abort generation before entering the shared queue.
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
+    if (!mounted.current) return;
+    try {
+      await operation();
+      if (!mounted.current) return;
+      const stored = workspaceStore.read(); workspaceSnapshot.current = stored; setWorkspaceData(stored);
+      await materials.refresh();
+      if (nextView) setView(nextView);
+      setDataError(''); setRecoveryNeeded(false); blocked.current = false; setMaintaining(false);
+    } catch { setDataError('数据操作未完成，请重试恢复；当前数据不会被标记为已保存'); }
+  }, [workspaceStore, materials.refresh]);
+  const recover = useCallback(() => {
+    try {
+      const storage = getBrowserStorage(); if (!storage) throw new Error('storage unavailable');
+      configureWorkspaceFence(materialRepository, storage, `ai-interview-growth-os${initialAppState.isPreviewMode ? ':preview' : ''}`);
+      return maintain(() => resumePendingDeletions(materialRepository, workspaceStore));
+    } catch { setDataError('本地存储不可用，请重试'); return Promise.resolve(); }
+  }, [materialRepository, workspaceStore, maintain, initialAppState.isPreviewMode]);
+  useEffect(() => {
+    void recover();
+    try {
+    const storage = getBrowserStorage(); if (!storage) return;
+    const fence = configureWorkspaceFence(materialRepository, storage, `ai-interview-growth-os${initialAppState.isPreviewMode ? ':preview' : ''}`);
+    return fence.subscribe(() => { void recover(); });
+    } catch { setDataError('本地存储不可用，请重试'); }
+  }, [recover, materialRepository, initialAppState.isPreviewMode]);
 
   useEffect(() => {
     if (!isDataMenuOpen) return;
@@ -137,46 +211,37 @@ export default function App() {
     };
   }, [isDataMenuOpen]);
 
-  useEffect(() => {
-    if (!hasStarted || initialAppState.isPreviewMode) return;
-    writePersonalWorkspace(getBrowserStorage(), workspaceData);
-  }, [hasStarted, initialAppState.isPreviewMode, workspaceData]);
-
   function switchView(nextView: AppView) {
     setIsDataMenuOpen(false);
     if (nextView !== view && materialsGuard.current && !materialsGuard.current()) return;
     setView(nextView);
   }
 
-  function handleRestoreExample() {
+  async function handleRestoreExample() {
     setIsDataMenuOpen(false);
     if (materialsGuard.current && !materialsGuard.current()) return;
     const confirmed = window.confirm(
-      '恢复示例数据会覆盖当前浏览器里的本地数据，是否继续？'
+      '恢复示例仅覆盖岗位、面试、复盘和回答；我的资料与资料草稿保留。是否继续？'
     );
     if (!confirmed) return;
-    setWorkspaceData(createSampleWorkspaceData());
-    setHasStarted(true);
-    setView('workspace');
+    await maintain(() => getMaterialDraftQueue(materialRepository).run(async () => {
+      invalidateWorkspaceEpoch(materialRepository);
+      await workspaceStore.write(createSampleWorkspaceData());
+    }, { maintenance: true }), 'workspace');
   }
 
-  function handleClearLocalData() {
+  async function handleClearLocalData() {
     setIsDataMenuOpen(false);
     if (materialsGuard.current && !materialsGuard.current()) return;
     const confirmed = window.confirm(
-      '清空本地数据后，当前岗位、面试记录和我的回答库会从这个浏览器删除，是否继续？'
+      '清空本地数据将删除资料、草稿、引用、岗位、面试、复盘和回答；已有备份无法撤回。是否继续？'
     );
     if (!confirmed) return;
-    if (!initialAppState.isPreviewMode)
-      clearPersonalWorkspace(getBrowserStorage());
-    setWorkspaceData(createEmptyPersonalWorkspaceData());
-    setHasStarted(false);
-    setView('focus');
+    await maintain(() => clearAllUserData(materialRepository, workspaceStore), 'focus');
   }
 
   function handleSaveAsset(asset: AnswerAsset) {
-    setHasStarted(true);
-    setWorkspaceData((current) => ({
+    return saveWorkspace((current) => ({
       ...current,
       answerAssets: upsertAnswerAsset(current.answerAssets, asset),
       updatedAt: new Date().toISOString()
@@ -184,17 +249,15 @@ export default function App() {
   }
 
   function handleSelectJob(jobId: string) {
-    setHasStarted(true);
-    setWorkspaceData((current) => ({
+    return saveWorkspace((current) => ({
       ...current,
       selectedJobId: jobId,
       updatedAt: new Date().toISOString()
-    }));
+    })).catch(() => {});
   }
 
   function handleCreateJob(draft: NewJobDraft) {
-    setHasStarted(true);
-    setWorkspaceData((current) => {
+    return saveWorkspace((current) => {
       const nextJob = createJobFileFromDraft(draft, current.jobFiles.length);
       return {
         ...current,
@@ -206,8 +269,7 @@ export default function App() {
   }
 
   function handleUpdateJob(nextJob: JobFile) {
-    setHasStarted(true);
-    setWorkspaceData((current) => ({
+    return saveWorkspace((current) => ({
       ...current,
       jobFiles: upsertJobFile(current.jobFiles, nextJob),
       updatedAt: new Date().toISOString()
@@ -215,8 +277,7 @@ export default function App() {
   }
 
   function handleDeleteJob(jobId: string) {
-    setHasStarted(true);
-    setWorkspaceData((current) => {
+    return saveWorkspace((current) => {
       if (current.jobFiles.length <= 1) return current;
       return removeJobFile(current, jobId);
     });
@@ -226,8 +287,7 @@ export default function App() {
     session: InterviewSession,
     review: ReviewReport
   ) {
-    setHasStarted(true);
-    setWorkspaceData((current) => ({
+    return saveWorkspace((current) => ({
       ...current,
       interviewSessions: upsertInterviewSession(
         current.interviewSessions,
@@ -240,8 +300,23 @@ export default function App() {
   }
 
   function handleDeleteInterviewRecord(sessionId: string) {
-    setHasStarted(true);
-    setWorkspaceData((current) => removeInterviewRecord(current, sessionId));
+    return saveWorkspace((current) => removeInterviewRecord(current, sessionId));
+  }
+
+  async function exportBackup() {
+    await maintain(async () => {
+      const backup = await readUserBackup(materialRepository, workspaceStore);
+      const url = URL.createObjectURL(new Blob([JSON.stringify(backup)], { type: 'application/json' }));
+      const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'interview-backup.json'; anchor.click(); URL.revokeObjectURL(url);
+    });
+  }
+  async function importBackup(file: File) {
+    try {
+      if (file.size > MAX_BACKUP_BYTES) throw new Error('too large');
+      const backup = validateUserBackup(JSON.parse(await file.text()));
+      if (!window.confirm('恢复备份会覆盖本地资料、草稿、岗位、面试和回答，是否继续？')) return;
+      await maintain(() => restoreUserBackup(backup, materialRepository, workspaceStore), 'workspace');
+    } catch { setDataError('备份无效或超过 20 MiB，当前数据未更改'); }
   }
 
   return (
@@ -323,6 +398,8 @@ export default function App() {
               数据管理 <ChevronDown size={14} />
             </summary>
             <div className="data-menu-list" aria-label="本地数据管理">
+              <button type="button" className="ghost-action" disabled={maintaining} onClick={() => { void exportBackup(); }}><Download size={16} />导出备份</button>
+              <label className="ghost-action"><Upload size={16} />恢复备份<input aria-label="恢复备份" type="file" accept=".json,application/json" disabled={maintaining} onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) void importBackup(file); }} /></label>
               <button
                 type="button"
                 className="ghost-action"
@@ -342,7 +419,10 @@ export default function App() {
             </div>
           </details>
         </div>
-        {view === 'focus' && (
+        {dataError && <p role="alert">{dataError}{(maintaining || recoveryNeeded) && <button type="button" onClick={() => { void recover(); }}>重试恢复</button>}</p>}
+        {maintaining && <p role="status">正在检查本地数据</p>}
+        <div key={contentRevision}>
+        {!maintaining && view === 'focus' && (
           <FocusFlowPage
             onDraftSaveStarted={handleFlowDraftSaveStarted}
             repository={materialRepository}
@@ -357,12 +437,11 @@ export default function App() {
             onSaveAsset={handleSaveAsset}
             onFinish={(target) => {
               setIsDataMenuOpen(false);
-              setHasStarted(true);
               setView(target);
             }}
           />
         )}
-        {view === 'workspace' && (
+        {!maintaining && view === 'workspace' && (
           <WorkspaceHome
             data={workspaceData}
             onSelectJob={handleSelectJob}
@@ -372,7 +451,7 @@ export default function App() {
             onStartNew={() => switchView('focus')}
           />
         )}
-        {view === 'job' && (
+        {!maintaining && view === 'job' && (
           <JobFileDetail
             materialChunks={materials.chunks}
             materialsLoading={materials.loading}
@@ -394,7 +473,7 @@ export default function App() {
             onStartFocus={() => switchView('focus')}
           />
         )}
-        {view === 'assets' && (
+        {!maintaining && view === 'assets' && (
           <AssetsAndTraining
             answerAssets={workspaceData.answerAssets}
             interviewSessions={workspaceData.interviewSessions}
@@ -402,14 +481,23 @@ export default function App() {
             onUpdateAsset={handleSaveAsset}
           />
         )}
-        {view === 'growth' && (
+        {!maintaining && view === 'growth' && (
           <GrowthDashboard
             answerAssets={workspaceData.answerAssets}
             jobFiles={workspaceData.jobFiles}
             reviewReports={workspaceData.reviewReports}
           />
         )}
-        {view === 'materials' && <MyMaterials repository={materialRepository} onMaterialsChanged={() => { void materials.refresh(); }} onNavigationGuardChange={registerMaterialsGuard} />}
+        {!maintaining && view === 'materials' && <MyMaterials repository={materialRepository}
+          onDeleteMaterial={async id => { await maintain(() => deleteMaterial(id, materialRepository, workspaceStore), 'materials'); if (blocked.current) throw new Error('删除未完成'); }}
+          onPersistDocument={async (id, fromVersion, write) => {
+            try {
+              const result = fromVersion === null ? await getMaterialDraftQueue(materialRepository).run(write) : await persistMaterialUpdate(id, fromVersion, materialRepository, workspaceStore, write);
+              const stored = workspaceStore.read(); workspaceSnapshot.current = stored; setWorkspaceData(stored); return result;
+            } catch (error) { setDataError('资料保存未完成，编辑内容仍保留，请重试或恢复'); setRecoveryNeeded(true); throw error; }
+          }}
+          onMaterialsChanged={() => { void materials.refresh(); }} onNavigationGuardChange={registerMaterialsGuard} />}
+        </div>
       </div>
     </main>
   );

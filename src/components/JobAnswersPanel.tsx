@@ -7,7 +7,7 @@ import { buildMaterialImportSavePayload } from '../workflow/materialImportDraft'
 import { saveAnswerAssetVersion } from '../workflow/answerAssetVersions';
 
 type Props = { job: JobFile; session: InterviewSession; review: ReviewReport; assets: AnswerAsset[];
-  chunks: MaterialChunk[]; materialsReady: boolean; onSave: (asset: AnswerAsset) => void };
+  chunks: MaterialChunk[]; materialsReady: boolean; onSave: (asset: AnswerAsset) => void | Promise<void> };
 
 function mapSavedAssets(job: JobFile, session: InterviewSession, assets: AnswerAsset[]) {
   const scoped = assets.filter(asset => asset.sourceJobId === job.id && asset.sourceInterviewId === session.id);
@@ -43,7 +43,7 @@ export function JobAnswersPanel({ job, session, review, assets, chunks, material
   return <FocusAnswersPanel items={items} job={job} chunks={chunks} materialsReady={materialsReady} work={work}
     onWorkChange={(id, value) => setWork(current => ({ ...current, [id]: value }))} onActiveChange={() => {}}
     onChange={updated => setItems(current => current.map(item => item.id === updated.id ? updated : item))}
-    onSave={statuses => {
+    onSave={async statuses => {
       const payload = buildMaterialImportSavePayload({ job, rawText: '', selectedItemIds: statuses.keys(), confirmationStatuses: statuses,
         runId: `${session.id}-answers`, draft: { sourceType: 'review_notes', jobContext: {}, interviewItems: items, globalInsights: {}, missingInfoWarnings: [] } });
       const acceptedItems = items.filter(item => statuses.has(item.id));
@@ -55,7 +55,7 @@ export function JobAnswersPanel({ job, session, review, assets, chunks, material
           evidence: candidate.evidence, generation: candidate.generation, missingFacts: candidate.missingFacts,
           modelRationale: candidate.modelRationale, answerRationale: candidate.answerRationale }) :
           { ...candidate, id: assets.some(asset => asset.id === candidate.id) ? `asset-${crypto.randomUUID()}` : candidate.id };
-        onSave({ ...saved, sourceQuestionId: item.id, originalQuestion: candidate.originalQuestion, originalAnswer: candidate.originalAnswer,
+        await onSave({ ...saved, sourceQuestionId: item.id, originalQuestion: candidate.originalQuestion, originalAnswer: candidate.originalAnswer,
           issue: candidate.issue, sourceInterviewId: session.id, sourceReviewId: review.id, confirmationStatus: candidate.confirmationStatus });
         assetIds.current.set(item.id, saved.id);
       }

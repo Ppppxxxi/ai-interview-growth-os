@@ -8,18 +8,18 @@ const text = z.string();
 const strings = z.array(text);
 const identifier = z.string().min(1).max(200);
 const revision = z.number().int().nonnegative();
-const evidence = z.object({
+export const evidence = z.object({
   documentId: identifier, documentVersion: z.number().int().positive(), chunkId: identifier,
-  kind: z.enum(['experience', 'knowledge']), titleSnapshot: text, quote: text,
+  kind: z.enum(['experience', 'knowledge']), titleSnapshot: z.string().max(500), quote: z.string().max(1200),
   locatorSnapshot: MaterialLocatorSchema.optional(), answerParagraphIndex: revision,
   status: z.enum(['validated', 'source-updated', 'source-deleted', 'needs-review']),
 }).strict();
-const generation = z.object({ provider: z.literal('deepseek'), model: text, generatedAt: text,
+export const generation = z.object({ provider: z.literal('deepseek'), model: z.string().max(200), generatedAt: z.string().max(100),
   generationId: identifier, origin: z.enum(['model', 'sample', 'manual']) }).strict();
-const modelRationale = z.object({ rewriteFocus: text, applicabilityBoundary: text }).strict();
-const answerRationale = z.object({ sourceQuestion: text, originalIssue: text, rewriteFocus: text,
+export const modelRationale = z.object({ rewriteFocus: text, applicabilityBoundary: text }).strict();
+export const answerRationale = z.object({ sourceQuestion: text, originalIssue: text, rewriteFocus: text,
   applicabilityBoundary: text, requestedRewriteFocus: text.optional() }).strict();
-const version = z.object({ id: identifier, answer: text, note: text, createdAt: text,
+export const version = z.object({ id: identifier, answer: text, note: text, createdAt: text,
   source: z.enum(['generated', 'manual-edit', 'usage-feedback']), evidence: z.array(evidence).optional(),
   generation: generation.optional(), missingFacts: strings.optional(),
   modelRationale: modelRationale.optional(), answerRationale: answerRationale.optional() }).strict();

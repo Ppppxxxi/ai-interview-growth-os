@@ -16,9 +16,12 @@ import { parseInterviewMaterial as parseDraft } from '../agents/materialImportPa
 import { prepareRewriteRequest } from '../llm/prepareRewriteRequest';
 import { validateEvidence } from '../llm/validateEvidence';
 import App from '../App';
+import { useLayoutEffect } from 'react';
+import { mockBrowserLocks } from '../materials/__tests__/browserLocks';
 
 const calls: { input: RewriteRequest; resolve: (value: Response) => void; signal?: AbortSignal }[] = [];
 beforeEach(() => {
+  mockBrowserLocks();
   calls.length = 0;
   vi.stubGlobal('fetch', vi.fn((url, options) => {
     if (url === '/api/ai/status') return Promise.resolve(new Response(JSON.stringify({ available: true })));
@@ -45,6 +48,15 @@ async function finish(index = 0) {
   await act(async () => calls[index].resolve(new Response(JSON.stringify({ ...response(input), citations: input.chunks.length ? response(input).citations : [] }))));
   await waitFor(() => expect((screen.getByLabelText('下次可用回答') as HTMLTextAreaElement).value).toBe('I measured the result.'));
 }
+async function persistConfirmed() { await act(async () => { fireEvent.click(screen.getByText('保存到我的回答库')); }); }
+it('initial_mount_reset_cannot_erase_input_entered_before_passive_hydration', () => {
+  function ImmediateInput() {
+    useLayoutEffect(() => { fireEvent.change(screen.getByLabelText('面试材料'), { target: { value: '用户已输入的虚构材料' } }); }, []);
+    return <FocusFlowPage selectedJobId={job.id} jobFiles={[job]} onUpdateJob={vi.fn()} onSaveAsset={vi.fn()} onSaveInterviewRecord={vi.fn()} onFinish={vi.fn()} />;
+  }
+  render(<ImmediateInput />);
+  expect((screen.getByLabelText('面试材料') as HTMLTextAreaElement).value).toBe('用户已输入的虚构材料');
+});
 it('does_not_autoselect_references', () => {
   setup();
   expect(screen.getByText('参考资料 · 已选 0 / 6')).toBeTruthy();
@@ -72,7 +84,7 @@ it('cannot_save_model_suggestion_before_acceptance', async () => {
   fireEvent.click(screen.getByRole('checkbox', { name: /Synthetic project/ }));
   await generate(); await finish();
   expect(save).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByText('采用')); fireEvent.click(screen.getByText('保存到我的回答库'));
+  fireEvent.click(screen.getByText('采用')); await persistConfirmed();
   expect(save).toHaveBeenCalledTimes(1);
   expect(save.mock.calls[0][0]).toMatchObject({ generation: { generationId: calls[0].input.generationId }, evidence: [{ status: 'validated', chunkId: 'c1' }] });
 });
@@ -90,7 +102,7 @@ it('failed_generation_keeps_accepted_answer', async () => {
   await waitFor(() => expect(calls).toHaveLength(2));
   await act(async () => calls[1].resolve(new Response('<html>limited</html>', { status: 429 })));
   expect((screen.getByLabelText('下次可用回答') as HTMLTextAreaElement).value).toBe('I measured the result.');
-  fireEvent.click(screen.getByText('保存到我的回答库')); expect(save).toHaveBeenCalledTimes(1);
+  await persistConfirmed(); expect(save).toHaveBeenCalledTimes(1);
 });
 it('local_parser_keeps_suggestions_but_never_a_model_answer', () => {
   const draft = parseInterviewMaterial({ rawText: '面试官：如何评估指标？\n候选人：看实验结果。', sourceType: 'auto' });
@@ -113,7 +125,7 @@ it('older_question_edit_invalidates_its_own_result_and_requires_new_confirmation
   fireEvent.click(screen.getAllByRole('button', { pressed: false }).find(button => button.textContent?.includes('01'))!);
   fireEvent.change(screen.getByLabelText('下次可用回答'), { target: { value: '用户修订后的答案' } });
   expect((screen.getByText('保存到我的回答库') as HTMLButtonElement).disabled).toBe(true);
-  fireEvent.click(screen.getByText('修改后采用')); fireEvent.click(screen.getByText('保存到我的回答库'));
+  fireEvent.click(screen.getByText('修改后采用')); await persistConfirmed();
   expect(save.mock.calls[0][0].improvedAnswer).toBe('用户修订后的答案');
   expect(save.mock.calls[0][0].generation.generationId).toBe(calls[0].input.generationId);
 });
@@ -122,7 +134,7 @@ it('manual_edits_preserve_quotes_as_needs_review_and_remove_acceptance', async (
   fireEvent.change(screen.getByLabelText('下次可用回答'), { target: { value: '我补充了真实职责。' } });
   expect(screen.getByText(/待核对/)).toBeTruthy();
   fireEvent.click(screen.getByText('保存到我的回答库')); expect(save).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByText('修改后采用')); fireEvent.click(screen.getByText('保存到我的回答库'));
+  fireEvent.click(screen.getByText('修改后采用')); await persistConfirmed();
   expect(save.mock.calls[0][0].evidence[0]).toMatchObject({ quote: chunk.text, status: 'needs-review' });
 });
 it('preparation_errors_are_visible_and_do_not_truncate_or_send', () => {
@@ -140,16 +152,16 @@ it('unavailable_service_allows_manual_answer_without_network_generation', async 
   vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response(JSON.stringify({ available: false })))));
   const { save } = setup(); await screen.findByText('生成暂不可用，可手写回答');
   fireEvent.change(screen.getByLabelText('下次可用回答'), { target: { value: '虚构手写答案' } });
-  fireEvent.click(screen.getByText('采用')); fireEvent.click(screen.getByText('保存到我的回答库'));
+  fireEvent.click(screen.getByText('采用')); await persistConfirmed();
   expect(save.mock.calls[0][0].improvedAnswer).toBe('虚构手写答案'); expect(calls).toHaveLength(0);
 });
-it('low_confidence_question_can_be_manually_confirmed_and_saved', () => {
+it('low_confidence_question_can_be_manually_confirmed_and_saved', async () => {
   const save = vi.fn();
   render(<FocusFlowPage selectedJobId={job.id} jobFiles={[job]} materialChunks={[]} onUpdateJob={vi.fn()} onSaveAsset={save} onSaveInterviewRecord={vi.fn()} onFinish={vi.fn()} />);
   fireEvent.change(screen.getByLabelText('面试材料'), { target: { value: '一段虚构的无关键词待确认材料' } });
   fireEvent.click(screen.getByText('解析材料')); fireEvent.click(screen.getByText('生成下次可用回答'));
   fireEvent.change(screen.getByLabelText('下次可用回答'), { target: { value: '我核对后手写的回答。' } });
-  fireEvent.click(screen.getByText('采用')); fireEvent.click(screen.getByText('保存到我的回答库'));
+  fireEvent.click(screen.getByText('采用')); await persistConfirmed();
   expect(save.mock.calls[0][0].improvedAnswer).toBe('我核对后手写的回答。');
 });
 it('starts_with_the_question_selected_during_recognition', async () => {
@@ -177,12 +189,12 @@ it('one_flight_and_cancel_allow_retry_without_late_overwrite', async () => {
 });
 it('saving_keeps_unconfirmed_questions_available_without_saving_them', async () => {
   const { save } = setup(); await generate(); await finish(); fireEvent.click(screen.getByText('采用'));
-  fireEvent.click(screen.getByText('保存到我的回答库'));
+  await persistConfirmed();
   expect(screen.getByLabelText('切换问题')).toBeTruthy();
   expect((screen.getByLabelText('下次可用回答') as HTMLTextAreaElement).value).toBe('');
   expect(save).toHaveBeenCalledTimes(1);
   fireEvent.change(screen.getByLabelText('下次可用回答'), { target: { value: '第二题手写回答' } });
-  fireEvent.click(screen.getByText('采用')); fireEvent.click(screen.getByText('保存到我的回答库'));
+  fireEvent.click(screen.getByText('采用')); await persistConfirmed();
   expect(save).toHaveBeenCalledTimes(2);
   expect(save.mock.calls[1][0].sourceInterviewId).toBe(save.mock.calls[0][0].sourceInterviewId);
 });
@@ -195,20 +207,20 @@ it('partial_save_and_back_preserve_completed_model_selection_and_provenance', as
   expect(screen.getByRole('button', { name: '采用' })).toBeTruthy();
   expect(screen.getByRole('textbox', { name: /^下次可用回答$/ })).toBeTruthy();
   fireEvent.click(screen.getAllByRole('button', { pressed: false }).find(button => button.textContent?.includes('01'))!);
-  fireEvent.change(screen.getByLabelText('下次可用回答'), { target: { value: '虚构第一题' } }); fireEvent.click(screen.getByText('采用')); fireEvent.click(screen.getByText('保存到我的回答库'));
+  fireEvent.change(screen.getByLabelText('下次可用回答'), { target: { value: '虚构第一题' } }); fireEvent.click(screen.getByText('采用')); await persistConfirmed();
   expect((screen.getByLabelText('下次可用回答') as HTMLTextAreaElement).value).toBe('I measured the result.');
   expect((screen.getByRole('checkbox', { name: /Synthetic project/ }) as HTMLInputElement).checked).toBe(true);
-  fireEvent.click(screen.getByText('采用')); fireEvent.click(screen.getByText('保存到我的回答库'));
+  fireEvent.click(screen.getByText('采用')); await persistConfirmed();
   expect(save).toHaveBeenCalledTimes(2); expect(calls).toHaveLength(1);
 });
-it('partial_save_preserves_manual_provenance_without_accepting_arbitrary_nonempty_text', () => {
+it('partial_save_preserves_manual_provenance_without_accepting_arbitrary_nonempty_text', async () => {
   const { save } = setup();
   fireEvent.click(screen.getAllByRole('button', { pressed: false }).find(button => button.textContent?.includes('02'))!);
   fireEvent.change(screen.getByLabelText('下次可用回答'), { target: { value: '第二题手写' } });
   fireEvent.click(screen.getAllByRole('button', { pressed: false }).find(button => button.textContent?.includes('01'))!);
-  fireEvent.change(screen.getByLabelText('下次可用回答'), { target: { value: '第一题手写' } }); fireEvent.click(screen.getByText('采用')); fireEvent.click(screen.getByText('保存到我的回答库'));
+  fireEvent.change(screen.getByLabelText('下次可用回答'), { target: { value: '第一题手写' } }); fireEvent.click(screen.getByText('采用')); await persistConfirmed();
   expect(screen.getByRole('button', { name: '采用' })).toBeTruthy();
-  fireEvent.click(screen.getByText('采用')); fireEvent.click(screen.getByText('保存到我的回答库')); expect(save).toHaveBeenCalledTimes(2);
+  fireEvent.click(screen.getByText('采用')); await persistConfirmed(); expect(save).toHaveBeenCalledTimes(2);
 });
 it('saves_and_displays_actual_model_rationale_separately_from_user_input', async () => {
   const { save } = setup(); await generate();
@@ -216,7 +228,7 @@ it('saves_and_displays_actual_model_rationale_separately_from_user_input', async
   await act(async () => calls[0].resolve(new Response(JSON.stringify(output))));
   expect(screen.getByText(output.applicabilityBoundary)).toBeTruthy(); expect(screen.getByText(output.rewriteFocus)).toBeTruthy();
   expect((screen.getByLabelText('建议这样改') as HTMLTextAreaElement).value).not.toBe(output.rewriteFocus);
-  fireEvent.click(screen.getByText('采用')); fireEvent.click(screen.getByText('保存到我的回答库'));
+  fireEvent.click(screen.getByText('采用')); await persistConfirmed();
   expect(save.mock.calls[0][0]).toMatchObject({ reuseScope: output.applicabilityBoundary, modelRationale: { rewriteFocus: output.rewriteFocus, applicabilityBoundary: output.applicabilityBoundary }, answerRationale: { requestedRewriteFocus: calls[0].input.rewriteFocus, rewriteFocus: output.rewriteFocus, applicabilityBoundary: output.applicabilityBoundary } });
 });
 it('repository_remount_restores_edited_flow_and_versioned_selection_as_unsaved_without_rewrite', async () => {
@@ -264,7 +276,7 @@ it('restored_model_is_unaccepted_but_can_be_accepted_without_another_rewrite', a
   fireEvent.change(screen.getByLabelText('面试材料'), { target: { value: '面试官：如何评估？\n候选人：指标。' } }); fireEvent.click(screen.getByText('解析材料')); fireEvent.click(screen.getByText('生成下次可用回答')); await generate(); await finish(); fireEvent.click(screen.getByText('采用'));
   await act(async () => { await getMaterialDraftQueue(repository).whenIdle(); }); ui.unmount(); ui = render(<FocusFlowPage {...props} />); await screen.findByText('未保存草稿');
   expect((screen.getByText('保存到我的回答库') as HTMLButtonElement).disabled).toBe(true);
-  expect(screen.getByText('待确认')).toBeTruthy(); fireEvent.click(screen.getByText('采用')); fireEvent.click(screen.getByText('保存到我的回答库'));
+  expect(screen.getByText('待确认')).toBeTruthy(); fireEvent.click(screen.getByText('采用')); await persistConfirmed();
   expect(save).toHaveBeenCalledTimes(1); expect(calls).toHaveLength(1);
 });
 it('write_failure_retry_keeps_current_edited_input_instead_of_reloading_old_draft', async () => {

@@ -12,10 +12,11 @@ type Props = {
   repository: MaterialRepository;
   onMaterialsChanged?: () => void;
   onDeleteMaterial?: (documentId: string) => Promise<void>;
+  onPersistDocument?: <T>(documentId: string, fromVersion: number | null, write: () => Promise<T>) => Promise<T>;
   onNavigationGuardChange?: (guard: (() => boolean) | null) => void;
 };
 type Editing = { draft: MaterialDraft; original?: MaterialDocument; dirty: boolean; restored: boolean; pages?: PageText[]; textEdited?: boolean };
-export function MyMaterials({ repository, onMaterialsChanged, onDeleteMaterial, onNavigationGuardChange }: Props) {
+export function MyMaterials({ repository, onMaterialsChanged, onDeleteMaterial, onPersistDocument, onNavigationGuardChange }: Props) {
   const materials = useMaterials(repository);
   const [kind, setKind] = useState<MaterialKind>('experience');
   const [query, setQuery] = useState('');
@@ -49,6 +50,7 @@ export function MyMaterials({ repository, onMaterialsChanged, onDeleteMaterial, 
     return () => { onNavigationGuardChange?.(null); window.removeEventListener('beforeunload', unload); };
   }, [canLeave, onNavigationGuardChange]);
   function enqueueDraft(draft: MaterialDraft) {
+    if (!alive.current) return;
     void draftQueue.run(() => repository.saveDraft(draft)).then(() => {
       if (alive.current) setDraftError('');
     }).catch(() => { if (alive.current) setDraftError('草稿保存失败，请重试'); });
@@ -88,6 +90,7 @@ export function MyMaterials({ repository, onMaterialsChanged, onDeleteMaterial, 
     setBusy(true); setError('');
     try {
       const imported = await importDocument(file);
+      if (!alive.current) return;
       const draft = { ...editing.draft, text: imported.text, sourceFormat: imported.format, sourceFileName: imported.sourceFileName,
         title: editing.draft.title || file.name, updatedAt: new Date().toISOString() };
       setEditing({ ...editing, draft, dirty: true, pages: imported.pages, textEdited: true }); setConfirmed(false); enqueueDraft(draft);
@@ -111,11 +114,13 @@ export function MyMaterials({ repository, onMaterialsChanged, onDeleteMaterial, 
     };
     setBusy(true); setError('');
     try {
-      const { saved, cleanupFailed } = await draftQueue.run(async () => {
+      const write = async () => {
         const saved = await materials.saveDocument(document, original?.version ?? null, pages, !editing.textEdited);
         try { await repository.deleteDraft(draft.id); return { saved, cleanupFailed: false }; }
         catch { return { saved, cleanupFailed: true }; }
-      });
+      };
+      const { saved, cleanupFailed } = await (onPersistDocument ? onPersistDocument(document.id, original?.version ?? null, write) : draftQueue.run(write));
+      if (!alive.current) return;
       setEditing(undefined); setSelected(saved.id);
       if (cleanupFailed) setDraftError('资料已保存，草稿清理失败');
       else await loadDrafts();
@@ -124,7 +129,7 @@ export function MyMaterials({ repository, onMaterialsChanged, onDeleteMaterial, 
     finally { setBusy(false); }
   }
   async function remove(document: MaterialDocument) {
-    if (!onDeleteMaterial || !canLeave() || !window.confirm('删除这份资料？')) return;
+    if (!onDeleteMaterial || !canLeave() || !window.confirm('删除资料正文、片段及所有版本的引用摘录，回答正文保留。正文仍可能含已采用的经历，请自行修改或删除回答；已有备份无法撤回。是否继续？')) return;
     setBusy(true); setError('');
     try { await onDeleteMaterial(document.id); setSelected(''); await materials.refresh(); onMaterialsChanged?.(); }
     catch { setError('删除失败，请重试'); } finally { setBusy(false); }

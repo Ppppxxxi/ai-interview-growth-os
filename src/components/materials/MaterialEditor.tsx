@@ -33,7 +33,7 @@ export function MaterialEditor({ draft, confirmed, busy, restored, error, onChan
         <input aria-label="导入文件" type="file" accept=".txt,.md,.markdown,.docx,.pdf" onChange={event => {
           const file = event.target.files?.[0]; event.target.value = ''; if (file) onImport(file);
         }} /></label>{draft.sourceFileName && <span>{draft.sourceFileName}</span>}</div>
-      <label>正文<textarea value={draft.text} rows={12} placeholder="粘贴或输入正文" onChange={event => change('text', event.target.value)} /></label>
+      <label>正文<textarea aria-label="正文" value={draft.text} rows={12} placeholder="粘贴或输入正文" onChange={event => change('text', event.target.value)} /></label>
       <label className="material-check"><input type="checkbox" checked={confirmed} onChange={event => onConfirm(event.target.checked)} />确认正文</label>
       {draft.kind === 'experience' && <details className="material-fields"><summary>经历要点</summary>
         <div>{(['project', 'responsibility', 'action', 'result'] as const).map((field, index) => <label key={field}>

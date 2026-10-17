@@ -140,6 +140,7 @@ export function buildAssetLibraryMarkdown({ assets, interviewSessions, jobFiles 
         '**优化回答：**',
         '',
         asset.improvedAnswer,
+        ...formatEvidence(asset.evidence),
         '',
         '**适用类似问题：**',
         '',
@@ -184,6 +185,7 @@ function formatAssets(assets: AnswerAsset[]) {
     '**优化回答：**',
     '',
     asset.improvedAnswer,
+    ...formatEvidence(asset.evidence),
     '',
     `**使用状态：** ${usageStatusLabels[getAssetUsageStatus(asset)]}`,
     ''
@@ -197,7 +199,12 @@ function toList(values: string[]) {
 function formatAnswerVersions(asset: AnswerAsset) {
   if (!asset.answerVersions || asset.answerVersions.length === 0) return ['- 暂无历史版本'];
 
-  return asset.answerVersions.map((version) => `- ${version.createdAt.slice(0, 10)}：${version.note}。${version.answer}`);
+  return asset.answerVersions.flatMap((version) => [`- ${version.createdAt.slice(0, 10)}：${version.note}。${version.answer}`, ...formatEvidence(version.evidence)]);
+}
+
+function formatEvidence(evidence: AnswerAsset['evidence']) {
+  return evidence?.flatMap(ref => ref.status === 'source-deleted' ? ['- 已删除资料（摘录已移除）'] :
+    [`- 参考资料：${ref.titleSnapshot} · ${ref.kind === 'experience' ? '我的经历' : '知识笔记'} · ${ref.status} · 回答第 ${ref.answerParagraphIndex + 1} 段`, `> ${ref.quote.replace(/\n/g, '\n> ')}`]) ?? [];
 }
 
 function unique(values: string[]) {

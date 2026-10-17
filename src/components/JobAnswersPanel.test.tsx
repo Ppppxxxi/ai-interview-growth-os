@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { useState } from 'react';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { JobAnswersPanel } from './JobAnswersPanel';
 import { answerAssets } from '../domain/sampleData';
@@ -35,11 +35,23 @@ function accept(text: string) {
   fireEvent.click(screen.getByText('采用'));
 }
 function switchQuestion(index: number) { fireEvent.click(screen.getByRole('button', { name: new RegExp(`0${index}`) })); }
+async function save() { await act(async () => { fireEvent.click(screen.getByText('保存到我的回答库')); }); }
 
-it('legacy_same_text_questions_keep_both_answers_after_real_upsert_without_reassigning_legacy', () => {
+it('waits_for_persistence_and_rejects_duplicate_save_until_completion', async () => {
+  let resolve!: () => void;
+  const pending = new Promise<void>(done => { resolve = done; });
+  const persist = vi.fn(() => pending);
+  render(<JobAnswersPanel job={job} session={session} review={review} assets={[]} chunks={[]} materialsReady onSave={persist} />);
+  accept('Synthetic manual answer');
+  fireEvent.click(screen.getByText('保存到我的回答库')); fireEvent.click(screen.getByText('保存到我的回答库'));
+  expect(persist).toHaveBeenCalledTimes(1);
+  await act(async () => resolve());
+});
+
+it('legacy_same_text_questions_keep_both_answers_after_real_upsert_without_reassigning_legacy', async () => {
   const ui = mount([legacy]);
   accept('Answer q1'); switchQuestion(2); accept('Answer q2');
-  fireEvent.click(screen.getByText('保存到我的回答库'));
+  await save();
   expect(new Set(ui.saved.map(asset => asset.id)).size).toBe(2);
   expect(ui.read()).toHaveLength(3);
   expect(ui.read().find(asset => asset.id === legacy.id)).toEqual(legacy);
@@ -50,12 +62,12 @@ it('legacy_same_text_questions_keep_both_answers_after_real_upsert_without_reass
   }
 });
 
-it('exact_id_wins_over_earlier_legacy_and_does_not_disambiguate_remaining_same_text_question', () => {
+it('exact_id_wins_over_earlier_legacy_and_does_not_disambiguate_remaining_same_text_question', async () => {
   const ui = mount([legacy, exact]);
   switchQuestion(2); expect(answer()).toBe('Exact second');
   switchQuestion(1); expect(answer()).toBe('');
   accept('New first'); switchQuestion(2); accept('Updated second');
-  fireEvent.click(screen.getByText('保存到我的回答库'));
+  await save();
   expect(ui.read()).toHaveLength(3);
   expect(ui.read().find(asset => asset.id === legacy.id)).toEqual(legacy);
   expect(ui.read().find(asset => asset.sourceQuestionId === 'q1')).toMatchObject({ improvedAnswer: 'New first', originalAnswer: 'Original q1' });
@@ -64,19 +76,19 @@ it('exact_id_wins_over_earlier_legacy_and_does_not_disambiguate_remaining_same_t
 });
 
 const distinctSession = { ...session, questions: [session.questions[0], { ...session.questions[1], question: 'Another question' }] };
-it('unique_legacy_binding_survives_question_and_original_answer_correction_and_remount', () => {
+it('unique_legacy_binding_survives_question_and_original_answer_correction_and_remount', async () => {
   const ui = mount([legacy], distinctSession);
   expect(answer()).toBe('Legacy first');
   fireEvent.change(screen.getByLabelText('识别到的问题'), { target: { value: 'Another question' } });
   fireEvent.change(screen.getByLabelText('你的原回答或材料片段'), { target: { value: 'Corrected original' } });
-  accept('Corrected first'); fireEvent.click(screen.getByText('保存到我的回答库'));
+  accept('Corrected first'); await save();
   expect(ui.read()[0]).toMatchObject({ id: legacy.id, sourceQuestionId: 'q1', originalQuestion: 'Another question', originalAnswer: 'Corrected original' });
   const adopted = ui.read(); ui.unmount();
   const next = mount(adopted, distinctSession);
   expect(answer()).toBe('Corrected first');
   expect((screen.getByLabelText('你的原回答或材料片段') as HTMLTextAreaElement).value).toBe('Corrected original');
   switchQuestion(2); expect(answer()).toBe(''); accept('Independent second');
-  switchQuestion(1); accept('Revised first'); fireEvent.click(screen.getByText('保存到我的回答库'));
+  switchQuestion(1); accept('Revised first'); await save();
   expect(next.read()).toHaveLength(2);
   expect(next.read().find(asset => asset.id === legacy.id)).toMatchObject({ sourceQuestionId: 'q1', originalAnswer: 'Corrected original', improvedAnswer: 'Revised first' });
   expect(next.read().find(asset => asset.sourceQuestionId === 'q2')).toMatchObject({ originalAnswer: 'Original q2', improvedAnswer: 'Independent second' });
@@ -88,22 +100,22 @@ it.each([
   ['explicit owner elsewhere', [{ ...legacy, sourceQuestionId: 'unknown-question' }]],
   ['multiple legacy candidates', [legacy, { ...legacy, id: 'second-legacy' }]],
   ['multiple exact candidates', [legacy, { ...exact, sourceQuestionId: 'q1' }, { ...exact, id: 'second-exact', sourceQuestionId: 'q1' }]],
-] as const)('does_not_guess_binding_for_%s', (_name, assets) => {
+] as const)('does_not_guess_binding_for_%s', async (_name, assets) => {
   const seed = [...assets]; const ui = mount(seed, distinctSession);
-  expect(answer()).toBe(''); accept('Independent answer'); fireEvent.click(screen.getByText('保存到我的回答库'));
+  expect(answer()).toBe(''); accept('Independent answer'); await save();
   expect(ui.read()).toHaveLength(seed.length + 1);
   for (const asset of seed) expect(ui.read().find(entry => entry.id === asset.id)).toEqual(asset);
 });
 
-it('unbound_candidate_id_cannot_overwrite_an_explicit_owner_and_repeated_save_keeps_new_identity', () => {
-  const first = mount([]); accept('Original candidate'); fireEvent.click(screen.getByText('保存到我的回答库'));
+it('unbound_candidate_id_cannot_overwrite_an_explicit_owner_and_repeated_save_keeps_new_identity', async () => {
+  const first = mount([]); accept('Original candidate'); await save();
   const claimed = { ...first.read()[0], sourceQuestionId: 'q2' }; first.unmount();
   const ui = mount([claimed]); expect(answer()).toBe('');
-  accept('Independent q1'); fireEvent.click(screen.getByText('保存到我的回答库'));
+  accept('Independent q1'); await save();
   expect(ui.read()).toHaveLength(2); expect(ui.read().find(asset => asset.id === claimed.id)).toEqual(claimed);
   const own = ui.read().find(asset => asset.sourceQuestionId === 'q1')!;
   expect(own.id).not.toBe(claimed.id);
-  accept('Revised q1'); fireEvent.click(screen.getByText('保存到我的回答库'));
+  accept('Revised q1'); await save();
   expect(ui.read()).toHaveLength(2);
   expect(ui.read().find(asset => asset.id === own.id)).toMatchObject({ improvedAnswer: 'Revised q1', sourceQuestionId: 'q1', answerVersions: [{ answer: 'Independent q1' }] });
   expect(ui.read().find(asset => asset.id === claimed.id)).toEqual(claimed);

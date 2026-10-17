@@ -40,6 +40,9 @@ export type MaterialChunkSelection = {
 
 export type MaterialDraft = {
   id: string;
+  // Older document editors persisted these document metadata fields in their draft.
+  version?: number;
+  createdAt?: string;
   documentId?: string;
   documentVersion?: number;
   questionId?: string;
@@ -60,8 +63,9 @@ export type MaterialDraft = {
 type PendingOperation = { id: string; createdAt: string };
 export type PendingDeletion = PendingOperation & (
   | { kind: 'delete-document'; documentId: string }
-  | { kind: 'clear-all' }
-  | { kind: 'restore-backup'; backupJson: string }
+  | { kind: 'source-updated'; documentId: string; fromVersion?: number }
+  | { kind: 'clear-all'; workspaceJson?: string }
+  | { kind: 'restore-backup'; backupJson: string; originalJson?: string; phase?: 'applying' | 'rollback' }
 );
 
 export type AnswerEvidence = {

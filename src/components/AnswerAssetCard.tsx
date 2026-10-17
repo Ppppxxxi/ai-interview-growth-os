@@ -27,7 +27,7 @@ type AnswerAssetCardProps = {
   asset: AnswerAsset;
   interviewSessions: InterviewSession[];
   jobFiles: JobFile[];
-  onUpdateAsset: (asset: AnswerAsset) => void;
+  onUpdateAsset: (asset: AnswerAsset) => void | Promise<void>;
   sourceJob?: JobFile;
   sourceInterview?: InterviewSession;
 };
@@ -58,6 +58,11 @@ export function AnswerAssetCard({
   );
   const [answerDraft, setAnswerDraft] = useState(asset.improvedAnswer);
   const [versionNote, setVersionNote] = useState('');
+  const [saveError, setSaveError] = useState('');
+  async function persist(asset: AnswerAsset) {
+    try { await onUpdateAsset(asset); setSaveError(''); }
+    catch { setSaveError('保存失败，请重试'); }
+  }
   const [activeTab, setActiveTab] = useState<
     'answer' | 'rationale' | 'feedback'
   >('answer');
@@ -96,7 +101,7 @@ export function AnswerAssetCard({
   }
 
   function handleSaveFeedback() {
-    onUpdateAsset(updateAnswerAssetUsageFeedback(asset, feedbackDraft));
+    void persist(updateAnswerAssetUsageFeedback(asset, feedbackDraft));
   }
 
   function handleSaveAnswerVersion() {
@@ -105,15 +110,16 @@ export function AnswerAssetCard({
       note: versionNote,
       source: 'manual-edit'
     });
-    onUpdateAsset(updated);
+    void persist(updated);
   }
 
   function handleRestoreVersion(versionId: string) {
-    onUpdateAsset(restoreAnswerAssetVersion(asset, versionId));
+    void persist(restoreAnswerAssetVersion(asset, versionId));
   }
 
   return (
     <article className="asset-card asset-card--prioritized">
+      {saveError && <p role="alert">{saveError}</p>}
       <header>
         <div>
           <p className="eyebrow">{asset.questionType}</p>

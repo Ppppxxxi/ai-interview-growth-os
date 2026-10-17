@@ -51,15 +51,15 @@ type JobFileDetailProps = {
   interviewSessions: InterviewSession[];
   reviewReports: ReviewReport[];
   answerAssets: AnswerAsset[];
-  onCreateJob: (draft: NewJobDraft) => void;
-  onUpdateJob: (job: JobFile) => void;
-  onDeleteJob: (jobId: string) => void;
+  onCreateJob: (draft: NewJobDraft) => void | Promise<void>;
+  onUpdateJob: (job: JobFile) => void | Promise<void>;
+  onDeleteJob: (jobId: string) => void | Promise<void>;
   onSaveInterviewRecord: (
     session: InterviewSession,
     review: ReviewReport
-  ) => void;
-  onDeleteInterviewRecord: (sessionId: string) => void;
-  onSaveAsset: (asset: AnswerAsset) => void;
+  ) => void | Promise<void>;
+  onDeleteInterviewRecord: (sessionId: string) => void | Promise<void>;
+  onSaveAsset: (asset: AnswerAsset) => void | Promise<void>;
   onOpenAssets?: () => void;
   onStartFocus?: () => void;
 };
@@ -317,11 +317,12 @@ export function JobFileDetail({
     );
   }
 
-  function handleDeleteSelectedRecord() {
+  async function handleDeleteSelectedRecord() {
     const nextSession = jobSessions.find(
       (session) => session.id !== selectedRecordId
     );
-    onDeleteInterviewRecord(selectedRecordId);
+    try { await onDeleteInterviewRecord(selectedRecordId); }
+    catch { window.alert('删除失败，请重试'); return; }
 
     if (nextSession) {
       handleSelectInterviewRecord(nextSession.id);
@@ -432,7 +433,7 @@ export function JobFileDetail({
     );
   }
 
-  function handleSaveMaterialDraft() {
+  async function handleSaveMaterialDraft() {
     if (!materialDraft) return;
 
     const payload = buildMaterialImportSavePayload({
@@ -446,8 +447,9 @@ export function JobFileDetail({
       payload.assets[0] ??
       createDraftAsset(selectedJob, payload.session.id, payload.review.id);
 
-    onSaveInterviewRecord(payload.session, payload.review);
-    payload.assets.forEach((asset) => onSaveAsset(asset));
+    try {
+    await onSaveInterviewRecord(payload.session, payload.review);
+    for (const asset of payload.assets) await onSaveAsset(asset);
     setGeneratedSession(payload.session);
     setGeneratedReview(payload.review);
     setGeneratedAsset(nextAsset);
@@ -466,6 +468,7 @@ export function JobFileDetail({
         ? saveGeneratedAsset(completed)
         : completed;
     });
+    } catch { window.alert('保存失败，当前修改尚未保存，请重试'); }
   }
 
   function handleFillNewJobExample() {
@@ -483,7 +486,7 @@ export function JobFileDetail({
       job: selectedJob,
       session: generatedSession,
       review: generatedReview,
-      assets: detailAssets
+      assets: relatedRecordAssets
     });
 
     downloadMarkdown(
@@ -508,7 +511,7 @@ export function JobFileDetail({
         asset.sourceJobId === selectedJob.id ||
         asset.applicableRoles.includes(selectedJob.direction)
     );
-    const jobAssets = upsertById([generatedAsset, ...savedJobAssets]);
+    const jobAssets = upsertById(savedJobAssets);
 
     const markdown = buildJobPrepMarkdown({
       job: selectedJob,
@@ -552,7 +555,7 @@ export function JobFileDetail({
 
   function handleSaveCurrentJob() {
     const direction = jobEditForm.direction.trim() || selectedJob.direction;
-    onUpdateJob({
+    void Promise.resolve().then(() => onUpdateJob({
       ...selectedJob,
       company: jobEditForm.company.trim() || selectedJob.company,
       roleTitle: jobEditForm.roleTitle.trim() || selectedJob.roleTitle,
@@ -564,7 +567,7 @@ export function JobFileDetail({
         selectedJob.status === '待导入面试对话'
           ? '已保存 JD，待导入面试对话'
           : selectedJob.status
-    });
+    })).catch(() => window.alert('保存失败，请重试'));
   }
 
   function handleDeleteCurrentJob() {
@@ -573,7 +576,7 @@ export function JobFileDetail({
       `删除「${selectedJob.company} ${selectedJob.roleTitle}」及其面试记录、复盘和回答资产？`
     );
     if (confirmed) {
-      onDeleteJob(selectedJob.id);
+      void Promise.resolve().then(() => onDeleteJob(selectedJob.id)).catch(() => window.alert('删除失败，请重试'));
     }
   }
 
@@ -584,12 +587,12 @@ export function JobFileDetail({
     }));
   }
 
-  function handleNewJobSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleNewJobSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!newJobForm.company.trim() || !newJobForm.roleTitle.trim()) return;
 
-    onCreateJob(newJobForm);
-    setNewJobForm(emptyJobForm);
+    try { await onCreateJob(newJobForm); setNewJobForm(emptyJobForm); }
+    catch { window.alert('保存失败，当前修改尚未保存，请重试'); }
   }
 
   return (

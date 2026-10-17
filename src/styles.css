@@ -3382,3 +3382,5 @@ body {
 .focus-evidence div { padding: 12px 0; overflow-wrap: anywhere; }
 .focus-evidence blockquote { margin: 10px 0; padding-left: 12px; border-left: 2px solid #91b6a9; white-space: pre-wrap; }
 .focus-flow-content { border: 0; padding: 0; margin: 0; min-width: 0; display: contents; }
+.data-menu-list label.ghost-action { position: relative; cursor: pointer; }
+.data-menu-list input[type="file"] { position: absolute; inset: 0; opacity: 0; width: 100%; cursor: pointer; }

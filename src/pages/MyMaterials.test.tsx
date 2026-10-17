@@ -6,11 +6,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMaterialRepository } from '../materials/repository';
 import { MyMaterials } from './MyMaterials';
 import App from '../App';
+import { mockBrowserLocks } from '../materials/__tests__/browserLocks';
 import { chunkDocument } from '../materials/chunkDocument';
 import type { MaterialDocument } from '../domain/materialTypes';
 import { File as NodeFile } from 'node:buffer';
 
-beforeEach(() => { vi.stubGlobal('indexedDB', new IDBFactory()); window.history.replaceState({}, '', '/'); localStorage.clear(); });
+beforeEach(() => { mockBrowserLocks(); vi.stubGlobal('indexedDB', new IDBFactory()); window.history.replaceState({}, '', '/'); localStorage.clear(); });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); window.history.replaceState({}, '', '/'); });
 const repository = () => createMaterialRepository(new IDBFactory());
 async function add() {
