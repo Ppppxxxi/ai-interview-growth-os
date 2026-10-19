@@ -26,9 +26,12 @@
 
 | 层次 | 本次范围与状态 |
 | --- | --- |
-| 本地 | 离线单元/集成、客户端与服务端构建、产物 marker、隔离浏览器 fake API 验收；结果以 Task10 报告和独立审查为准 |
+| 本地 | 54 个测试文件、441 项通过；客户端与服务端构建、原生 Node ESM/本机 HTTP 回归、隔离桌面与窄屏保存验收通过；真实 provider 请求为零 |
 | 实际模型 | 未执行，不读真实 key、不调用 provider；虚构 fixture 与 fake fetch 通过不等于真实模型已接通 |
-| 部署 | 未执行 push/PR/云配置/发布，由 controller 在本地验收后处理；生成默认关闭，不合并生产 |
+| 预览 | 2026-10-19 已推送功能分支并创建 [Draft PR #12](https://github.com/Ppppxxxi/ai-interview-growth-os/pull/12)；Vercel 预览 Ready，已登录浏览器实测页面正常、状态接口 available:false、改写接口 AI_UNAVAILABLE；没有配置真实 key 或启用生成 |
+| 生产 | 未合并 main，正式站点未发布本功能；真实模型、WAF 限流和平台原始流/超时验收仍待完成 |
+
+预览验收代码提交为 `9b6c50b`。连续分题保存和面试记录/回答写入失败重试已补回归；保留真实跨页面冲突检查。部署中发现的 Node ESM 无扩展名导入导致函数启动失败已修复，并增加两个 API 的原生 Node 加载测试。最新部署链接和后续文档提交以 PR 检查记录为准；上述状态不等于真实 DeepSeek 已接通。
 
 `server/ai/__tests__/groundingEvaluation.test.ts` 全虚构数据，覆盖事实/建议、知识冒充业绩、缺数值、注入指令隔离与 schema/引用拒绝。有限 rubric 不是一般语义检测器；测试还显式记录“结构和引用合法的捏造答案仍可通过服务端”的缺口。没有模型质量分数或抗注入成功率结论。
 
