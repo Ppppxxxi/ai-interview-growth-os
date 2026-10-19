@@ -8,6 +8,8 @@ import { mockBrowserLocks } from './materials/__tests__/browserLocks';
 import { createPersonalWorkspaceData, PERSONAL_WORKSPACE_STORAGE_KEY, writePersonalWorkspace } from './workflow/personalWorkspace';
 import { job } from './llm/__tests__/fixtures';
 import { createMaterialRepository } from './materials/repository';
+import * as materialRepositories from './materials/repository';
+import { getMaterialDraftQueue } from './materials/draftQueue';
 import { answerAssets } from './domain/sampleData';
 import type { RewriteRequest } from './domain/llmContracts';
 
@@ -20,8 +22,10 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); localStorage.clear(); });
 const stored = () => JSON.parse(localStorage.getItem(PERSONAL_WORKSPACE_STORAGE_KEY)!);
 async function app() {
+  const repository = createMaterialRepository();
+  vi.spyOn(materialRepositories, 'createMaterialRepository').mockReturnValueOnce(repository);
   const ui = render(<App />); const q = within(ui.container);
-  await q.findByRole('heading', { name: '工作台' }); return { ...ui, q };
+  await q.findByRole('heading', { name: '工作台' }); return { ...ui, q, repository };
 }
 it('two actual Apps preserve an adopted answer when a stale job editor saves', async () => {
   writePersonalWorkspace(localStorage, createPersonalWorkspaceData([job], [], job.id));
@@ -35,7 +39,8 @@ it('two actual Apps preserve an adopted answer when a stale job editor saves', a
   fireEvent.change(input, { target: { value: '面试官：如何分析虚构产品？\n候选人：比较指标。' } });
   fireEvent.click(a.q.getByText('解析材料')); fireEvent.click(a.q.getByText('生成下次可用回答'));
   fireEvent.change(a.q.getByLabelText('下次可用回答'), { target: { value: 'Synthetic adopted A answer' } });
-  fireEvent.click(a.q.getByText('采用')); fireEvent.click(a.q.getByText('保存到我的回答库'));
+  fireEvent.click(a.q.getByText('采用'));
+  await act(async () => { fireEvent.click(a.q.getByText('保存到我的回答库')); await getMaterialDraftQueue(a.repository).whenIdle(); });
   await a.q.findByRole('heading', { name: '下一场，更进一步' });
   await act(async () => { fireEvent.click(b.q.getByText('保存岗位信息')); });
   await b.q.findByText(/另一页面已修改相同数据/);

@@ -22,7 +22,7 @@ import { FocusAnswersPanel } from '../components/FocusAnswersPanel';
 import { emptyFocusWork, reconcileFocusWork, type FocusFlowDraft, type FocusQuestionWorks } from '../domain/focusFlowDraft';
 import type { MaterialRepository } from '../materials/repository';
 import { getMaterialDraftQueue } from '../materials/draftQueue';
-import { createEmptyPersonalWorkspaceData } from '../workflow/personalWorkspace';
+import { attachInterviewSessionToJob, createEmptyPersonalWorkspaceData } from '../workflow/personalWorkspace';
 
 type FocusFlowPageProps = {
   onDraftSaveStarted?: () => void | Promise<void>;
@@ -208,6 +208,7 @@ export function FocusFlowPage({
   }
 
   function currentJob(): JobFile {
+    const selectedJob = jobEditBase.current;
     const isStarterJob = isEmptyStarterJob(selectedJob);
     const jobContext = buildUserJobContext(selectedJob, jobDraft);
     const company =
@@ -307,6 +308,8 @@ export function FocusFlowPage({
     });
 
     await onSaveInterviewRecord(payload.session, payload.review);
+    // Advance only our successfully committed linkage, before any asset can fail.
+    jobEditBase.current = attachInterviewSessionToJob([job], payload.session)[0];
     for (const asset of payload.assets) await onSaveAsset(asset);
     if (!alive.current) return;
     setSavedItemIds(current => new Set([...current, ...statuses.keys()]));
