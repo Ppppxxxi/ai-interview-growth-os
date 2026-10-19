@@ -50,6 +50,7 @@ import {
   writePersonalWorkspace
 } from './workflow/personalWorkspace';
 import { upsertAnswerAsset } from './workflow/runtimeAssets';
+import { mergeWorkspaceEdit, WorkspaceConflictError } from './workflow/mergeWorkspaceEdit';
 import { getMaterialDraftQueue } from './materials/draftQueue';
 import { configureWorkspaceFence, invalidateWorkspaceEpoch } from './materials/workspaceFence';
 import { clearAllUserData, deleteMaterial, persistMaterialUpdate, readUserBackup, resumePendingDeletions, type WorkspaceStore } from './materials/workspaceDataCoordinator';
@@ -117,6 +118,9 @@ export default function App() {
   const [dataError, setDataError] = useState(initialAppState.initialError ?? '');
   const [maintaining, setMaintaining] = useState(true);
   const [recoveryNeeded, setRecoveryNeeded] = useState(false);
+  const [journalState, setJournalState] = useState<'unknown' | 'pending' | 'ready'>('unknown');
+  const [isolatedEditing, setIsolatedEditing] = useState(false);
+  const [isolatedWorkspace] = useState(createEmptyPersonalWorkspaceData);
   const [exporting, setExporting] = useState(false);
   const blocked = useRef(true);
   const mounted = useRef(true);
@@ -154,15 +158,16 @@ export default function App() {
   }));
   const saveWorkspace = useCallback(async (update: (current: typeof workspaceData) => typeof workspaceData) => {
     const expected = contentRevision;
+    const base = workspaceSnapshot.current;
     try {
       if (!mounted.current || blocked.current || expected !== revision.current) throw new Error('数据正在更新');
       await getMaterialDraftQueue(materialRepository).run(async () => {
         if (!mounted.current || blocked.current || expected !== revision.current) throw new Error('数据正在更新');
-        const next = update(workspaceSnapshot.current);
+        const next = mergeWorkspaceEdit(base, update(base), workspaceStore.read());
         await workspaceStore.write(next);
         workspaceSnapshot.current = next; setWorkspaceData(next); setDataError('');
       });
-    } catch (error) { setDataError('保存失败，当前修改尚未保存，请重试'); throw error; }
+    } catch (error) { setDataError(error instanceof WorkspaceConflictError ? error.message : '保存失败，当前修改尚未保存，请重试'); throw error; }
   }, [contentRevision, materialRepository, workspaceStore]);
   const handleFlowDraftSaveStarted = useCallback(() => saveWorkspace(current => current), [saveWorkspace]);
   const maintain = useCallback(async (operation: () => Promise<void>, nextView?: AppView) => {
@@ -176,15 +181,16 @@ export default function App() {
       const stored = workspaceStore.read(); workspaceSnapshot.current = stored; setWorkspaceData(stored);
       await materials.refresh();
       if (nextView) setView(nextView);
-      setDataError(''); setRecoveryNeeded(false); blocked.current = false; setMaintaining(false);
-    } catch { setDataError('数据操作未完成，请重试恢复；当前数据不会被标记为已保存'); }
+      setDataError(''); setRecoveryNeeded(false); setJournalState('ready'); blocked.current = false; setMaintaining(false);
+    } catch { setDataError('数据操作未完成，请重试恢复；当前数据不会被标记为已保存'); setRecoveryNeeded(true); setMaintaining(false); }
   }, [workspaceStore, materials.refresh]);
   const recover = useCallback(() => {
     try {
       const storage = getBrowserStorage(); if (!storage) throw new Error('storage unavailable');
       configureWorkspaceFence(materialRepository, storage, `ai-interview-growth-os${initialAppState.isPreviewMode ? ':preview' : ''}`);
-      return maintain(() => resumePendingDeletions(materialRepository, workspaceStore));
-    } catch { setDataError('本地存储不可用，请重试'); return Promise.resolve(); }
+      setJournalState('unknown');
+      return maintain(() => resumePendingDeletions(materialRepository, workspaceStore, pending => setJournalState(pending ? 'pending' : 'ready')));
+    } catch { setDataError('本地存储不可用，请重试'); setRecoveryNeeded(true); setMaintaining(false); return Promise.resolve(); }
   }, [materialRepository, workspaceStore, maintain, initialAppState.isPreviewMode]);
   useEffect(() => {
     void recover();
@@ -269,12 +275,14 @@ export default function App() {
     });
   }
 
-  function handleUpdateJob(nextJob: JobFile) {
-    return saveWorkspace((current) => ({
+  function handleUpdateJob(nextJob: JobFile, original?: JobFile) {
+    return saveWorkspace((current) => {
+      if (original && JSON.stringify(current.jobFiles.find(job => job.id === original.id)) !== JSON.stringify(original)) throw new WorkspaceConflictError();
+      return ({
       ...current,
       jobFiles: upsertJobFile(current.jobFiles, nextJob),
       updatedAt: new Date().toISOString()
-    }));
+    }); });
   }
 
   function handleDeleteJob(jobId: string) {
@@ -405,8 +413,8 @@ export default function App() {
               数据管理 <ChevronDown size={14} />
             </summary>
             <div className="data-menu-list" aria-label="本地数据管理">
-              <button type="button" className="ghost-action" disabled={maintaining || exporting} onClick={() => { void exportBackup(); }}><Download size={16} />导出备份</button>
-              <label className="ghost-action"><Upload size={16} />恢复备份<input aria-label="恢复备份" type="file" accept=".json,application/json" disabled={maintaining} onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) void importBackup(file); }} /></label>
+              <button type="button" className="ghost-action" disabled={maintaining || recoveryNeeded || exporting} onClick={() => { void exportBackup(); }}><Download size={16} />导出备份</button>
+              <label className="ghost-action"><Upload size={16} />恢复备份<input aria-label="恢复备份" type="file" accept=".json,application/json" disabled={maintaining || recoveryNeeded} onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) void importBackup(file); }} /></label>
               <button
                 type="button"
                 className="ghost-action"
@@ -428,8 +436,22 @@ export default function App() {
         </div>
         {dataError && <p role="alert">{dataError}{(maintaining || recoveryNeeded) && <button type="button" onClick={() => { void recover(); }}>重试恢复</button>}</p>}
         {maintaining && <p role="status">正在检查本地数据</p>}
+        {recoveryNeeded && <aside role="status">
+          <p>{journalState === 'unknown' ? '日志状态未知：历史数据只读，原草稿与引用暂不写入。' : '存在未完成的数据操作：历史数据只读，等待恢复。'}</p>
+          {!isolatedEditing && <button type="button" onClick={() => setIsolatedEditing(true)}>独立无参考编辑</button>}
+        </aside>}
+        {isolatedEditing && <section aria-label="临时无参考编辑">
+          <p>临时未保存内容，不使用旧资料与草稿；本地恢复后仍需结束此编辑并重新整理保存。</p>
+          <button type="button" onClick={() => { if (window.confirm('结束会丢弃临时未保存内容，是否继续？')) setIsolatedEditing(false); }}>结束临时编辑</button>
+          <FocusFlowPage selectedJobId={isolatedWorkspace.selectedJobId} jobFiles={isolatedWorkspace.jobFiles}
+            materialsError="临时无参考编辑未持久化，不能报告保存成功"
+            onUpdateJob={async () => { throw new Error('临时内容未保存'); }}
+            onSaveInterviewRecord={async () => { throw new Error('临时内容未保存'); }}
+            onSaveAsset={async () => { throw new Error('临时内容未保存'); }} onFinish={() => {}} />
+        </section>}
         <div key={contentRevision}>
-        {!maintaining && view === 'focus' && (
+        <fieldset style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }} disabled={recoveryNeeded}>
+        {!maintaining && !recoveryNeeded && !isolatedEditing && view === 'focus' && (
           <FocusFlowPage
             onDraftSaveStarted={handleFlowDraftSaveStarted}
             repository={materialRepository}
@@ -460,6 +482,7 @@ export default function App() {
         )}
         {!maintaining && view === 'job' && (
           <JobFileDetail
+            onNavigationGuardChange={registerMaterialsGuard}
             materialChunks={materials.chunks}
             materialsLoading={materials.loading}
             materialsError={materials.error}
@@ -504,6 +527,7 @@ export default function App() {
             } catch (error) { setDataError('资料保存未完成，编辑内容仍保留，请重试或恢复'); setRecoveryNeeded(true); throw error; }
           }}
           onMaterialsChanged={() => { void materials.refresh(); }} onNavigationGuardChange={registerMaterialsGuard} />}
+        </fieldset>
         </div>
       </div>
     </main>

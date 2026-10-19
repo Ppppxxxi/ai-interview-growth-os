@@ -14,7 +14,7 @@ export const item: InterviewMaterialDraftItem = {
 };
 export const job: JobFile = {
   id: 'j1', company: 'Synthetic company', roleTitle: 'Analyst', direction: 'Product',
-  jdText: 'PRIVATE WHOLE FILE', stage: '', status: '', interviewSessionIds: ['PRIVATE CONVERSATION'],
+  jdText: 'Analyze metrics', stage: '', status: '', interviewSessionIds: ['PRIVATE CONVERSATION'],
   profile: { responsibilities: ['Analyze metrics'], abilityKeywords: [], hiddenRequirements: [], likelyQuestions: [] },
 };
 export function request(): RewriteRequest {

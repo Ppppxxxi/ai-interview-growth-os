@@ -12,6 +12,7 @@ export function validateUserBackup(value: unknown): UserBackup {
   if (!json || new TextEncoder().encode(json).length > MAX_BACKUP_BYTES) throw new Error('备份不能超过 20 MiB');
   checkBounds(value);
   const backup = BackupSchema.parse(value);
+  if (!backup.workspace.jobFiles.some(job => job.id === backup.workspace.selectedJobId)) throw new Error('备份缺少可选中的岗位');
   const unique = (items: { id: string }[]) => { if (new Set(items.map(item => item.id)).size !== items.length) throw new Error('重复记录'); };
   for (const items of [backup.snapshot.documents, backup.snapshot.chunks, backup.snapshot.drafts, backup.workspace.jobFiles, backup.workspace.answerAssets, backup.workspace.interviewSessions, backup.workspace.reviewReports]) unique(items);
   const docs = new Map(backup.snapshot.documents.map(doc => [doc.id, doc]));

@@ -59,14 +59,15 @@ async function replay(task: PendingDeletion, repo: MaterialRepository, store: Wo
   }
   await repo.finishDeletion(task.id);
 }
-async function resumeRaw(repo: MaterialRepository, store: WorkspaceStore) {
+async function resumeRaw(repo: MaterialRepository, store: WorkspaceStore, onJournal?: (pending: boolean) => void) {
   const tasks = await repo.listDeletions();
+  onJournal?.(tasks.length > 0);
   if (tasks.length) invalidateWorkspaceEpoch(repo);
   for (const task of tasks) await replay(task, repo, store);
   acceptWorkspaceEpoch(repo);
 }
-export async function resumePendingDeletions(repo: MaterialRepository, store: WorkspaceStore): Promise<void> {
-  await maintenanceQueue(repo).run(() => resumeRaw(repo, store), { maintenance: true });
+export async function resumePendingDeletions(repo: MaterialRepository, store: WorkspaceStore, onJournal?: (pending: boolean) => void): Promise<void> {
+  await maintenanceQueue(repo).run(() => resumeRaw(repo, store, onJournal), { maintenance: true });
 }
 export async function deleteMaterial(id: string, repo: MaterialRepository, store: WorkspaceStore): Promise<void> {
   await maintenanceQueue(repo).run(async () => {

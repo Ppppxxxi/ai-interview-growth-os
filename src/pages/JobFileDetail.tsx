@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { JobAnswersPanel } from '../components/JobAnswersPanel';
 import type { MaterialChunk } from '../domain/materialTypes';
@@ -41,6 +41,7 @@ import { buildMaterialImportSavePayload } from '../workflow/materialImportDraft'
 import type { NewJobDraft } from '../workflow/personalWorkspace';
 
 type JobFileDetailProps = {
+  onNavigationGuardChange?: (guard: (() => boolean) | null) => void;
   materialChunks?: MaterialChunk[];
   materialsLoading?: boolean;
   materialsError?: string;
@@ -52,7 +53,7 @@ type JobFileDetailProps = {
   reviewReports: ReviewReport[];
   answerAssets: AnswerAsset[];
   onCreateJob: (draft: NewJobDraft) => void | Promise<void>;
-  onUpdateJob: (job: JobFile) => void | Promise<void>;
+  onUpdateJob: (job: JobFile, original?: JobFile) => void | Promise<void>;
   onDeleteJob: (jobId: string) => void | Promise<void>;
   onSaveInterviewRecord: (
     session: InterviewSession,
@@ -112,6 +113,7 @@ AB 实验分流机制答得比较空。我只说可以看转化率，没有说�
 AI Agent 链路拆解也不完整。我讲了“导入材料、生成回答”，但没有讲清楚输入输出、用户确认点、低置信兜底和保存后的复用边界。`;
 
 export function JobFileDetail({
+  onNavigationGuardChange,
   materialChunks = [],
   materialsLoading = false,
   materialsError = '',
@@ -131,8 +133,18 @@ export function JobFileDetail({
   onOpenAssets,
   onStartFocus
 }: JobFileDetailProps) {
+  const answerDirty = useRef(false);
+  const setAnswerDirty = useCallback((dirty: boolean) => { answerDirty.current = dirty; }, []);
+  const canLeaveAnswers = useCallback(() => !answerDirty.current || window.confirm('存在未保存的回答编辑或生成结果，离开将丢弃，是否继续？'), []);
+  useEffect(() => {
+    onNavigationGuardChange?.(canLeaveAnswers);
+    const beforeUnload = (event: BeforeUnloadEvent) => { if (answerDirty.current) { event.preventDefault(); event.returnValue = ''; } };
+    window.addEventListener('beforeunload', beforeUnload);
+    return () => { onNavigationGuardChange?.(null); window.removeEventListener('beforeunload', beforeUnload); };
+  }, [onNavigationGuardChange, canLeaveAnswers]);
   const selectedJob =
     jobFiles.find((jobFile) => jobFile.id === selectedJobId) ?? jobFiles[0];
+  const jobEditBase = useRef(selectedJob);
   const [newJobForm, setNewJobForm] = useState(emptyJobForm);
   const [detailTab, setDetailTab] = useState<'records' | 'answers' | 'prep'>(
     'records'
@@ -227,6 +239,7 @@ export function JobFileDetail({
   useEffect(() => {
     if (loadedJobId.current === selectedJob.id) return;
     loadedJobId.current = selectedJob.id;
+    jobEditBase.current = selectedJob;
     setJobEditForm(createJobEditDraft(selectedJob));
     setWorkspaceState(initialState);
     setJdText(selectedJob.jdText);
@@ -287,6 +300,7 @@ export function JobFileDetail({
     hasGeneratedResult || jobSessions.length > 0 || linkedAssets.length > 0;
 
   function handleSelectInterviewRecord(sessionId: string) {
+    if (!canLeaveAnswers()) return;
     const session = jobSessions.find((item) => item.id === sessionId);
     if (!session) return;
 
@@ -553,9 +567,9 @@ export function JobFileDetail({
     }));
   }
 
-  function handleSaveCurrentJob() {
+  async function handleSaveCurrentJob() {
     const direction = jobEditForm.direction.trim() || selectedJob.direction;
-    void Promise.resolve().then(() => onUpdateJob({
+    const nextJob = {
       ...selectedJob,
       company: jobEditForm.company.trim() || selectedJob.company,
       roleTitle: jobEditForm.roleTitle.trim() || selectedJob.roleTitle,
@@ -567,7 +581,9 @@ export function JobFileDetail({
         selectedJob.status === '待导入面试对话'
           ? '已保存 JD，待导入面试对话'
           : selectedJob.status
-    })).catch(() => window.alert('保存失败，请重试'));
+    };
+    try { await onUpdateJob(nextJob, jobEditBase.current); jobEditBase.current = nextJob; }
+    catch { window.alert('保存失败，请重试'); }
   }
 
   function handleDeleteCurrentJob() {
@@ -611,7 +627,7 @@ export function JobFileDetail({
               }
               key={jobFile.id}
               type="button"
-              onClick={() => onSelectJob(jobFile.id)}
+              onClick={() => { if (jobFile.id === selectedJob.id || canLeaveAnswers()) onSelectJob(jobFile.id); }}
             >
               <strong>{jobFile.company}</strong>
               <span>{jobFile.roleTitle}</span>
@@ -917,11 +933,12 @@ export function JobFileDetail({
             </button>
           </section>
         )}
-        {hasGeneratedResult && detailTab === 'answers' && generatedSession.questions.length > 0 && (
-          <section>
+        {hasGeneratedResult && generatedSession.questions.length > 0 && (
+          <section hidden={detailTab !== 'answers'}>
             {materialsLoading && <p role="status">资料加载中</p>}
             {materialsError && <p role="alert">{materialsError}<button type="button" onClick={onRetryMaterials}>重试资料</button></p>}
             <JobAnswersPanel key={`${selectedJob.id}:${generatedSession.id}`} job={selectedJob} session={generatedSession}
+              onDirtyChange={setAnswerDirty}
               review={generatedReview} assets={answerAssets} chunks={materialChunks}
               materialsReady={!materialsLoading && !materialsError} onSave={onSaveAsset} />
           </section>

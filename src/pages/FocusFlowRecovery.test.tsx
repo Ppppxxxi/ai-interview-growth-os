@@ -75,7 +75,8 @@ it('empty_library_read_failure_does_not_disable_real_app_input_or_manual_adoptio
   fireEvent.change(answer, { target: { value: '虚构手写回答：先定义指标，再比较实验结果。' } });
   fireEvent.click(await screen.findByRole('button', { name: /^采用$/ }));
   const save = screen.getByRole('button', { name: '保存到我的回答库' });
-  expect(save.matches(':disabled')).toBe(false); fireEvent.click(save);
+  expect(save.matches(':disabled')).toBe(false);
+  await act(async () => { fireEvent.click(save); await getMaterialDraftQueue(repository).whenIdle(); });
   await screen.findByRole('heading', { name: '下一场，更进一步' });
   await act(async () => { await getMaterialDraftQueue(repository).whenIdle(); });
   const workspace = readPersonalWorkspace(localStorage, createEmptyPersonalWorkspaceData());

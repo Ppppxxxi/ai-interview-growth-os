@@ -3,6 +3,13 @@ import { prepareRewriteRequest } from '../prepareRewriteRequest';
 import { chunk, item, job } from './fixtures';
 
 describe('request boundary', () => {
+  it.each(['First confirmed JD', 'Changed confirmed JD'])('uses current input-derived JD, not stale profile: %s', jdText => {
+    expect(prepareRewriteRequest(item, { ...job, jdText }, [], 'g1').jobContext?.jdSummary).toBe(jdText);
+  });
+  it('empty JD cannot revive stale profile and over-limit JD is rejected, not truncated', () => {
+    expect(prepareRewriteRequest(item, { ...job, jdText: '' }, [], 'g1').jobContext).not.toHaveProperty('jdSummary');
+    expect(() => prepareRewriteRequest(item, { ...job, jdText: 'x'.repeat(8001) }, [], 'g1')).toThrow();
+  });
   it('sends_only_selected_chunks', () => {
     const input = prepareRewriteRequest(item, job, [chunk], 'g1');
     expect(input).toEqual({ questionId: 'q1', generationId: 'g1', question: 'What did you do?',
@@ -31,6 +38,6 @@ describe('request boundary', () => {
   });
   it('does_not_fabricate_a_missing_question_or_summary', () => {
     expect(() => prepareRewriteRequest({ ...item, question: undefined }, job, [], 'g1')).toThrow();
-    expect(prepareRewriteRequest(item, { ...job, profile: undefined }, [], 'g1').jobContext).not.toHaveProperty('jdSummary');
+    expect(prepareRewriteRequest(item, { ...job, jdText: '', profile: undefined }, [], 'g1').jobContext).not.toHaveProperty('jdSummary');
   });
 });

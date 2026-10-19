@@ -31,17 +31,20 @@ it('direct_coordinator_refuses_unconfigured_browser_without_web_locks', async ()
   await expect(clearAllUserData(createMaterialRepository(), { read: createEmptyPersonalWorkspaceData, write })).rejects.toThrow('不支持');
   expect(write).not.toHaveBeenCalled();
 });
-it.each(['quota', 'unavailable'])('actual_%s_failure_keeps_answer_unsaved_and_retryable', async failure => {
+it.each(['quota', 'unavailable', 'read'])('actual_%s_failure_keeps_answer_unsaved_and_retryable', async failure => {
   const storage = localStorage; await manual();
   const original = Storage.prototype.setItem;
   const problem = failure === 'quota' ? vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key, value) {
     if (key === PERSONAL_WORKSPACE_STORAGE_KEY) throw new DOMException('Synthetic quota', 'QuotaExceededError');
     original.call(this, key, value);
+  }) : failure === 'read' ? vi.spyOn(Storage.prototype, 'getItem').mockImplementation(function (this: Storage, key) {
+    if (key === PERSONAL_WORKSPACE_STORAGE_KEY) throw new Error('Synthetic read failure');
+    return null;
   }) : vi.spyOn(window, 'localStorage', 'get').mockImplementation(() => { throw new DOMException('Synthetic unavailable', 'SecurityError'); });
   fireEvent.click(screen.getByText('保存到我的回答库'));
   await screen.findByText('保存失败，当前修改尚未保存，请重试');
   expect((screen.getByLabelText('下次可用回答') as HTMLTextAreaElement).value).toBe('用户手写的待保存回答');
-  expect(readPersonalWorkspace(storage, createEmptyPersonalWorkspaceData()).answerAssets).toEqual([]);
+  if (failure !== 'read') expect(readPersonalWorkspace(storage, createEmptyPersonalWorkspaceData()).answerAssets).toEqual([]);
   expect(screen.queryByText('已保存')).toBeNull();
   problem.mockRestore(); fireEvent.click(screen.getByText('保存到我的回答库'));
   await waitFor(() => expect(readPersonalWorkspace(storage, createEmptyPersonalWorkspaceData()).answerAssets).toHaveLength(1));

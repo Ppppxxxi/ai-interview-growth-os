@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { AnswerAsset, InterviewMaterialDraftItem, InterviewSession, JobFile, ReviewReport } from '../domain/types';
 import type { MaterialChunk } from '../domain/materialTypes';
 import type { FocusQuestionWorks } from '../domain/focusFlowDraft';
@@ -7,7 +7,7 @@ import { buildMaterialImportSavePayload } from '../workflow/materialImportDraft'
 import { saveAnswerAssetVersion } from '../workflow/answerAssetVersions';
 
 type Props = { job: JobFile; session: InterviewSession; review: ReviewReport; assets: AnswerAsset[];
-  chunks: MaterialChunk[]; materialsReady: boolean; onSave: (asset: AnswerAsset) => void | Promise<void> };
+  chunks: MaterialChunk[]; materialsReady: boolean; onDirtyChange?: (dirty: boolean) => void; onSave: (asset: AnswerAsset) => void | Promise<void> };
 
 function mapSavedAssets(job: JobFile, session: InterviewSession, assets: AnswerAsset[]) {
   const scoped = assets.filter(asset => asset.sourceJobId === job.id && asset.sourceInterviewId === session.id);
@@ -29,7 +29,10 @@ function mapSavedAssets(job: JobFile, session: InterviewSession, assets: AnswerA
 }
 
 // This draft is deliberately local to the job detail, never the main flow's persisted draft.
-export function JobAnswersPanel({ job, session, review, assets, chunks, materialsReady, onSave }: Props) {
+export function JobAnswersPanel({ job, session, review, assets, chunks, materialsReady, onSave, onDirtyChange }: Props) {
+  const dirty = useRef(false);
+  function markDirty() { dirty.current = true; onDirtyChange?.(true); }
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
   const [savedByQuestion] = useState(() => mapSavedAssets(job, session, assets));
   const assetIds = useRef(new Map([...savedByQuestion].map(([questionId, asset]) => [questionId, asset.id])));
   const [items, setItems] = useState<InterviewMaterialDraftItem[]>(() => session.questions.map((question, index) => {
@@ -41,8 +44,8 @@ export function JobAnswersPanel({ job, session, review, assets, chunks, material
   }));
   const [work, setWork] = useState<FocusQuestionWorks>({});
   return <FocusAnswersPanel items={items} job={job} chunks={chunks} materialsReady={materialsReady} work={work}
-    onWorkChange={(id, value) => setWork(current => ({ ...current, [id]: value }))} onActiveChange={() => {}}
-    onChange={updated => setItems(current => current.map(item => item.id === updated.id ? updated : item))}
+    onWorkChange={(id, value) => { markDirty(); setWork(current => ({ ...current, [id]: value })); }} onActiveChange={() => {}}
+    onChange={updated => { markDirty(); setItems(current => current.map(item => item.id === updated.id ? updated : item)); }}
     onSave={async statuses => {
       const payload = buildMaterialImportSavePayload({ job, rawText: '', selectedItemIds: statuses.keys(), confirmationStatuses: statuses,
         runId: `${session.id}-answers`, draft: { sourceType: 'review_notes', jobContext: {}, interviewItems: items, globalInsights: {}, missingInfoWarnings: [] } });

@@ -26,6 +26,16 @@ function setup(overrides: Partial<ComponentProps<typeof JobFileDetail>> = {}) {
 }
 async function generate() { fireEvent.click(screen.getByText('生成当前回答')); if (screen.queryByText('确认发送')) fireEvent.click(screen.getByText('确认发送')); await waitFor(() => expect(calls).toHaveLength(1)); }
 async function finish() { await act(async () => calls[0].resolve(new Response(JSON.stringify({ ...response(calls[0].input), citations: calls[0].input.chunks.length ? response(calls[0].input).citations : [] })))); }
+it.each(['manual', 'generated'])('ordinary job tabs retain unadopted %s answers', async mode => {
+  const { save } = setup();
+  if (mode === 'generated') { await generate(); await finish(); }
+  else fireEvent.change(screen.getByLabelText('下次可用回答'), { target: { value: 'Synthetic unsaved draft' } });
+  const text = (screen.getByLabelText('下次可用回答') as HTMLTextAreaElement).value;
+  fireEvent.click(screen.getByRole('tab', { name: '岗位准备' }));
+  fireEvent.click(screen.getByRole('tab', { name: '下次可用回答' }));
+  expect((screen.getByLabelText('下次可用回答') as HTMLTextAreaElement).value).toBe(text);
+  expect(save).not.toHaveBeenCalled();
+});
 it('job_generation_uses_same_endpoint', async () => {
   const { save } = setup();
   expect(screen.getByText('参考资料 · 已选 0 / 6')).toBeTruthy();

@@ -22,6 +22,7 @@ import { FocusAnswersPanel } from '../components/FocusAnswersPanel';
 import { emptyFocusWork, reconcileFocusWork, type FocusFlowDraft, type FocusQuestionWorks } from '../domain/focusFlowDraft';
 import type { MaterialRepository } from '../materials/repository';
 import { getMaterialDraftQueue } from '../materials/draftQueue';
+import { createEmptyPersonalWorkspaceData } from '../workflow/personalWorkspace';
 
 type FocusFlowPageProps = {
   onDraftSaveStarted?: () => void | Promise<void>;
@@ -32,7 +33,7 @@ type FocusFlowPageProps = {
   materialChunks?: MaterialChunk[];
   selectedJobId: string;
   jobFiles: JobFile[];
-  onUpdateJob: (job: JobFile) => void | Promise<void>;
+  onUpdateJob: (job: JobFile, original?: JobFile) => void | Promise<void>;
   onSaveInterviewRecord: (
     session: InterviewSession,
     review: ReviewReport
@@ -62,8 +63,10 @@ export function FocusFlowPage({
   onUpdateJob,
   selectedJobId
 }: FocusFlowPageProps) {
+  const [fallbackJob] = useState(() => createEmptyPersonalWorkspaceData().jobFiles[0]);
   const selectedJob =
-    jobFiles.find((job) => job.id === selectedJobId) ?? jobFiles[0];
+    jobFiles.find((job) => job.id === selectedJobId) ?? jobFiles[0] ?? fallbackJob;
+  const jobEditBase = useRef(selectedJob);
   const [jobDraft, setJobDraft] = useState<FocusJobDraft>(() =>
     createFocusJobDraft(selectedJob)
   );
@@ -99,6 +102,7 @@ export function FocusFlowPage({
   useEffect(() => {
     if (previousJobId.current === selectedJob.id) return;
     previousJobId.current = selectedJob.id;
+    jobEditBase.current = selectedJob;
     hydratedJob.current = '';
     inputEdited.current = false;
     setDetached(false); setProtectedDraft(false);
@@ -221,6 +225,7 @@ export function FocusFlowPage({
       roleTitle,
       direction,
       jdText: jobDraft.jdText.trim(),
+      profile: jobDraft.jdText.trim() === selectedJob.jdText.trim() ? selectedJob.profile : undefined,
       status:
         selectedJob.status === '待粘贴 JD 和面试对话'
           ? '已开始准备'
@@ -290,7 +295,8 @@ export function FocusFlowPage({
 
     const job = currentJob();
     try {
-    await onUpdateJob(job);
+    await onUpdateJob(job, jobEditBase.current);
+    jobEditBase.current = job;
     const payload = buildMaterialImportSavePayload({
       draft: materialDraft,
       selectedItemIds: statuses.keys(),
