@@ -1,5 +1,5 @@
-import { RewriteRequestSchema, RewriteResponseSchema, type PublicErrorCode, type RewriteRequest, type RewriteResponse } from '../domain/llmContracts';
-import type { AnswerEvidence } from '../domain/materialTypes';
+import { RewriteRequestSchema, RewriteResponseSchema, type PublicErrorCode, type RewriteRequest, type RewriteResponse } from '../domain/llmContracts.js';
+import type { AnswerEvidence } from '../domain/materialTypes.js';
 
 export class InvalidResponseError extends Error {
   readonly code: PublicErrorCode = 'INVALID_RESPONSE';

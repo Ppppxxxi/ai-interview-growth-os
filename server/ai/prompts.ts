@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ModelRewriteResponseSchema, type RewriteRequest } from '../../src/domain/llmContracts';
+import { ModelRewriteResponseSchema, type RewriteRequest } from '../../src/domain/llmContracts.js';
 
 const example = { answer: 'A supported answer paragraph.', rewriteFocus: 'Clarify actions.',
   applicabilityBoundary: 'Only confirmed facts.', missingFacts: ['Measured result'],

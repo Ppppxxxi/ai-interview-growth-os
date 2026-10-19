@@ -1,2 +1,2 @@
-import { handleRewrite } from '../../server/ai/httpHandlers';
+import { handleRewrite } from '../../server/ai/httpHandlers.js';
 export default handleRewrite;

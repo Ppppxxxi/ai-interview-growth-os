@@ -1,11 +1,11 @@
 import { z } from 'zod';
 import { LLM_LIMITS, ModelRewriteResponseSchema, RewriteRequestSchema, RewriteResponseSchema,
-  type RewriteRequest, type RewriteResponse } from '../../src/domain/llmContracts';
-import { validateEvidence } from '../../src/llm/validateEvidence';
-import { isAIAvailable, type AIConfig } from './config';
-import { withDeadline } from './deadline';
-import { AIError } from './errors';
-import { rewriteMessages } from './prompts';
+  type RewriteRequest, type RewriteResponse } from '../../src/domain/llmContracts.js';
+import { validateEvidence } from '../../src/llm/validateEvidence.js';
+import { isAIAvailable, type AIConfig } from './config.js';
+import { withDeadline } from './deadline.js';
+import { AIError } from './errors.js';
+import { rewriteMessages } from './prompts.js';
 
 export interface RewriteDeps { fetch: typeof fetch; config: AIConfig; now: () => string; signal?: AbortSignal }
 const envelopeSchema = z.object({ choices: z.array(z.object({

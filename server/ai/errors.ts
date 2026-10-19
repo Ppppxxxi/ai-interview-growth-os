@@ -1,4 +1,4 @@
-import type { PublicErrorCode } from '../../src/domain/llmContracts';
+import type { PublicErrorCode } from '../../src/domain/llmContracts.js';
 
 export class AIError extends Error {
   constructor(readonly code: PublicErrorCode) { super(code); }

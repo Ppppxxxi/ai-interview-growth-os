@@ -1,2 +1,2 @@
-import { handleAIStatus } from '../../server/ai/httpHandlers';
+import { handleAIStatus } from '../../server/ai/httpHandlers.js';
 export default handleAIStatus;

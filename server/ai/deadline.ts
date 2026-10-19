@@ -1,5 +1,5 @@
-import { LLM_LIMITS } from '../../src/domain/llmContracts';
-import { AIError } from './errors';
+import { LLM_LIMITS } from '../../src/domain/llmContracts.js';
+import { AIError } from './errors.js';
 
 // Race as well as abort: a stalled/custom transport must not defeat the deadline.
 export async function withDeadline<T>(work: (signal: AbortSignal) => Promise<T>, parent?: AbortSignal): Promise<T> {

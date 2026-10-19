@@ -1,9 +1,9 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { LLM_LIMITS, RewriteRequestSchema } from '../../src/domain/llmContracts';
-import { isAIAvailable, readAIConfig } from './config';
-import { withDeadline } from './deadline';
-import { AIError, errorStatus } from './errors';
-import { rewriteAnswer, type RewriteDeps } from './rewrite';
+import { LLM_LIMITS, RewriteRequestSchema } from '../../src/domain/llmContracts.js';
+import { isAIAvailable, readAIConfig } from './config.js';
+import { withDeadline } from './deadline.js';
+import { AIError, errorStatus } from './errors.js';
+import { rewriteAnswer, type RewriteDeps } from './rewrite.js';
 
 function send(res: ServerResponse, status: number, value: unknown) {
   res.statusCode = status;
