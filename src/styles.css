@@ -3366,3 +3366,21 @@ body {
     padding: 14px;
   }
 }
+.focus-answers-panel { display: grid; gap: 16px; min-width: 0; }
+.focus-references, .focus-send-preview, .focus-evidence { border-top: 1px solid #e3e8ed; padding: 14px 0; min-width: 0; }
+.focus-references summary, .focus-send-preview summary, .focus-evidence summary { cursor: pointer; font-weight: 600; }
+.focus-reference-option { display: flex; align-items: flex-start; gap: 10px; padding: 12px 0; border-bottom: 1px solid #edf0f3; }
+.focus-reference-option input { flex: 0 0 auto; margin-top: 4px; }
+.focus-reference-option span { min-width: 0; overflow-wrap: anywhere; }
+.focus-reference-option small, .focus-evidence small { display: block; color: #647078; margin-top: 6px; white-space: pre-wrap; }
+.focus-send-content { max-height: 360px; overflow: auto; background: #f5f7f8; padding: 12px; }
+.focus-send-content p { white-space: pre-wrap; overflow-wrap: anywhere; margin: 6px 0 16px; }
+.focus-send-content small { display: block; color: #647078; }
+.focus-generation-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.focus-send-confirmation { padding: 16px; border: 1px solid #a5c9ba; border-radius: 6px; background: #f2faf5; display: flex; flex-wrap: wrap; gap: 12px; }
+.focus-send-confirmation p, .focus-send-confirmation strong { flex-basis: 100%; overflow-wrap: anywhere; margin: 0; }
+.focus-evidence div { padding: 12px 0; overflow-wrap: anywhere; }
+.focus-evidence blockquote { margin: 10px 0; padding-left: 12px; border-left: 2px solid #91b6a9; white-space: pre-wrap; }
+.focus-flow-content { border: 0; padding: 0; margin: 0; min-width: 0; display: contents; }
+.data-menu-list label.ghost-action { position: relative; cursor: pointer; }
+.data-menu-list input[type="file"] { position: absolute; inset: 0; opacity: 0; width: 100%; cursor: pointer; }

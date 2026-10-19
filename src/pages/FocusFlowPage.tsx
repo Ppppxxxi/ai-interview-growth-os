@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
@@ -17,18 +17,29 @@ import type {
   ReviewReport
 } from '../domain/types';
 import { buildMaterialImportSavePayload } from '../workflow/materialImportDraft';
+import type { MaterialChunk } from '../domain/materialTypes';
+import { FocusAnswersPanel } from '../components/FocusAnswersPanel';
+import { emptyFocusWork, reconcileFocusWork, type FocusFlowDraft, type FocusQuestionWorks } from '../domain/focusFlowDraft';
+import type { MaterialRepository } from '../materials/repository';
+import { getMaterialDraftQueue } from '../materials/draftQueue';
+import { attachInterviewSessionToJob, createEmptyPersonalWorkspaceData } from '../workflow/personalWorkspace';
 
 type FocusFlowPageProps = {
+  onDraftSaveStarted?: () => void | Promise<void>;
+  repository?: MaterialRepository;
+  materialsLoading?: boolean;
+  materialsError?: string;
+  onRetryMaterials?: () => void;
+  materialChunks?: MaterialChunk[];
   selectedJobId: string;
   jobFiles: JobFile[];
-  onUpdateJob: (job: JobFile) => void;
+  onUpdateJob: (job: JobFile, original?: JobFile) => void | Promise<void>;
   onSaveInterviewRecord: (
     session: InterviewSession,
     review: ReviewReport
-  ) => void;
-  onSaveAsset: (asset: AnswerAsset) => void;
+  ) => void | Promise<void>;
+  onSaveAsset: (asset: AnswerAsset) => void | Promise<void>;
   onFinish: (target: 'workspace' | 'assets') => void;
-  onUseExample: () => void;
 };
 
 type FocusJobDraft = {
@@ -38,29 +49,24 @@ type FocusJobDraft = {
   jdText: string;
 };
 
-const focusMaterialExample = `公司：晴川智能
-岗位：AI 产品经理
-方向：AI + 企业知识库助手
-
-JD 摘要：
-负责企业知识库助手的需求分析、用户反馈闭环、效果评估和跨团队协作。
-
-面试记录：
-面试官问我如何判断 AI 助手是否真的提升知识检索效率。我当时只回答可以看满意度和使用次数。
-面试官追问：这些指标如何证明员工真的更快解决问题？
-我的复盘：回答没有拆过程指标、结果指标和长期复用指标，也没有说明低置信回答如何兜底。`;
-
 export function FocusFlowPage({
+  onDraftSaveStarted,
+  repository,
+  materialsLoading = false,
+  materialsError = '',
+  onRetryMaterials,
+  materialChunks = [],
   jobFiles,
   onFinish,
   onSaveAsset,
   onSaveInterviewRecord,
   onUpdateJob,
-  onUseExample,
   selectedJobId
 }: FocusFlowPageProps) {
+  const [fallbackJob] = useState(() => createEmptyPersonalWorkspaceData().jobFiles[0]);
   const selectedJob =
-    jobFiles.find((job) => job.id === selectedJobId) ?? jobFiles[0];
+    jobFiles.find((job) => job.id === selectedJobId) ?? jobFiles[0] ?? fallbackJob;
+  const jobEditBase = useRef(selectedJob);
   const [jobDraft, setJobDraft] = useState<FocusJobDraft>(() =>
     createFocusJobDraft(selectedJob)
   );
@@ -68,38 +74,118 @@ export function FocusFlowPage({
   const [materialDraft, setMaterialDraft] = useState<
     InterviewMaterialDraft | undefined
   >();
-  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(
-    () => new Set()
-  );
-  const [confirmedItemStatuses, setConfirmedItemStatuses] = useState<
-    Map<string, AnswerAssetConfirmationStatus>
-  >(() => new Map());
-  const [answersGenerated, setAnswersGenerated] = useState(false);
+  const [isAnswerStage, setIsAnswerStage] = useState(false);
+  const [savedItemIds, setSavedItemIds] = useState<Set<string>>(() => new Set());
+  const [runId, setRunId] = useState('');
   const [savedSummary, setSavedSummary] = useState<
     { sessionId: string; assetCount: number } | undefined
   >();
   const [activeItemId, setActiveItemId] = useState('');
+  const [work, setWork] = useState<FocusQuestionWorks>({});
+  const [draftReady, setDraftReady] = useState(!repository);
+  const [restored, setRestored] = useState(false);
+  const [draftError, setDraftError] = useState('');
+  const [retryDraft, setRetryDraft] = useState(0);
+  const [retryWrite, setRetryWrite] = useState(0);
+  const [detached, setDetached] = useState(false);
+  const [returningDraft, setReturningDraft] = useState(false);
+  const [protectedDraft, setProtectedDraft] = useState(false);
+  const [protectedReferences, setProtectedReferences] = useState(false);
+  const inputEdited = useRef(false);
+  const materialSnapshot = useRef({ loading: materialsLoading, error: materialsError, chunks: materialChunks });
+  materialSnapshot.current = { loading: materialsLoading, error: materialsError, chunks: materialChunks };
+  const hydratedJob = useRef('');
+  const alive = useRef(true);
+  const previousJobId = useRef(selectedJob.id);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
 
   useEffect(() => {
+    if (previousJobId.current === selectedJob.id) return;
+    previousJobId.current = selectedJob.id;
+    jobEditBase.current = selectedJob;
+    hydratedJob.current = '';
+    inputEdited.current = false;
+    setDetached(false); setProtectedDraft(false);
+    setReturningDraft(false);
+    setProtectedReferences(false);
     setJobDraft(createFocusJobDraft(selectedJob));
     setMaterialText('');
     setMaterialDraft(undefined);
-    setSelectedItemIds(new Set());
-    setConfirmedItemStatuses(new Map());
-    setAnswersGenerated(false);
+    setIsAnswerStage(false);
+    setSavedItemIds(new Set());
     setSavedSummary(undefined);
+    setWork({}); setRestored(false);
   }, [selectedJob.id]);
 
+  useEffect(() => {
+    if (!repository) return;
+    let cancelled = false;
+    setDraftReady(false);
+    void getMaterialDraftQueue(repository).run(() => repository.listFlowDrafts()).then(drafts => {
+      if (cancelled) return;
+      const draft = drafts.find(entry => entry.jobId === selectedJob.id);
+      setProtectedDraft(!!draft);
+      const hasSelectedSources = !!draft && Object.values(draft.work).some(value => value.selectedChunks.length ||
+        (value.provenance?.kind === 'model' && value.provenance.request.chunks.length));
+      const hasCitations = !!draft?.materialDraft?.interviewItems.some(item =>
+        (Array.isArray(item.evidence) && item.evidence.length) || item.answerVersions?.some(version => version.evidence?.length));
+      setProtectedReferences(hasSelectedSources || hasCitations);
+      if (draft && !inputEdited.current) {
+        const source = materialSnapshot.current;
+        const nextWork = source.loading || source.error ? draft.work : Object.fromEntries(Object.entries(draft.work).map(([id, value]) => [id, reconcileFocusWork(value, source.chunks)]));
+        setJobDraft(draft.jobDraft); setMaterialText(draft.rawText); setWork(nextWork);
+        setMaterialDraft(draft.materialDraft ? { ...draft.materialDraft, interviewItems: draft.materialDraft.interviewItems.map(item => nextWork[item.id] !== draft.work[item.id] && Array.isArray(item.evidence) ? { ...item, evidence: item.evidence.map(entry => ({ ...entry, status: entry.status === 'source-deleted' ? 'source-deleted' as const : 'needs-review' as const })) } : item) } : undefined);
+        setActiveItemId(draft.activeItemId); setIsAnswerStage(draft.stage === 'answers');
+        setRunId(crypto.randomUUID()); setSavedItemIds(new Set()); setSavedSummary(undefined); setRestored(true);
+      }
+      if (draft && inputEdited.current) setDetached(true);
+      hydratedJob.current = selectedJob.id;
+      setDraftReady(true); setReturningDraft(false); setDraftError('');
+    }).catch(() => { if (!cancelled) setDraftError('草稿加载失败，请重试'); });
+    return () => { cancelled = true; };
+  }, [repository, selectedJob.id, retryDraft]);
+
+  useEffect(() => {
+    if (!draftReady || materialsLoading || materialsError || detached) return;
+    const nextWork = Object.fromEntries(Object.entries(work).map(([id, value]) => [id, reconcileFocusWork(value, materialChunks)]));
+    const changed = Object.keys(work).filter(id => nextWork[id] !== work[id]);
+    if (!changed.length) return;
+    setWork(nextWork);
+    setMaterialDraft(current => current ? { ...current, interviewItems: current.interviewItems.map(item => changed.includes(item.id) && Array.isArray(item.evidence) ? { ...item, evidence: item.evidence.map(entry => ({ ...entry, status: entry.status === 'source-deleted' ? 'source-deleted' as const : 'needs-review' as const })) } : item) } : current);
+  }, [draftReady, materialsLoading, materialsError, materialChunks, detached, work]);
+
+  useEffect(() => {
+    if (!repository || !draftReady || detached || ((materialsLoading || materialsError) && protectedReferences) || hydratedJob.current !== selectedJob.id) return;
+    // A successful library read must reconcile versions before the next write.
+    if (!materialsLoading && !materialsError && Object.values(work).some(value => reconcileFocusWork(value, materialChunks) !== value)) return;
+    const pendingItems = materialDraft?.interviewItems.filter(item => !savedItemIds.has(item.id));
+    const id = `focus-flow:${selectedJob.id}`;
+    const queue = getMaterialDraftQueue(repository);
+    const complete = !!savedSummary && !pendingItems?.length;
+    const jobEdited = Object.entries(jobDraft).some(([field, value]) => value !== createFocusJobDraft(selectedJob)[field as keyof FocusJobDraft]);
+    const draft: FocusFlowDraft = { id, kind: 'focus-flow', schemaVersion: 1, jobId: selectedJob.id, jobDraft,
+      rawText: materialText, materialDraft: materialDraft ? { ...materialDraft, interviewItems: pendingItems ?? [] } : undefined,
+      stage: isAnswerStage ? 'answers' : materialDraft ? 'questions' : 'input', activeItemId,
+      work: Object.fromEntries(Object.entries(work).filter(([id]) => pendingItems?.some(item => item.id === id))), updatedAt: new Date().toISOString() };
+    const remove = complete || (!materialText && !materialDraft && !jobEdited);
+    // Identity is established before the queued write, not by a late page callback.
+    let identity: void | Promise<void> = undefined;
+    try { if (!remove) identity = onDraftSaveStarted?.(); }
+    catch { setDraftError('草稿保存失败，请重试'); return; }
+    if (identity) void identity.catch(() => {});
+    // Reserve this write now, before an unmount or maintenance can enqueue a read.
+    void queue.run(async () => {
+      await identity;
+      return remove ? repository.deleteDraft(id) : repository.saveFlowDraft(draft);
+    }).then(() => {
+      if (alive.current) setDraftError('');
+    }).catch(() => { if (alive.current) setDraftError('草稿保存失败，请重试'); });
+  }, [repository, draftReady, selectedJob.id, jobDraft, materialText, materialDraft, isAnswerStage, activeItemId, work, savedItemIds, savedSummary, retryWrite, materialsLoading, materialsError, onDraftSaveStarted, detached, protectedReferences, materialChunks]);
+
   const hasMaterial = materialText.trim().length > 0;
-  const selectedCount = materialDraft
-    ? materialDraft.interviewItems.filter((item) =>
-        selectedItemIds.has(item.id)
-      ).length
-    : 0;
-  const confirmedCount = confirmedItemStatuses.size;
   const flowStep = savedSummary
     ? 4
-    : answersGenerated
+    : isAnswerStage
       ? 3
       : materialDraft
         ? 2
@@ -109,14 +195,12 @@ export function FocusFlowPage({
   const recognitionSummary = materialDraft
     ? buildRecognitionSummary(materialDraft)
     : undefined;
-  const stageItems =
-    materialDraft?.interviewItems.filter(
-      (item) => !answersGenerated || selectedItemIds.has(item.id)
-    ) ?? [];
+  const stageItems = materialDraft?.interviewItems.filter(item => !savedItemIds.has(item.id)) ?? [];
   const activeItem =
     stageItems.find((item) => item.id === activeItemId) ?? stageItems[0];
 
   function updateJobDraft(field: keyof FocusJobDraft, value: string) {
+    inputEdited.current = true;
     setJobDraft((current) => ({
       ...current,
       [field]: value
@@ -124,6 +208,7 @@ export function FocusFlowPage({
   }
 
   function currentJob(): JobFile {
+    const selectedJob = jobEditBase.current;
     const isStarterJob = isEmptyStarterJob(selectedJob);
     const jobContext = buildUserJobContext(selectedJob, jobDraft);
     const company =
@@ -141,27 +226,12 @@ export function FocusFlowPage({
       roleTitle,
       direction,
       jdText: jobDraft.jdText.trim(),
+      profile: jobDraft.jdText.trim() === selectedJob.jdText.trim() ? selectedJob.profile : undefined,
       status:
         selectedJob.status === '待粘贴 JD 和面试对话'
           ? '已开始准备'
           : selectedJob.status
     };
-  }
-
-  function handleFillExample() {
-    setJobDraft({
-      company: '晴川智能',
-      roleTitle: 'AI 产品经理',
-      direction: 'AI + 企业知识库助手',
-      jdText:
-        '负责企业知识库助手的需求分析、用户反馈闭环、效果评估和跨团队协作。'
-    });
-    setMaterialText(focusMaterialExample);
-    setMaterialDraft(undefined);
-    setSelectedItemIds(new Set());
-    setConfirmedItemStatuses(new Map());
-    setAnswersGenerated(false);
-    setSavedSummary(undefined);
   }
 
   function handleParseMaterial() {
@@ -180,30 +250,11 @@ export function FocusFlowPage({
       jdText: current.jdText.trim() || draft.jobContext.jdText || ''
     }));
     setMaterialDraft(draft);
-    setSelectedItemIds(
-      new Set(
-        draft.interviewItems
-          .filter(
-            (item) => item.answerAssetCandidate && item.confidence !== 'low'
-          )
-          .map((item) => item.id)
-      )
-    );
-    setConfirmedItemStatuses(new Map());
-    setAnswersGenerated(false);
+    setWork({}); setRestored(false); setActiveItemId(draft.interviewItems[0]?.id ?? '');
+    setRunId(crypto.randomUUID());
+    setSavedItemIds(new Set());
+    setIsAnswerStage(false);
     setSavedSummary(undefined);
-  }
-
-  function handleToggleItem(itemId: string) {
-    setSelectedItemIds((current) => {
-      const next = new Set(current);
-      if (next.has(itemId)) {
-        next.delete(itemId);
-      } else {
-        next.add(itemId);
-      }
-      return next;
-    });
   }
 
   function handleDraftItemChange(
@@ -217,15 +268,7 @@ export function FocusFlowPage({
       | 'improvedAnswer',
     value: string
   ) {
-    if (field === 'improvedAnswer') {
-      setConfirmedItemStatuses((current) => {
-        if (current.get(itemId) !== 'accepted') return current;
-        const next = new Map(current);
-        next.set(itemId, 'edited-accepted');
-        return next;
-      });
-    }
-
+    setWork(current => { const value = current[itemId] ?? emptyFocusWork(); return { ...current, [itemId]: { revision: value.revision + 1, selectedChunks: value.selectedChunks } }; });
     setMaterialDraft((current) =>
       current
         ? {
@@ -234,7 +277,8 @@ export function FocusFlowPage({
               item.id === itemId
                 ? {
                     ...item,
-                    [field]: value
+                    [field]: value,
+                    evidence: Array.isArray(item.evidence) ? item.evidence.map(entry => ({ ...entry, status: entry.status === 'source-deleted' ? 'source-deleted' as const : 'needs-review' as const })) : item.evidence
                   }
                 : item
             )
@@ -244,98 +288,69 @@ export function FocusFlowPage({
   }
 
   function handleGenerateAnswers() {
-    setAnswersGenerated(true);
-    setConfirmedItemStatuses(new Map());
+    setIsAnswerStage(true);
   }
 
-  function handleConfirmItem(
-    itemId: string,
-    status: Extract<
-      AnswerAssetConfirmationStatus,
-      'accepted' | 'edited-accepted'
-    >
-  ) {
-    setConfirmedItemStatuses((current) => {
-      const next = new Map(current);
-      next.set(itemId, status);
-      return next;
-    });
-  }
-
-  function handleSkipItem(itemId: string) {
-    setConfirmedItemStatuses((current) => {
-      const next = new Map(current);
-      next.delete(itemId);
-      return next;
-    });
-  }
-
-  function handleSave() {
-    if (!materialDraft || !answersGenerated) return;
+  async function handleSave(statuses: Map<string, AnswerAssetConfirmationStatus>) {
+    if (!materialDraft || !isAnswerStage) return;
 
     const job = currentJob();
-    onUpdateJob(job);
+    try {
+    await onUpdateJob(job, jobEditBase.current);
+    jobEditBase.current = job;
     const payload = buildMaterialImportSavePayload({
       draft: materialDraft,
-      selectedItemIds: confirmedItemStatuses.keys(),
-      confirmationStatuses: confirmedItemStatuses,
+      selectedItemIds: statuses.keys(),
+      confirmationStatuses: statuses,
       job,
       rawText: materialText,
-      runId: Date.now().toString(36)
+      runId
     });
 
-    onSaveInterviewRecord(payload.session, payload.review);
-    payload.assets.forEach((asset) => onSaveAsset(asset));
+    await onSaveInterviewRecord(payload.session, payload.review);
+    // Advance only our successfully committed linkage, before any asset can fail.
+    jobEditBase.current = attachInterviewSessionToJob([job], payload.session)[0];
+    for (const asset of payload.assets) await onSaveAsset(asset);
+    if (!alive.current) return;
+    setSavedItemIds(current => new Set([...current, ...statuses.keys()]));
     setSavedSummary({
       sessionId: payload.session.id,
-      assetCount: payload.assets.length
+      assetCount: (savedSummary?.assetCount ?? 0) + payload.assets.length
     });
+    } catch { setDraftError('保存失败，请重试'); }
   }
 
   function handleStartNext() {
+    setWork({}); setRestored(false);
+    setSavedItemIds(new Set());
     setMaterialText('');
     setMaterialDraft(undefined);
-    setSelectedItemIds(new Set());
-    setConfirmedItemStatuses(new Map());
-    setAnswersGenerated(false);
+    setIsAnswerStage(false);
     setSavedSummary(undefined);
   }
 
   return (
     <section className="focus-flow-page">
+      {repository && !draftReady && !materialsError && <p role="status">{materialsLoading ? '资料加载中' : '草稿加载中'}</p>}
+      {materialsError && <p role="alert"><span>{materialsError}</span><button type="button" onClick={onRetryMaterials}>重试资料</button></p>}
+      {materialsError && protectedReferences && !detached && <button className="secondary-action" type="button" disabled={returningDraft} onClick={() => { setDetached(true); handleStartNext(); }}><ArrowRight size={15} />不使用资料继续</button>}
+      {detached && protectedDraft && <p className="material-draft-label">原草稿已保留<button className="ghost-action" type="button" onClick={() => { inputEdited.current = false; setReturningDraft(true); setDraftReady(false); setDetached(false); setRetryDraft(value => value + 1); }}><ArrowLeft size={15} />返回原草稿</button></p>}
+      {restored && <p className="material-draft-label">未保存草稿</p>}
+      {draftError && <p role="alert">{draftError}<button type="button" onClick={() => draftReady ? setRetryWrite(current => current + 1) : setRetryDraft(current => current + 1)}>重试草稿</button></p>}
+      <fieldset className="focus-flow-content" disabled={!!repository && !draftReady && (!materialsError || returningDraft)}>
       <header className="focus-flow-hero">
         <div>
           <p className="eyebrow">面试成长</p>
           <h1>
             {savedSummary
               ? '已保存'
-              : answersGenerated
+              : isAnswerStage
                 ? '下次可用回答'
                 : materialDraft
                   ? '确认识别结果'
                   : '开始新面试'}
           </h1>
         </div>
-        {!materialDraft && !savedSummary && (
-          <div className="focus-flow-hero-actions">
-            <button
-              className="ghost-action"
-              type="button"
-              onClick={handleFillExample}
-            >
-              填入示例
-            </button>
-            <button
-              className="icon-action"
-              title="查看完整示例"
-              aria-label="查看完整示例"
-              type="button"
-              onClick={onUseExample}
-            >
-              <FileText size={18} />
-            </button>
-          </div>
-        )}
       </header>
 
       <div className="focus-flow-steps" aria-label="当前流程">
@@ -403,7 +418,7 @@ export function FocusFlowPage({
                 <span>方向</span>
                 <input
                   value={jobDraft.direction}
-                  placeholder="如：AI 产品经理"
+                  placeholder="岗位名称"
                   onChange={(event) =>
                     updateJobDraft('direction', event.target.value)
                   }
@@ -446,13 +461,13 @@ export function FocusFlowPage({
               placeholder={
                 '粘贴 JD、面试记录或模拟面试对话\n\n面试官：你如何评估产品效果？\n我的回答：……\n追问与复盘：……'
               }
-              onChange={(event) => setMaterialText(event.target.value)}
+              onChange={(event) => { inputEdited.current = true; setMaterialText(event.target.value); }}
             />
           </section>
         </>
       )}
 
-      {materialDraft && !savedSummary && (
+      {materialDraft && (!savedSummary || stageItems.length > 0) && (
         <section className="focus-flow-card">
           <div className="focus-draft-heading">
             <div>
@@ -460,42 +475,33 @@ export function FocusFlowPage({
                 className="ghost-action"
                 type="button"
                 onClick={() =>
-                  answersGenerated
-                    ? setAnswersGenerated(false)
+                  isAnswerStage
+                    ? setIsAnswerStage(false)
                     : setMaterialDraft(undefined)
                 }
               >
                 <ArrowLeft size={15} />
-                {answersGenerated ? '返回问题' : '编辑材料'}
+                {isAnswerStage ? '返回问题' : '编辑材料'}
               </button>
               <h2>
-                {answersGenerated
-                  ? `${confirmedCount} / ${selectedCount} 条已采用`
+                {isAnswerStage
+                  ? '优化当前回答'
                   : `${materialDraft.interviewItems.length} 个问题`}
               </h2>
             </div>
-            {answersGenerated ? (
-              <button
-                className="primary-action"
-                type="button"
-                onClick={handleSave}
-              >
-                <CheckCheck size={16} />
-                {confirmedCount > 0 ? '保存到我的回答库' : '只保存复盘记录'}
-              </button>
-            ) : (
+            {!isAnswerStage && (
               <button
                 className="primary-action"
                 type="button"
                 onClick={handleGenerateAnswers}
-                disabled={selectedCount === 0}
+                disabled={materialDraft.interviewItems.length === 0}
               >
                 <Sparkles size={16} />
                 生成下次可用回答
               </button>
             )}
           </div>
-          {recognitionSummary && !answersGenerated && (
+          {recognitionSummary && !isAnswerStage && (
             <div className="focus-recognition-summary" aria-label="识别摘要">
               {recognitionSummary.metrics.map((metric) => (
                 <article key={metric.label}>
@@ -506,7 +512,7 @@ export function FocusFlowPage({
             </div>
           )}
           {materialDraft.missingInfoWarnings.length > 0 &&
-            !answersGenerated && (
+            !isAnswerStage && (
               <details className="material-warning-list">
                 <summary>
                   有 {materialDraft.missingInfoWarnings.length} 项待补充
@@ -518,7 +524,7 @@ export function FocusFlowPage({
             )}
           {recognitionSummary &&
             recognitionSummary.suggestions.length > 0 &&
-            !answersGenerated && (
+            !isAnswerStage && (
               <details className="focus-low-confidence-hints">
                 <summary>待确认项</summary>
                 <ul>
@@ -528,6 +534,11 @@ export function FocusFlowPage({
                 </ul>
               </details>
             )}
+          {isAnswerStage && <FocusAnswersPanel key={stageItems.map(item => item.id).join(':')} items={stageItems} job={currentJob()} chunks={materialChunks} initialQuestionId={activeItem?.id}
+            materialsReady={!materialsLoading && !materialsError && !detached}
+            work={work} onWorkChange={(id, value) => setWork(current => ({ ...current, [id]: value }))} onActiveChange={setActiveItemId}
+            onChange={updated => setMaterialDraft(current => current ? { ...current, interviewItems: current.interviewItems.map(item => item.id === updated.id ? updated : item) } : current)} onSave={handleSave} />}
+          {!isAnswerStage && <>
           <div className="question-switcher" aria-label="切换问题">
             {stageItems.map((item, index) => (
               <button
@@ -538,7 +549,6 @@ export function FocusFlowPage({
               >
                 <span>{String(index + 1).padStart(2, '0')}</span>
                 {item.title}
-                {confirmedItemStatuses.has(item.id) && <Check size={13} />}
               </button>
             ))}
           </div>
@@ -547,7 +557,7 @@ export function FocusFlowPage({
               [activeItem].map((item) => (
                 <article className="focus-draft-card" key={item.id}>
                   <div className="focus-draft-card-title">
-                    {answersGenerated ? (
+                    {isAnswerStage ? (
                       <h3>
                         <span className="item-number">
                           {String(
@@ -571,27 +581,8 @@ export function FocusFlowPage({
                         />
                       </label>
                     )}
-                    {!answersGenerated && (
-                      <label
-                        className={
-                          item.answerAssetCandidate
-                            ? 'material-save-check'
-                            : 'material-save-check material-save-check--disabled'
-                        }
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedItemIds.has(item.id)}
-                          disabled={!item.answerAssetCandidate}
-                          onChange={() => handleToggleItem(item.id)}
-                        />
-                        <span>
-                          {item.answerAssetCandidate ? '生成回答' : '仅复盘'}
-                        </span>
-                      </label>
-                    )}
                   </div>
-                  {!answersGenerated && (
+                  {!isAnswerStage && (
                     <div className="focus-draft-grid">
                       <label>
                         <span>识别到的问题</span>
@@ -647,91 +638,10 @@ export function FocusFlowPage({
                       </label>
                     </div>
                   )}
-                  {answersGenerated && selectedItemIds.has(item.id) && (
-                    <>
-                      <details className="focus-answer-rationale">
-                        <summary>改写依据与适用范围</summary>
-                        <dl>
-                          <div>
-                            <dt>来源问题</dt>
-                            <dd>{item.question || item.title}</dd>
-                          </div>
-                          <div>
-                            <dt>原回答暴露的问题</dt>
-                            <dd>{item.issue || '需要补充具体问题点。'}</dd>
-                          </div>
-                          <div>
-                            <dt>本次改写重点</dt>
-                            <dd>
-                              {item.improvementSuggestion ||
-                                '补充结构、判断依据和可验证指标。'}
-                            </dd>
-                          </div>
-                          <div>
-                            <dt>适用边界</dt>
-                            <dd>{buildAnswerBoundary(jobDraft, item)}</dd>
-                          </div>
-                        </dl>
-                      </details>
-                      <label className="focus-answer-field">
-                        <span>下次可用回答</span>
-                        <textarea
-                          value={item.improvedAnswer ?? ''}
-                          onChange={(event) =>
-                            handleDraftItemChange(
-                              item.id,
-                              'improvedAnswer',
-                              event.target.value
-                            )
-                          }
-                        />
-                      </label>
-                      <div
-                        className="focus-answer-confirmation"
-                        aria-label="回答确认"
-                      >
-                        <span>
-                          {confirmationLabel(
-                            confirmedItemStatuses.get(item.id)
-                          )}
-                        </span>
-                        <button
-                          type="button"
-                          className="secondary-action"
-                          aria-pressed={
-                            confirmedItemStatuses.get(item.id) === 'accepted'
-                          }
-                          onClick={() => handleConfirmItem(item.id, 'accepted')}
-                        >
-                          <Check size={15} />
-                          采用
-                        </button>
-                        <button
-                          type="button"
-                          className="secondary-action"
-                          aria-pressed={
-                            confirmedItemStatuses.get(item.id) ===
-                            'edited-accepted'
-                          }
-                          onClick={() =>
-                            handleConfirmItem(item.id, 'edited-accepted')
-                          }
-                        >
-                          修改后采用
-                        </button>
-                        <button
-                          type="button"
-                          className="ghost-action"
-                          onClick={() => handleSkipItem(item.id)}
-                        >
-                          暂不保存
-                        </button>
-                      </div>
-                    </>
-                  )}
                 </article>
               ))}
           </div>
+          </>}
         </section>
       )}
 
@@ -766,27 +676,9 @@ export function FocusFlowPage({
           </div>
         </section>
       )}
+      </fieldset>
     </section>
   );
-}
-
-function confirmationLabel(status: AnswerAssetConfirmationStatus | undefined) {
-  if (status === 'accepted') return '已确认采用';
-  if (status === 'edited-accepted') return '修改后采用';
-  return '待确认';
-}
-
-function buildAnswerBoundary(
-  jobDraft: FocusJobDraft,
-  item: { confidence: 'high' | 'medium' | 'low' }
-) {
-  const direction = jobDraft.direction.trim() || '同方向岗位';
-  const confidenceNote =
-    item.confidence === 'low'
-      ? '这条是低置信草稿，使用前必须补充真实经历。'
-      : '使用前仍需核对是否符合你的真实经历。';
-
-  return `优先用于${direction}的同岗位多轮或同方向类似问题；跨岗位使用前需要重新贴合业务场景。${confidenceNote}`;
 }
 
 function createFocusJobDraft(job: JobFile): FocusJobDraft {
@@ -811,7 +703,7 @@ function isEmptyStarterJob(job: JobFile) {
   return (
     job.id.startsWith('job-user-first-') &&
     job.company === '我的目标公司' &&
-    job.roleTitle === 'AI 产品经理' &&
+    (job.roleTitle === '' || job.roleTitle === 'AI 产品经理') &&
     !job.jdText.trim() &&
     job.interviewSessionIds.length === 0
   );

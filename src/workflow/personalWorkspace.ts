@@ -54,8 +54,8 @@ export function createEmptyPersonalWorkspaceData(updatedAt = new Date().toISOStr
   const firstJob: JobFile = {
     id: `job-user-first-${Date.now().toString(36)}`,
     company: '我的目标公司',
-    roleTitle: 'AI 产品经理',
-    direction: 'AI 产品经理',
+    roleTitle: '',
+    direction: '',
     jdText: '',
     stage: '准备中',
     status: '待粘贴 JD 和面试对话',
@@ -70,7 +70,7 @@ export function hasRealWorkspaceData(data: PersonalWorkspaceData, sampleJobIds: 
   const hasUserJob = data.jobFiles.some((job) => {
     if (sampleIds.has(job.id)) return false;
     if (job.id.startsWith('job-user-first-')) {
-      return Boolean(job.jdText.trim()) || job.company !== '我的目标公司' || job.roleTitle !== 'AI 产品经理';
+      return Boolean(job.jdText.trim()) || job.company !== '我的目标公司' || !['', 'AI 产品经理'].includes(job.roleTitle);
     }
     return true;
   });
@@ -79,14 +79,12 @@ export function hasRealWorkspaceData(data: PersonalWorkspaceData, sampleJobIds: 
 }
 
 export function readPersonalWorkspace(storage: StorageLike | undefined, fallback: PersonalWorkspaceData): PersonalWorkspaceData {
-  if (!storage) return fallback;
-
-  try {
+  if (!storage) throw new Error('本地存储不可用');
     const raw = storage.getItem(PERSONAL_WORKSPACE_STORAGE_KEY);
     if (!raw) return fallback;
 
     const parsed = JSON.parse(raw);
-    if (!isPersonalWorkspaceData(parsed)) return fallback;
+    if (!isPersonalWorkspaceData(parsed)) throw new Error('本地数据损坏，请恢复备份');
 
     const selectedJobExists = parsed.jobFiles.some((job) => job.id === parsed.selectedJobId);
     return {
@@ -95,18 +93,15 @@ export function readPersonalWorkspace(storage: StorageLike | undefined, fallback
       reviewReports: parsed.reviewReports ?? fallback.reviewReports,
       selectedJobId: selectedJobExists ? parsed.selectedJobId : parsed.jobFiles[0]?.id ?? ''
     };
-  } catch {
-    return fallback;
-  }
 }
 
 export function writePersonalWorkspace(storage: StorageLike | undefined, data: PersonalWorkspaceData) {
-  if (!storage) return;
+  if (!storage) throw new Error('本地存储不可用');
   storage.setItem(PERSONAL_WORKSPACE_STORAGE_KEY, JSON.stringify(data));
 }
 
 export function clearPersonalWorkspace(storage: StorageLike | undefined) {
-  if (!storage) return;
+  if (!storage) throw new Error('本地存储不可用');
   storage.removeItem(PERSONAL_WORKSPACE_STORAGE_KEY);
 }
 

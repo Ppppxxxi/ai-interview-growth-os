@@ -1,6 +1,18 @@
 # Agent contracts / LLM 替换方案
 
-当前本地版本（v0.3）仍使用 deterministic mock agent，目标是让产品原型无需 API Key、无需真实用户数据即可稳定运行。真实上线版本应保持下列输入输出合约不变，把内部实现从规则函数替换为 LLM 调用。
+当前分支仅逐题改写实现可选 DeepSeek 服务端；materialImportParser、importParser、jdAnalyst、reviewEvaluator、growthPlanner 仍是本地规则。下文旧 Agent 合约保留作为背景，不代表已全量替换 LLM。无真实 key 的默认测试不联网、不计费。
+
+## 当前逐题改写合约
+
+实现以 `src/domain/llmContracts.ts`、`server/ai/prompts.ts`、`server/ai/rewrite.ts` 为准，主流程与岗位详情共用。只接收当前 questionId/generationId、问题/原回答/短板/改写重点、可选岗位/JD 摘要及用户明确选中的 chunks，不接收模型名、上游地址、任意角色消息。
+
+最多 6 片，每片 1,200 字符，问题上下文 8,000、总内容 20,000 字符、JSON 128 KiB。非流式，45 秒，4,096 tokens；服务端固定官方上游及提示词，资料视为不可信数据。个人事实仅能来自经历/原回答/确认输入，知识只能支撑方法，缺失事实进入 missingFacts，建议不能冒充已完成成果。
+
+输出 answer、rewriteFocus、applicabilityBoundary、missingFacts、citations；服务端补 questionId、generationId、model、generatedAt。严格 schema，引用仅允许本次 chunkId、原文子串（仅空白归一化）和实际段落下标；失败拒绝整个结果，不以固定模板冒充模型成功。客户端复核身份及引用，取消/编辑/切题使旧结果失效；确认采用后才保存。
+
+引用校验不证明语义或事实性。synthetic grounding/injection 仅静态提示词与人工虚构输出的合约评测，有限 rubric 非一般事实检测；结构合法的虚构成果仍可能被接受，不能声称模型零幻觉或抗注入已验证。实际模型质量需单独授权的真实计费虚构资料评测。
+
+生成默认 off，配置/WAF/真实账号验收见 [DEEPSEEK_SETUP](../DEEPSEEK_SETUP.md)。不发送整库或原文件；自动脱敏无完整保证，发送前用户须检查。临时 no-ref 故障分支和岗位回答未保存页内草稿不保证导航恢复。
 
 ## 总体原则
 
@@ -8,7 +20,7 @@
 - **输出可编辑**：AI 产物默认是草稿，用户确认后才沉淀为资产。
 - **失败可兜底**：解析失败、信息不足、低置信度时不伪装确定性。
 - **边界可解释**：UI 中展示“为什么这样改”，README 中说明 mock 与 LLM 的区别。
-- **隐私优先**：真实 LLM 版本默认脱敏，可让用户选择是否发送完整经历材料。
+- **隐私优先**：只发送当前问题上下文和明确选定的片段，不发送完整经历库；不保证自动脱敏完整。
 
 ## 1. materialImportParser：整份面试材料解析
 

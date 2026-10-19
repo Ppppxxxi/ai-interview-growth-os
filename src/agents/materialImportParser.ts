@@ -89,7 +89,6 @@ function makeItem(input: {
     issue: input.issue,
     evidence: input.evidence,
     improvementSuggestion: input.improvementSuggestion,
-    improvedAnswer: input.improvedAnswer,
     answerAssetCandidate: input.answerAssetCandidate ?? true,
     assetCandidateReason: input.assetCandidateReason ?? '这类问题在同岗位多轮和同方向岗位中复用频率较高。',
     confidence: input.confidence
@@ -162,7 +161,7 @@ function buildKeywordItems(text: string): InterviewMaterialDraftItem[] {
         evidence: excerpt(text, ['自我介绍', '介绍自己', '贴岗', '匹配']),
         improvementSuggestion: '用“方向定位-相关经历-能力证据-为什么匹配岗位”压缩到 60-90 秒。',
         improvedAnswer:
-          '您好，我目前主要准备 AI 产品经理方向，关注的是如何把 AI 能力落到具体用户场景里。我最近做了一个 AI 面试成长 OS，从自己求职中“面试对话分散、复盘难沉淀”的痛点出发，设计了外部对话导入、结构化复盘、回答资产沉淀和复用的闭环。在这个过程中，我重点拆了用户路径、Agent 边界、指标体系和人工确认机制。这个经历和岗位里对需求分析、AI 产品落地、效果评估的要求比较贴近，所以我希望进一步在真实业务场景中锻炼产品判断和跨团队推进能力。',
+          '您好，我目前主要准备产品岗位，关注的是如何把 AI 能力落到具体用户场景里。我最近做了一个 AI 面试成长 OS，从自己求职中“面试对话分散、复盘难沉淀”的痛点出发，设计了外部对话导入、结构化复盘、回答资产沉淀和复用的闭环。在这个过程中，我重点拆了用户路径、Agent 边界、指标体系和人工确认机制。这个经历和岗位里对需求分析、AI 产品落地、效果评估的要求比较贴近，所以我希望进一步在真实业务场景中锻炼产品判断和跨团队推进能力。',
         confidence: 'medium'
       })
     );
@@ -200,8 +199,6 @@ function buildConversationItems(text: string): InterviewMaterialDraftItem[] {
     improvementSuggestion: question.feedback
       ? '根据点评补充业务目标、判断依据、指标或案例，并先确认内容符合自己的真实经历。'
       : '先补充面试官点评或自己的复盘判断，再生成可复用回答。',
-    improvedAnswer:
-      '我会先给出结论，再说明业务目标、用户场景、方案判断和验证指标。如果涉及 AI 产品，还会补充模型边界、人工确认点和失败兜底，确保回答既有产品思考，也能被面试官追问时继续展开。',
     answerAssetCandidate: Boolean(question.answer),
     assetCandidateReason: '来自一段完整问答，可以沉淀为同岗位多轮或同方向类似问题的回答素材。',
     confidence: question.feedback ? 'high' : 'medium'

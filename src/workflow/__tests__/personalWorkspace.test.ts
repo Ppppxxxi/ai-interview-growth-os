@@ -41,11 +41,12 @@ describe('personalWorkspace', () => {
     expect(readPersonalWorkspace(storage, createPersonalWorkspaceData([], []))).toEqual(persisted);
   });
 
-  it('falls back when persisted data is malformed', () => {
+  it('reports malformed persisted data without silently replacing it', () => {
     const fallback = createPersonalWorkspaceData(jobFiles, answerAssets, jobFiles[0].id, '2026-07-10T00:00:00.000Z');
     const storage = createMemoryStorage('{not-json');
 
-    expect(readPersonalWorkspace(storage, fallback)).toBe(fallback);
+    expect(() => readPersonalWorkspace(storage, fallback)).toThrow();
+    expect(storage.getItem(PERSONAL_WORKSPACE_STORAGE_KEY)).toBe('{not-json');
   });
 
   it('writes workspace data to storage', () => {
@@ -76,6 +77,8 @@ describe('personalWorkspace', () => {
     expect(workspace.interviewSessions).toHaveLength(0);
     expect(workspace.reviewReports).toHaveLength(0);
     expect(workspace.jobFiles[0].status).toBe('待粘贴 JD 和面试对话');
+    expect(workspace.jobFiles[0].roleTitle).toBe('');
+    expect(workspace.jobFiles[0].direction).toBe('');
   });
 
   it('detects whether a workspace has real user data', () => {
@@ -91,6 +94,13 @@ describe('personalWorkspace', () => {
     expect(hasRealWorkspaceData(editedFirstJob, sampleIds)).toBe(true);
     expect(hasRealWorkspaceData(sampleWorkspace, sampleIds)).toBe(false);
     expect(hasRealWorkspaceData({ ...emptyWorkspace, interviewSessions: [interviewSessions[0]] }, sampleIds)).toBe(true);
+  });
+
+  it('still recognizes legacy unedited starter jobs as empty', () => {
+    const workspace = createEmptyPersonalWorkspaceData();
+    workspace.jobFiles[0].roleTitle = 'AI 产品经理';
+    workspace.jobFiles[0].direction = 'AI 产品经理';
+    expect(hasRealWorkspaceData(workspace)).toBe(false);
   });
 
   it('hydrates old persisted data with fallback sessions and reviews', () => {

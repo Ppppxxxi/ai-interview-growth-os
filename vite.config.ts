@@ -1,9 +1,11 @@
 import react from '@vitejs/plugin-react';
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
+import { devApiPlugin } from './server/devApiPlugin';
 
 export default defineConfig({
-  plugins: [react()],
+  envDir: false,
+  plugins: [react(), devApiPlugin()],
   build: {
     rollupOptions: {
       input: {

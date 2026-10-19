@@ -1,3 +1,5 @@
+import type { AnswerEvidence, AnswerGeneration } from './materialTypes';
+
 export type AbilityDimension =
   | 'roleUnderstanding'
   | 'productAnalysis'
@@ -66,13 +68,17 @@ export type InterviewQuestion = {
 };
 
 export type InterviewMaterialDraftItem = {
+  modelRationale?: { rewriteFocus: string; applicabilityBoundary: string };
+  answerVersions?: AnswerAssetVersion[];
   id: string;
   title: string;
   question?: string;
   originalAnswer?: string;
   followUps?: string[];
   issue?: string;
-  evidence?: string;
+  evidence?: string | AnswerEvidence[];
+  generation?: AnswerGeneration;
+  missingFacts?: string[];
   improvementSuggestion?: string;
   improvedAnswer?: string;
   answerAssetCandidate: boolean;
@@ -121,6 +127,11 @@ export type ReviewReport = {
 };
 
 export type AnswerAsset = {
+  sourceQuestionId?: string;
+  modelRationale?: { rewriteFocus: string; applicabilityBoundary: string };
+  evidence?: AnswerEvidence[];
+  generation?: AnswerGeneration;
+  missingFacts?: string[];
   id: string;
   questionType: string;
   originalQuestion: string;
@@ -147,6 +158,7 @@ export type AnswerAsset = {
 export type AnswerAssetConfirmationStatus = 'accepted' | 'edited-accepted' | 'generated-draft';
 
 export type AnswerRationale = {
+  requestedRewriteFocus?: string;
   sourceQuestion: string;
   originalIssue: string;
   rewriteFocus: string;
@@ -154,6 +166,11 @@ export type AnswerRationale = {
 };
 
 export type AnswerAssetVersion = {
+  modelRationale?: AnswerAsset['modelRationale'];
+  answerRationale?: AnswerRationale;
+  evidence?: AnswerEvidence[];
+  generation?: AnswerGeneration;
+  missingFacts?: string[];
   id: string;
   answer: string;
   note: string;

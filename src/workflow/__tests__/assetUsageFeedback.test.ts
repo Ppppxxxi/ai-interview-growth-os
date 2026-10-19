@@ -3,6 +3,13 @@ import { answerAssets } from '../../domain/sampleData';
 import { getAssetUsageStatus, updateAnswerAssetUsageFeedback } from '../assetUsageFeedback';
 
 describe('asset usage feedback', () => {
+  it('feedback_only_preserves_model_provenance_without_revalidating_or_rewriting', () => {
+    const asset = { ...answerAssets[0], generation: { provider: 'deepseek' as const, model: 'test', generatedAt: 'then', generationId: 'g1', origin: 'model' as const }, missingFacts: ['result'] };
+    const updated = updateAnswerAssetUsageFeedback(asset, { status: 'needs-rewrite', outcomeNote: 'Clarify scope' });
+    expect(updated.generation).toEqual(asset.generation);
+    expect(updated.improvedAnswer).toBe(asset.improvedAnswer);
+    expect(updated.missingFacts).toEqual(asset.missingFacts);
+  });
   it('falls back to legacy usedInInterview state', () => {
     expect(getAssetUsageStatus({ ...answerAssets[0], usedInInterview: true })).toBe('used-effective');
   });

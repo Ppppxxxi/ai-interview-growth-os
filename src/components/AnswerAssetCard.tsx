@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Save } from 'lucide-react';
+import { AnswerEvidence } from './AnswerEvidence';
 import type {
   AnswerAsset,
   AnswerAssetUsageStatus,
@@ -26,7 +27,7 @@ type AnswerAssetCardProps = {
   asset: AnswerAsset;
   interviewSessions: InterviewSession[];
   jobFiles: JobFile[];
-  onUpdateAsset: (asset: AnswerAsset) => void;
+  onUpdateAsset: (asset: AnswerAsset) => void | Promise<void>;
   sourceJob?: JobFile;
   sourceInterview?: InterviewSession;
 };
@@ -57,6 +58,11 @@ export function AnswerAssetCard({
   );
   const [answerDraft, setAnswerDraft] = useState(asset.improvedAnswer);
   const [versionNote, setVersionNote] = useState('');
+  const [saveError, setSaveError] = useState('');
+  async function persist(asset: AnswerAsset) {
+    try { await onUpdateAsset(asset); setSaveError(''); }
+    catch { setSaveError('保存失败，请重试'); }
+  }
   const [activeTab, setActiveTab] = useState<
     'answer' | 'rationale' | 'feedback'
   >('answer');
@@ -95,7 +101,7 @@ export function AnswerAssetCard({
   }
 
   function handleSaveFeedback() {
-    onUpdateAsset(updateAnswerAssetUsageFeedback(asset, feedbackDraft));
+    void persist(updateAnswerAssetUsageFeedback(asset, feedbackDraft));
   }
 
   function handleSaveAnswerVersion() {
@@ -104,15 +110,16 @@ export function AnswerAssetCard({
       note: versionNote,
       source: 'manual-edit'
     });
-    onUpdateAsset(updated);
+    void persist(updated);
   }
 
   function handleRestoreVersion(versionId: string) {
-    onUpdateAsset(restoreAnswerAssetVersion(asset, versionId));
+    void persist(restoreAnswerAssetVersion(asset, versionId));
   }
 
   return (
     <article className="asset-card asset-card--prioritized">
+      {saveError && <p role="alert">{saveError}</p>}
       <header>
         <div>
           <p className="eyebrow">{asset.questionType}</p>
@@ -144,6 +151,7 @@ export function AnswerAssetCard({
       </div>
       {activeTab === 'answer' && (
         <>
+          <AnswerEvidence evidence={asset.evidence} missingFacts={asset.missingFacts} />
           <section className="asset-section asset-section--answer asset-section--primary">
             <div className="asset-answer-heading">
               <strong>当前推荐回答</strong>
@@ -183,6 +191,7 @@ export function AnswerAssetCard({
                       <span>{version.createdAt.slice(0, 10)}</span>
                     </div>
                     <p>{version.answer}</p>
+                    <AnswerEvidence evidence={version.evidence} missingFacts={version.missingFacts} />
                     <button
                       type="button"
                       className="ghost-action"
@@ -374,9 +383,9 @@ function createAssetRationale(asset: AnswerAsset) {
     sourceQuestion:
       asset.answerRationale?.sourceQuestion ?? asset.originalQuestion,
     originalIssue: asset.answerRationale?.originalIssue ?? asset.issue,
-    rewriteFocus: asset.answerRationale?.rewriteFocus ?? asset.usageNote,
+    rewriteFocus: asset.answerRationale?.rewriteFocus ?? asset.modelRationale?.rewriteFocus ?? asset.usageNote,
     applicabilityBoundary:
-      asset.answerRationale?.applicabilityBoundary ?? asset.reuseScope
+      asset.answerRationale?.applicabilityBoundary ?? asset.modelRationale?.applicabilityBoundary ?? asset.reuseScope
   };
 }
 

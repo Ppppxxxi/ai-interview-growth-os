@@ -39,6 +39,14 @@ const draft: InterviewMaterialDraft = {
 };
 
 describe('buildMaterialImportSavePayload', () => {
+  it('preserves evidence generation missing facts and history without saving empty answers', () => {
+    const evidence = [{ documentId: 'fiction', documentVersion: 1, chunkId: 'c', kind: 'experience' as const, titleSnapshot: '虚构资料', quote: '虚构行动', answerParagraphIndex: 0, status: 'validated' as const }];
+    const generation = { provider: 'deepseek' as const, model: 'deepseek-chat', generationId: 'actual', generatedAt: '2026-10-13T00:00:00Z', origin: 'model' as const };
+    const answerVersions = [{ id: 'v1', answer: '旧回答', note: '', createdAt: '2026-10-13', source: 'generated' as const, evidence, generation, missingFacts: ['职责'] }];
+    const result = buildMaterialImportSavePayload({ draft: { ...draft, interviewItems: [{ ...draft.interviewItems[0], evidence, generation, missingFacts: ['成果'], answerVersions }, { ...draft.interviewItems[1], answerAssetCandidate: true, improvedAnswer: '' }] }, job: jobFiles[0], rawText: '', selectedItemIds: ['item-metrics', 'item-note'] });
+    expect(result.assets).toHaveLength(1);
+    expect(result.assets[0]).toMatchObject({ evidence, generation, missingFacts: ['成果'], answerVersions });
+  });
   it('saves one interview session and selected answer assets', () => {
     const payload = buildMaterialImportSavePayload({
       draft,
